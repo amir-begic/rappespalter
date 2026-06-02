@@ -8,7 +8,7 @@
 // after the app is installed (the app bundle itself is read-only). On first launch
 // a seeded template database is copied there.
 
-const { app, BrowserWindow, dialog, shell } = require("electron")
+const { app, BrowserWindow, Menu, dialog, shell } = require("electron")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
@@ -26,6 +26,7 @@ let serverProcess = null
 let mainWindow = null
 let logFile = null
 let serverOutput = "" // captured child stdout/stderr, surfaced if startup fails
+let isRestarting = false // suppresses the exit→quit handler during a deliberate restart
 
 // --- logging -------------------------------------------------------------
 
@@ -157,7 +158,7 @@ async function startServer() {
   serverProcess.on("error", (err) => log(`Server process error: ${err.message}`))
   serverProcess.on("exit", (code) => {
     serverProcess = null
-    if (code && code !== 0 && !app.isQuitting) {
+    if (code && code !== 0 && !app.isQuitting && !isRestarting) {
       log(`Server exited with code ${code}`)
       app.quit()
     }
@@ -193,9 +194,129 @@ function createWindow(url) {
   })
 }
 
+// --- database import -----------------------------------------------------
+
+// Cheap sanity check: a SQLite file begins with "SQLite format 3\0".
+function isSqliteFile(p) {
+  try {
+    const fd = fs.openSync(p, "r")
+    const buf = Buffer.alloc(16)
+    fs.readSync(fd, buf, 0, 16, 0)
+    fs.closeSync(fd)
+    return buf.toString("latin1").startsWith("SQLite format 3")
+  } catch {
+    return false
+  }
+}
+
+// Stop the standalone server so it releases its lock on the SQLite file.
+function stopServer() {
+  return new Promise((resolve) => {
+    if (!serverProcess) return resolve()
+    const p = serverProcess
+    p.once("exit", () => resolve())
+    p.kill()
+    setTimeout(resolve, 3000) // safety: don't hang if exit never fires
+  })
+}
+
+// Replace the live database with the chosen file and restart the server.
+async function importDatabase(sourcePath) {
+  const dbPath = path.join(app.getPath("userData"), "rappespalter.db")
+  isRestarting = true
+  try {
+    await stopServer()
+    fs.copyFileSync(sourcePath, dbPath)
+    for (const ext of ["-wal", "-shm", "-journal"]) {
+      fs.rmSync(dbPath + ext, { force: true })
+    }
+    log(`Imported database from ${sourcePath}`)
+    const url = await startServer()
+    if (mainWindow) mainWindow.loadURL(url)
+  } finally {
+    isRestarting = false
+  }
+}
+
+// Menu handler: pick a .db file, confirm, then import it.
+async function promptImportDatabase() {
+  if (isDev) {
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      message: "Available in the installed app",
+      detail:
+        "Database import manages the packaged app's database. In dev mode the " +
+        "app uses the project's dev.db via your .env instead.",
+    })
+    return
+  }
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: "Import Rappespalter database",
+    properties: ["openFile"],
+    filters: [{ name: "SQLite database", extensions: ["db", "sqlite", "sqlite3"] }],
+  })
+  if (canceled || !filePaths || !filePaths.length) return
+  const source = filePaths[0]
+
+  if (!isSqliteFile(source)) {
+    dialog.showErrorBox(
+      "Not a database file",
+      `${source}\n\nThis doesn't look like a SQLite database.`,
+    )
+    return
+  }
+
+  const choice = dialog.showMessageBoxSync(mainWindow, {
+    type: "warning",
+    buttons: ["Cancel", "Replace"],
+    defaultId: 1,
+    cancelId: 0,
+    message: "Replace the current database?",
+    detail:
+      `This overwrites the app's current data with:\n${source}\n\n` +
+      "The app will reload. This cannot be undone.",
+  })
+  if (choice !== 1) return
+
+  try {
+    await importDatabase(source)
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      message: "Database imported",
+      detail: "The app has reloaded with the imported database.",
+    })
+  } catch (err) {
+    log(`Import failed: ${err && err.stack ? err.stack : err}`)
+    dialog.showErrorBox("Import failed", String((err && err.message) || err))
+  }
+}
+
+function buildMenu() {
+  const template = [
+    {
+      label: "File",
+      submenu: [
+        { label: "Import Database…", click: () => promptImportDatabase() },
+        {
+          label: "Open Data Folder",
+          click: () => shell.openPath(app.getPath("userData")),
+        },
+        { type: "separator" },
+        { role: process.platform === "darwin" ? "close" : "quit" },
+      ],
+    },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 // --- lifecycle -----------------------------------------------------------
 
 app.whenReady().then(async () => {
+  buildMenu()
   try {
     const url = isDev ? DEV_URL : await startServer()
     createWindow(url)

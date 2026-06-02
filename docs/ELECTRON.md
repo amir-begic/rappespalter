@@ -50,8 +50,17 @@ stays writable (the installed app bundle is read-only):
 | Windows | `%APPDATA%\Rappespalter\rappespalter.db`                      |
 | macOS   | `~/Library/Application Support/Rappespalter/rappespalter.db`  |
 
-On first launch this is seeded from `template.db` (a snapshot of your `dev.db`
-taken at build time). Delete the file to reset to the shipped template.
+On first launch this is seeded from `template.db` (a personal build snapshots your
+`dev.db`; other builds ship a clean schema + default categories). Delete the file
+to reset to the shipped template.
+
+### Importing a database from the app
+
+Use **File → Import Database…** to load an existing `.db` (e.g. your `dev.db`)
+without touching the filesystem. It validates the file is SQLite, stops the
+server to release the lock, copies it over `rappespalter.db` (clearing any stale
+`-wal`/`-shm`/`-journal`), restarts, and reloads the window. **File → Open Data
+Folder** opens the directory above.
 
 ## Commands
 
