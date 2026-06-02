@@ -15,6 +15,13 @@ on:
 permissions:
   contents: write # needed to create/update a Release
 
+# Run JavaScript actions on Node 24. Several pinned actions (incl.
+# pnpm/action-setup@v4, which has no Node 24 release yet) still declare Node 20,
+# which GitHub is deprecating. This opts all of them into Node 24 now; it becomes
+# the default on 2026-06-16, after which this line is a harmless no-op.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-latest
