@@ -14,6 +14,11 @@ const fs = require("node:fs")
 const net = require("node:net")
 const { spawn } = require("node:child_process")
 
+// Pin the app name so the userData directory is deterministic
+// (%APPDATA%\Rappespalter on Windows) regardless of how Electron resolves the
+// package name. Must run before any app.getPath("userData") call.
+app.setName("Rappespalter")
+
 const isDev = !app.isPackaged || process.env.ELECTRON_DEV === "1"
 const DEV_URL = "http://localhost:3000"
 
@@ -120,6 +125,7 @@ async function startServer() {
     throw new Error(`Standalone server not found at ${serverFile}`)
   }
 
+  log(`Database: ${dbPath}`)
   log(`Starting server: ${serverFile} (port ${port})`)
   serverProcess = spawn(process.execPath, [serverFile], {
     env: {
