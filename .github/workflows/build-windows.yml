@@ -1,0 +1,61 @@
+name: Build Windows app
+
+# Builds the Electron desktop client on a real Windows runner, where
+# `pnpm install` pulls the Windows-native libsql binary (@libsql/win32-x64-msvc).
+# Cross-building this from Linux does not work because the SQLite layer is native.
+
+on:
+  workflow_dispatch: {} # manual "Run workflow" button
+  push:
+    tags:
+      - "v*" # e.g. git tag v0.1.0 && git push --tags
+
+permissions:
+  contents: write # needed to create a Release on tag builds
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build installer
+        # `pnpm dist` runs: next build -> assemble-standalone -> electron-builder.
+        # No dev.db exists in CI, so the app ships with an empty database (each
+        # user imports their own data) — assemble-standalone.mjs handles this.
+        # DATABASE_URL is set only to satisfy module load during `next build`.
+        run: pnpm dist --publish never
+        env:
+          DATABASE_URL: "file:./dev.db"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rappespalter-windows
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+          if-no-files-found: error
+
+      - name: Attach installer to Release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $exe = (Get-ChildItem dist/*.exe | Select-Object -First 1).FullName
+          gh release create "${{ github.ref_name }}" "$exe" --title "${{ github.ref_name }}" --generate-notes
