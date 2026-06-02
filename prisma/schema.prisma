@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Transaction {
+  id           Int       @id @default(autoincrement())
+  date         DateTime
+  counterparty String
+  amount       Float
+  currency     String    @default("CHF")
+  account      String
+  categoryId   Int?
+  category     Category? @relation(fields: [categoryId], references: [id])
+  bookingText  String?
+  sourceHash   String    @unique
+  importedAt   DateTime  @default(now())
+}
+
+model Snapshot {
+  id        Int      @id @default(autoincrement())
+  month     DateTime @unique
+  etf       Float    @default(0)
+  savings   Float    @default(0)
+  pillar3a  Float    @default(0)
+  pillar2   Float    @default(0)
+  checking  Float    @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model Budget {
+  id           Int      @id @default(autoincrement())
+  categoryId   Int      @unique
+  category     Category @relation(fields: [categoryId], references: [id])
+  monthlyLimit Float
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  color        String        @default("#888888")
+  type         String        @default("variable")
+  transactions Transaction[]
+  budget       Budget?
+}
