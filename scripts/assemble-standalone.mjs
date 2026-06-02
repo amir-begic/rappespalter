@@ -2,7 +2,7 @@
 // assets or the public/ folder, so we copy them into the standalone tree where
 // server.js expects to serve them from. We also snapshot the current dev.db as
 // the template database that ships with the app (copied to userData on first run).
-import { cpSync, existsSync, mkdirSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
 
@@ -41,6 +41,18 @@ if (existsSync(devDb)) {
   console.log("Used clean seed template (resources/template.db)")
 } else {
   console.warn("No dev.db or resources/template.db — packaged app will start with an empty database.")
+}
+
+// Prune unused heavyweight modules the tracer pulled in regardless. sharp /
+// @img (native image-optimization libs, ~17 MB) are never loaded at runtime
+// because next.config sets images.unoptimized — drop them from the bundle.
+const prune = ["node_modules/@img", "node_modules/sharp", "node_modules/next/dist/docs"]
+for (const rel of prune) {
+  const target = join(standalone, rel)
+  if (existsSync(target)) {
+    rmSync(target, { recursive: true, force: true })
+    console.log(`Pruned ${rel}`)
+  }
 }
 
 console.log("Standalone assembled at .next/standalone")

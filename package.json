@@ -61,6 +61,8 @@
   "build": {
     "appId": "app.rappespalter.desktop",
     "productName": "Rappespalter",
+    "compression": "maximum",
+    "afterPack": "scripts/electron-afterpack.js",
     "directories": {
       "output": "dist"
     },
