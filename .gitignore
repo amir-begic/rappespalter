@@ -4,6 +4,8 @@
 *.db
 *.db-journal
 *.db-wal
+# …except the clean seed template (schema + default categories, no personal data)
+!resources/template.db
 
 # dependencies
 /node_modules

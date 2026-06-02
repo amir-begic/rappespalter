@@ -24,15 +24,23 @@ if (existsSync(join(root, "public"))) {
   cpSync(join(root, "public"), join(standalone, "public"), { recursive: true })
 }
 
-// Snapshot dev.db as the seed template shipped with the app.
+// Produce the seed template shipped with the app and copied to userData on
+// first launch. A personal build (dev.db present) ships your own data; any other
+// build (e.g. CI, where dev.db is gitignored) ships the committed clean template
+// — schema + default categories, no personal data — so the app has a working,
+// queryable database out of the box.
 const dist = join(root, "build", "resources")
 mkdirSync(dist, { recursive: true })
 const devDb = join(root, "dev.db")
+const seedTemplate = join(root, "resources", "template.db")
 if (existsSync(devDb)) {
   cpSync(devDb, join(dist, "template.db"))
-  console.log("Seeded template.db from dev.db")
+  console.log("Seeded template.db from dev.db (personal build)")
+} else if (existsSync(seedTemplate)) {
+  cpSync(seedTemplate, join(dist, "template.db"))
+  console.log("Used clean seed template (resources/template.db)")
 } else {
-  console.warn("dev.db not found — packaged app will start with an empty database.")
+  console.warn("No dev.db or resources/template.db — packaged app will start with an empty database.")
 }
 
 console.log("Standalone assembled at .next/standalone")
