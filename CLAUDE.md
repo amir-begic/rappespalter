@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 A local-first personal finance dashboard for tracking monthly spending, savings, and long-term wealth projections.
 
 ## Tech stack
-- **Framework**: Next.js 15 (App Router, Turbopack)
+- **Framework**: Next.js 16 (App Router, Turbopack)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui (Radix)
 - **Database**: SQLite via Prisma 7

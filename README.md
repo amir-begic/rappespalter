@@ -6,6 +6,28 @@ Built for a Swiss context (CHF, pillar 2 / pillar 3a, Raiffeisen exports), but t
 
 ---
 
+## Screenshots
+
+> 📸 _Placeholders — drop your images into `docs/screenshots/` with these names and they'll render here._
+
+| Dashboard | Projections |
+| --- | --- |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Projections](docs/screenshots/projections.png) |
+
+| Net Worth | Trends |
+| --- | --- |
+| ![Net Worth](docs/screenshots/networth.png) | ![Trends](docs/screenshots/trends.png) |
+
+<!--
+To add screenshots:
+  1. Run the app (pnpm dev) and capture each page.
+  2. Save PNGs as docs/screenshots/{dashboard,projections,networth,trends}.png
+  3. Commit them — the images above will display automatically.
+Add more rows for import / budgets / income / goal / data as desired.
+-->
+
+---
+
 ## Features
 
 ### 📊 Dashboard
