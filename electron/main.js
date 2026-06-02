@@ -8,7 +8,7 @@
 // after the app is installed (the app bundle itself is read-only). On first launch
 // a seeded template database is copied there.
 
-const { app, BrowserWindow, shell } = require("electron")
+const { app, BrowserWindow, dialog, shell } = require("electron")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
@@ -19,6 +19,24 @@ const DEV_URL = "http://localhost:3000"
 
 let serverProcess = null
 let mainWindow = null
+let logFile = null
+let serverOutput = "" // captured child stdout/stderr, surfaced if startup fails
+
+// --- logging -------------------------------------------------------------
+
+// A packaged GUI app has no console, so write diagnostics to a file in userData
+// (and echo to stdout for `electron .` runs). On a fatal startup error we show
+// this in a dialog so failures are never silent.
+function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`
+  try {
+    if (!logFile) logFile = path.join(app.getPath("userData"), "startup.log")
+    fs.appendFileSync(logFile, line)
+  } catch {
+    /* ignore logging failures */
+  }
+  process.stdout.write(line)
+}
 
 // --- helpers -------------------------------------------------------------
 
@@ -43,25 +61,47 @@ function resolveDatabasePath() {
     const template = path.join(process.resourcesPath, "template.db")
     if (fs.existsSync(template)) {
       fs.copyFileSync(template, dbPath)
+      log(`Seeded database from template at ${dbPath}`)
+    } else {
+      log(`No template.db found; a new empty database will be created at ${dbPath}`)
     }
   }
   return dbPath
 }
 
-// Poll until the standalone server accepts connections (or we give up).
-function waitForServer(port, timeoutMs = 20000) {
+// Build a libsql file URL. Use forward slashes so Windows paths
+// (C:\Users\...) form a valid file: URL.
+function databaseUrl(dbPath) {
+  return `file:${dbPath.replace(/\\/g, "/")}`
+}
+
+// Poll until the standalone server accepts connections. Rejects early if the
+// child process dies before the port comes up.
+function waitForServer(port, child, timeoutMs = 30000) {
   const start = Date.now()
   return new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (fn, arg) => {
+      if (settled) return
+      settled = true
+      fn(arg)
+    }
+
+    child.once("exit", (code) =>
+      finish(reject, new Error(`server exited before ready (code ${code})`)),
+    )
+
     const tryConnect = () => {
+      if (settled) return
       const socket = net.connect(port, "127.0.0.1")
       socket.on("connect", () => {
         socket.end()
-        resolve()
+        finish(resolve)
       })
       socket.on("error", () => {
         socket.destroy()
         if (Date.now() - start > timeoutMs) {
-          reject(new Error(`Server did not start within ${timeoutMs}ms`))
+          finish(reject, new Error(`server did not start within ${timeoutMs}ms`))
         } else {
           setTimeout(tryConnect, 200)
         }
@@ -76,6 +116,11 @@ async function startServer() {
   const serverFile = path.join(process.resourcesPath, "standalone", "server.js")
   const dbPath = resolveDatabasePath()
 
+  if (!fs.existsSync(serverFile)) {
+    throw new Error(`Standalone server not found at ${serverFile}`)
+  }
+
+  log(`Starting server: ${serverFile} (port ${port})`)
   serverProcess = spawn(process.execPath, [serverFile], {
     env: {
       ...process.env,
@@ -84,20 +129,36 @@ async function startServer() {
       NODE_ENV: "production",
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
-      DATABASE_URL: `file:${dbPath}`,
+      DATABASE_URL: databaseUrl(dbPath),
     },
-    stdio: ["ignore", "inherit", "inherit"],
+    stdio: ["ignore", "pipe", "pipe"],
   })
 
+  // Capture output so a crash reason is visible in the log / error dialog.
+  const capture = (buf) => {
+    const text = buf.toString()
+    serverOutput = (serverOutput + text).slice(-4000)
+    process.stdout.write(text)
+    try {
+      if (logFile) fs.appendFileSync(logFile, text)
+    } catch {
+      /* ignore */
+    }
+  }
+  serverProcess.stdout.on("data", capture)
+  serverProcess.stderr.on("data", capture)
+
+  serverProcess.on("error", (err) => log(`Server process error: ${err.message}`))
   serverProcess.on("exit", (code) => {
     serverProcess = null
     if (code && code !== 0 && !app.isQuitting) {
-      console.error(`Next server exited with code ${code}`)
+      log(`Server exited with code ${code}`)
       app.quit()
     }
   })
 
-  await waitForServer(port)
+  await waitForServer(port, serverProcess)
+  log("Server ready")
   return `http://127.0.0.1:${port}`
 }
 
@@ -133,13 +194,19 @@ app.whenReady().then(async () => {
     const url = isDev ? DEV_URL : await startServer()
     createWindow(url)
   } catch (err) {
-    console.error("Failed to start Rappespalter:", err)
+    log(`Failed to start: ${err && err.stack ? err.stack : err}`)
+    dialog.showErrorBox(
+      "Rappespalter failed to start",
+      `${err && err.message ? err.message : err}\n\n` +
+        `--- server output ---\n${serverOutput || "(none)"}\n\n` +
+        `Full log: ${logFile || "(unavailable)"}`,
+    )
     app.quit()
   }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0 && !isDev) {
-      startServer().then(createWindow).catch(console.error)
+      startServer().then(createWindow).catch((err) => log(String(err)))
     }
   })
 })

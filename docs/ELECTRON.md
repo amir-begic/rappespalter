@@ -155,15 +155,37 @@ Electron is a GUI app and needs system libraries + a display:
 - Building Linux installers (`pnpm dist`) works headlessly; only **running** the
   GUI needs a display.
 
+## Why the flat node_modules (`.npmrc`)
+
+[`.npmrc`](../.npmrc) sets `node-linker=hoisted`. The standalone bundle is copied
+to other machines, and pnpm's default symlinked layout keeps transitive runtime
+deps (notably `@swc/helpers`, loaded by Next via its require-hook) only under
+`.pnpm/` behind symlinks that break when copied cross-platform — producing
+`Cannot find module '@swc/helpers/_/_interop_require_default'` and an instant exit
+on Windows. A hoisted layout places real files at the top level so the bundle is
+self-contained and portable. `@swc/helpers` is also force-listed in
+`outputFileTracingIncludes` because the tracer can't follow Next's runtime require.
+
 ## Troubleshooting
 
-- **White window / "connection refused"** — the standalone server failed to start.
-  Run `pnpm build:desktop` and check it completed; server stdout/stderr is inherited
-  into Electron's console.
-- **Prisma "cannot find module" at runtime** — the file trace missed a dependency.
-  Add it to `outputFileTracingIncludes` in [next.config.ts](../next.config.ts) and
-  rebuild.
-- **Verify the server bundle independently of the GUI:**
+- **App opens and immediately exits** — the standalone server crashed on startup.
+  The main process writes a log and shows the error in a dialog. Find the log at:
+  - Windows: `%APPDATA%\Rappespalter\startup.log`
+  - Linux: `~/.config/Rappespalter/startup.log`
+  - macOS: `~/Library/Application Support/Rappespalter/startup.log`
+- **`Cannot find module '@swc/helpers/...'` (or another transitive dep)** — the
+  bundle is missing a runtime dependency. Ensure `node-linker=hoisted` is in
+  `.npmrc`, add the package to `outputFileTracingIncludes` in
+  [next.config.ts](../next.config.ts), and rebuild.
+- **Inspect the bundled server directly** (what the GUI hides). On Windows:
+
+  ```powershell
+  cd "$env:LOCALAPPDATA\Programs\rappespalter\resources\standalone"
+  $env:ELECTRON_RUN_AS_NODE="1"; $env:PORT="3000"; $env:DATABASE_URL="file:./diag.db"
+  & "..\..\Rappespalter.exe" "server.js"
+  ```
+
+- **Verify the server bundle on the build machine:**
 
   ```bash
   cp dev.db /tmp/test.db
