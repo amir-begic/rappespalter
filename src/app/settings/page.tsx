@@ -90,7 +90,7 @@ export default function SettingsPage() {
 
       {!values || !defaults ? (
         error ? (
-          <p className="text-sm text-red-500">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         ) : (
           <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
             <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -138,8 +138,8 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={() => save(true)} disabled={saving}>
               Reset to defaults
             </Button>
-            {saved && <span className="text-xs text-green-600">✓ Saved</span>}
-            {error && <span className="text-xs text-red-500">{error}</span>}
+            {saved && <span className="text-xs text-positive">✓ Saved</span>}
+            {error && <span className="text-xs text-destructive">{error}</span>}
           </div>
         </div>
       )}

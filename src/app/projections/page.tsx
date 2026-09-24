@@ -199,20 +199,20 @@ export default function ProjectionsPage() {
 
           {/* Milestone banner */}
           {milestone && (
-            <div className="rounded-lg border border-green-800/40 bg-green-950/20 px-5 py-4 flex justify-between items-center flex-wrap gap-4">
+            <div className="rounded-lg border border-positive/25 bg-positive/10 px-5 py-4 flex justify-between items-center flex-wrap gap-4">
               <div>
-                <p className="text-xs uppercase tracking-widest text-green-700 mb-1">
+                <p className="text-xs uppercase tracking-widest text-positive/80 mb-1">
                   Millionaire milestone
                 </p>
-                <p className="text-xl font-semibold text-green-500">
+                <p className="text-xl font-semibold text-positive">
                   Age {milestone.age} · Year {milestone.age - settings.startAge}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-green-800 mb-1 uppercase tracking-widest">
+                <p className="text-xs text-positive/80 mb-1 uppercase tracking-widest">
                   15Y total
                 </p>
-                <p className="text-2xl font-mono text-amber-400">
+                <p className="text-2xl font-mono text-highlight">
                   {latest ? fmtM(latest.total) : "—"}
                 </p>
               </div>
@@ -231,7 +231,7 @@ export default function ProjectionsPage() {
                     Age {p.age}
                   </p>
                   <p className={`text-base font-semibold font-mono ${
-                    p.total >= 1_000_000 ? "text-amber-400" : "text-green-500"
+                    p.total >= 1_000_000 ? "text-highlight" : "text-positive"
                   }`}>
                     {fmtM(p.total)}
                   </p>
@@ -258,16 +258,16 @@ export default function ProjectionsPage() {
                       </linearGradient>
                     ))}
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     tickFormatter={fmtM}
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                     axisLine={false}
                     tickLine={false}
                     width={70}
@@ -275,8 +275,8 @@ export default function ProjectionsPage() {
                   <Tooltip
                     formatter={(value) => [`Fr. ${fmtR(Number(value))}`, ""]}
                     contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
                       borderRadius: "8px",
                       fontSize: "12px",
                     }}
@@ -331,7 +331,7 @@ export default function ProjectionsPage() {
                 ))}
                 <div className="flex justify-between items-center pt-3 text-sm font-semibold">
                   <span>Total</span>
-                  <span className="font-mono text-amber-400">
+                  <span className="font-mono text-highlight">
                     Fr. {fmtR(latest.total)}
                   </span>
                 </div>
@@ -390,7 +390,7 @@ export default function ProjectionsPage() {
                   {saving ? "Saving..." : "Save snapshot"}
                 </button>
                 {saved && (
-                  <span className="text-xs text-green-600">
+                  <span className="text-xs text-positive">
                     ✓ Saved — projection updated
                   </span>
                 )}
@@ -431,7 +431,7 @@ export default function ProjectionsPage() {
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.savings)}</td>
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.pillar3a)}</td>
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.pillar2)}</td>
-                          <td className="py-2 text-right font-mono text-amber-400 font-semibold">
+                          <td className="py-2 text-right font-mono text-highlight font-semibold">
                             Fr. {fmtR(s.total)}
                           </td>
                         </tr>

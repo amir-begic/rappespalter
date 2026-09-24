@@ -156,7 +156,7 @@ export default function ImportPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               Import complete
-              <Badge variant="secondary" className="text-green-600">
+              <Badge variant="secondary" className="text-positive">
                 ✓
               </Badge>
             </CardTitle>
@@ -167,7 +167,7 @@ export default function ImportPage() {
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
                   Imported
                 </p>
-                <p className="text-2xl font-semibold text-green-600">
+                <p className="text-2xl font-semibold text-positive">
                   {result.imported}
                 </p>
               </div>

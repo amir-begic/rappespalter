@@ -177,7 +177,7 @@ export default function IncomePage() {
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
                   Total income
                 </p>
-                <p className="text-2xl font-semibold text-green-600">
+                <p className="text-2xl font-semibold text-positive">
                   Fr. {fmtR(data.total)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -338,7 +338,7 @@ export default function IncomePage() {
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {t.account}
                       </TableCell>
-                      <TableCell className="text-right font-mono whitespace-nowrap text-green-600">
+                      <TableCell className="text-right font-mono whitespace-nowrap text-positive">
                         Fr. {fmt(t.amount)}
                       </TableCell>
                     </TableRow>

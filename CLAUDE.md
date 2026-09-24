@@ -179,4 +179,9 @@ DATABASE_URL="file:./prisma/dev.db"
 - Month parameters use YYYY-MM format throughout the API
 - API routes always return NextResponse.json({}) — never empty responses
 - shadcn components imported from @/components/ui/
+- Colors come from theme tokens in globals.css (light/dark follows the OS). For
+  amounts use `text-positive` / `text-negative` / `text-info` / `text-highlight`,
+  not raw Tailwind hues; in Recharts use `var(--border)` etc. (tokens are oklch,
+  so never wrap them in `hsl()`)
+- Navigation lives in src/components/app-nav.tsx — add new pages to `SECTIONS`
 - Prisma client imported from @/lib/prisma in all API routes

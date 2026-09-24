@@ -102,7 +102,7 @@ export default function NetWorthPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Change</p>
-                <p className={`text-2xl font-semibold ${change >= 0 ? "text-green-600" : "text-red-400"}`}>
+                <p className={`text-2xl font-semibold ${change >= 0 ? "text-positive" : "text-negative"}`}>
                   {change >= 0 ? "+" : "−"}Fr. {fmtR(Math.abs(change))}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">since {fmtMonth(first!.month)}</p>
@@ -111,14 +111,14 @@ export default function NetWorthPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Liquid</p>
-                <p className="text-2xl font-semibold text-green-600">Fr. {fmtR(liquid)}</p>
+                <p className="text-2xl font-semibold text-positive">Fr. {fmtR(liquid)}</p>
                 <p className="text-xs text-muted-foreground mt-1">ETF + savings + checking</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Locked</p>
-                <p className="text-2xl font-semibold text-amber-500">Fr. {fmtR(locked)}</p>
+                <p className="text-2xl font-semibold text-highlight">Fr. {fmtR(locked)}</p>
                 <p className="text-xs text-muted-foreground mt-1">3a + 2. Säule</p>
               </CardContent>
             </Card>

@@ -104,17 +104,17 @@ const DRILL: Record<DrillKind, {
 }> = {
   income: {
     title: "Income",
-    color: "text-green-600",
+    color: "text-positive",
     predicate: t => t.amount > 0 && t.category?.type !== "transfer",
   },
   expenses: {
     title: "Expenses",
-    color: "text-red-400",
+    color: "text-negative",
     predicate: t => t.amount < 0 && t.category?.type !== "savings" && t.category?.type !== "transfer",
   },
   saved: {
     title: "Saved",
-    color: "text-blue-400",
+    color: "text-info",
     predicate: t => t.amount < 0 && t.category?.type === "savings",
   },
   // Net = income − expenses, so it spans both — everything except transfers
@@ -328,7 +328,7 @@ function OutflowRow({ date, counterparty, amount, categoryName, color }: {
           <span className="text-xs text-muted-foreground">{categoryName}</span>
         </div>
       </div>
-      <span className="font-mono text-sm text-red-400 flex-shrink-0">
+      <span className="font-mono text-sm text-negative flex-shrink-0">
         Fr. {fmt(Math.abs(amount))}
       </span>
     </div>
@@ -487,7 +487,7 @@ useEffect(() => {
     <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
       Income
     </p>
-    <p className="text-2xl font-semibold text-green-600">
+    <p className="text-2xl font-semibold text-positive">
       Fr. {fmtR(data.summary.income)}
     </p>
   </StatCard>
@@ -495,7 +495,7 @@ useEffect(() => {
     <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
       Expenses
     </p>
-    <p className="text-2xl font-semibold text-red-400">
+    <p className="text-2xl font-semibold text-negative">
       Fr. {fmtR(data.summary.expenses)}
     </p>
   </StatCard>
@@ -503,7 +503,7 @@ useEffect(() => {
     <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
       Saved
     </p>
-    <p className="text-2xl font-semibold text-blue-400">
+    <p className="text-2xl font-semibold text-info">
       Fr. {fmtR(data.summary.saved)}
     </p>
     <p className="text-xs text-muted-foreground mt-1">
@@ -515,7 +515,7 @@ useEffect(() => {
       Net
     </p>
     <p className={`text-2xl font-semibold ${
-      data.summary.net >= 0 ? "text-green-600" : "text-red-400"
+      data.summary.net >= 0 ? "text-positive" : "text-negative"
     }`}>
       Fr. {fmtR(data.summary.net)}
     </p>
@@ -559,14 +559,14 @@ useEffect(() => {
               />
               <span className="text-muted-foreground">{s.categoryName}</span>
             </div>
-            <span className="font-mono text-green-500">
+            <span className="font-mono text-positive">
               Fr. {fmtR(s.actual)}
             </span>
           </div>
         ))}
         <div className="flex justify-between items-center pt-2 border-t border-border text-sm font-semibold">
           <span>Total saved</span>
-          <span className="font-mono text-blue-400">
+          <span className="font-mono text-info">
             Fr. {fmtR(data.summary.saved)}
           </span>
         </div>
@@ -889,14 +889,14 @@ useEffect(() => {
                 </span>
               </div>
             </div>
-            <span className="font-mono text-sm text-blue-400 flex-shrink-0">
+            <span className="font-mono text-sm text-info flex-shrink-0">
               Fr. {fmt(Math.abs(tx.amount))}
             </span>
           </div>
         ))}
         <div className="flex justify-between items-center pt-3 border-t border-border text-sm font-semibold">
           <span className="text-muted-foreground">Total saved</span>
-          <span className="font-mono text-blue-400">
+          <span className="font-mono text-info">
             Fr. {fmt(data.summary.saved)}
           </span>
         </div>
@@ -1018,7 +1018,7 @@ useEffect(() => {
                       <TableCell
                         className={`text-right font-mono whitespace-nowrap ${
                           openKind === "net"
-                            ? t.amount >= 0 ? "text-green-600" : "text-red-400"
+                            ? t.amount >= 0 ? "text-positive" : "text-negative"
                             : openKind ? DRILL[openKind].color : ""
                         }`}
                       >

@@ -256,7 +256,7 @@ function TransactionsTab() {
                       <span className="block truncate">{tx.counterparty}</span>
                       <span className="block text-xs text-muted-foreground truncate">{tx.account}</span>
                     </TableCell>
-                    <TableCell className={`text-right font-mono ${tx.amount < 0 ? "text-red-400" : "text-green-600"}`}>
+                    <TableCell className={`text-right font-mono ${tx.amount < 0 ? "text-negative" : "text-positive"}`}>
                       Fr. {fmt(tx.amount)}
                     </TableCell>
                     <TableCell>
@@ -277,7 +277,7 @@ function TransactionsTab() {
                         </select>
                         <span className="w-4 text-xs flex-shrink-0">
                           {rowStatus[tx.id] === "saving" && "…"}
-                          {rowStatus[tx.id] === "saved"  && <span className="text-green-600">✓</span>}
+                          {rowStatus[tx.id] === "saved"  && <span className="text-positive">✓</span>}
                           {rowStatus[tx.id] === "error"  && <span className="text-destructive">✕</span>}
                         </span>
                       </div>

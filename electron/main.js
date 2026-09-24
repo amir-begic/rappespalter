@@ -8,7 +8,7 @@
 // after the app is installed (the app bundle itself is read-only). On first launch
 // a seeded template database is copied there.
 
-const { app, BrowserWindow, Menu, dialog, shell } = require("electron")
+const { app, BrowserWindow, Menu, dialog, nativeTheme, shell } = require("electron")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
@@ -174,7 +174,8 @@ function createWindow(url) {
     width: 1400,
     height: 900,
     title: "Rappespalter",
-    backgroundColor: "#0a0a0a",
+    // Match the page background (globals.css) so there is no flash on load.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#121419" : "#f9fafb",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

@@ -111,7 +111,7 @@ export default function BudgetsPage() {
       )}
 
       {error && <div className="text-sm text-destructive py-4 text-center">{error}</div>}
-      {saved && <div className="text-sm text-green-600 py-2">Budgets saved.</div>}
+      {saved && <div className="text-sm text-positive py-2">Budgets saved.</div>}
 
       {cats && !loading && (
         <Card>

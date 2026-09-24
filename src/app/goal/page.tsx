@@ -137,21 +137,21 @@ export default function GoalPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Liquid assets</p>
-                <p className="text-2xl font-semibold text-green-600">Fr. {fmtR(current)}</p>
+                <p className="text-2xl font-semibold text-positive">Fr. {fmtR(current)}</p>
                 <p className="text-xs text-muted-foreground mt-1">ETF + savings + checking</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Still needed</p>
-                <p className="text-2xl font-semibold text-amber-500">Fr. {fmtR(remaining)}</p>
+                <p className="text-2xl font-semibold text-highlight">Fr. {fmtR(remaining)}</p>
                 <p className="text-xs text-muted-foreground mt-1">at Fr. {fmtR(avgSaved)}/mo</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">On track for</p>
-                <p className="text-2xl font-semibold text-blue-400">
+                <p className="text-2xl font-semibold text-info">
                   {reached ? "Now 🎉" : projected ?? "—"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -171,7 +171,7 @@ export default function GoalPage() {
             <CardContent>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-green-600 transition-all"
+                  className="h-full rounded-full bg-positive transition-all"
                   style={{ width: `${progress}%` }}
                 />
               </div>
