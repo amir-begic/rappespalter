@@ -48,3 +48,10 @@ model Category {
   transactions Transaction[]
   budget       Budget?
 }
+
+// User-editable app settings (projection inputs etc.), stored as key → value.
+// Values are numeric strings; defaults come from NEXT_PUBLIC_* env vars.
+model Setting {
+  key   String @id
+  value String
+}

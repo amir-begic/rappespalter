@@ -77,6 +77,12 @@ export default function RootLayout({
             >
               Data
             </Link>
+            <Link
+              href="/settings"
+              className="text-xs tracking-widest uppercase px-3 py-1.5 rounded hover:bg-muted transition-colors"
+            >
+              Settings
+            </Link>
           </div>
         </nav>
         {children}

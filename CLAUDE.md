@@ -33,9 +33,12 @@ src/
       snapshots/route.ts     — monthly asset balance history
       summary/route.ts       — aggregated monthly dashboard data
       months/route.ts        — distinct months in the database
+      settings/route.ts      — user-editable settings (projection inputs)
+    settings/page.tsx        — edit projection inputs (overrides env defaults)
   lib/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
+    settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
 generated/
   prisma/
     client.ts                — generated Prisma client (do not edit)
@@ -62,11 +65,14 @@ Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 `pnpm dist`. Full details in [docs/ELECTRON.md](docs/ELECTRON.md).
 
 ## Database schema
-Four tables:
+Five tables:
 - **Transaction** — imported bank transactions with sourceHash for deduplication
 - **Category** — spending categories with color and type (fixed/variable/savings)
 - **Budget** — monthly limits per category
 - **Snapshot** — monthly asset balances (ETF, savings, 3a, 2. Säule, checking)
+- **Setting** — key/value user settings edited on /settings; missing keys fall back
+  to the `NEXT_PUBLIC_*` env defaults. `/api/settings` creates the table if absent
+  because the desktop app doesn't migrate existing userData databases.
 
 ## Prisma setup (important)
 Prisma 7 requires an explicit adapter — no parameterless PrismaClient constructor.

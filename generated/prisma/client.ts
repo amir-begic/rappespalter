@@ -61,3 +61,8 @@ export type Budget = Prisma.BudgetModel
  * 
  */
 export type Category = Prisma.CategoryModel
+/**
+ * Model Setting
+ * 
+ */
+export type Setting = Prisma.SettingModel

@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings"
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid
@@ -36,32 +38,28 @@ interface ProjectionPoint {
 //   2. Säule: 2.5% annual return + monthly contributions
 //
 // Personal inputs (monthly contributions, starting age, and the fallback opening
-// balances used when no snapshot exists yet) are read from NEXT_PUBLIC_* env vars
-// so they stay out of version control. Set them in your local .env (gitignored);
-// the defaults below are neutral placeholders for a fresh checkout.
-const num = (v: string | undefined, fallback: number) =>
-  v != null && v !== "" ? Number(v) : fallback
-
-function buildProjection(snapshots: Snapshot[]): ProjectionPoint[] {
+// balances used when no snapshot exists yet) come from /api/settings — edited on
+// the Settings page, defaulting to the NEXT_PUBLIC_* env vars (see lib/settings).
+function buildProjection(snapshots: Snapshot[], settings: Settings): ProjectionPoint[] {
   // Use the most recent snapshot as the starting point; fall back to the
   // configured opening balances if no snapshots exist yet.
   const latest = snapshots.length > 0
     ? snapshots[snapshots.length - 1]
     : {
-        etf:      num(process.env.NEXT_PUBLIC_INIT_ETF, 0),
-        savings:  num(process.env.NEXT_PUBLIC_INIT_SAVINGS, 0),
-        pillar3a: num(process.env.NEXT_PUBLIC_INIT_PILLAR3A, 0),
-        pillar2:  num(process.env.NEXT_PUBLIC_INIT_PILLAR2, 0),
+        etf:      settings.initEtf,
+        savings:  settings.initSavings,
+        pillar3a: settings.initPillar3a,
+        pillar2:  settings.initPillar2,
       }
 
-  const MONTHLY_ETF        = num(process.env.NEXT_PUBLIC_MONTHLY_ETF, 0)
-  const MONTHLY_3A         = num(process.env.NEXT_PUBLIC_MONTHLY_3A, 0)
-  const MONTHLY_PILLAR2    = num(process.env.NEXT_PUBLIC_MONTHLY_PILLAR2, 0)
+  const MONTHLY_ETF        = settings.monthlyEtf
+  const MONTHLY_3A         = settings.monthly3a
+  const MONTHLY_PILLAR2    = settings.monthlyPillar2
   const RATE_ETF           = 0.06 / 12
   const RATE_3A            = 0.05 / 12
   const RATE_SAVINGS       = 0.0075 / 12
   const RATE_PILLAR2       = 0.025 / 12
-  const START_AGE          = num(process.env.NEXT_PUBLIC_START_AGE, 30)
+  const START_AGE          = settings.startAge
 
   const checkpoints = [0, 12, 36, 60, 84, 120, 180] // months
 
@@ -116,6 +114,7 @@ export default function ProjectionsPage() {
   const [snapshots, setSnapshots]   = useState<Snapshot[]>([])
   const [loading, setLoading]       = useState(true)
   const [projection, setProjection] = useState<ProjectionPoint[]>([])
+  const [settings, setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
 
   // Snapshot form state
   const [formMonth,    setFormMonth]    = useState("2026-03")
@@ -128,12 +127,16 @@ export default function ProjectionsPage() {
   const [saved,  setSaved]              = useState(false)
 
   useEffect(() => {
-    fetch("/api/snapshots")
-      .then(r => r.json())
-      .then(d => {
-        const snaps = d.snapshots ?? []
+    Promise.all([
+      fetch("/api/snapshots").then(r => r.json()),
+      fetch("/api/settings").then(r => r.json()).catch(() => ({})),
+    ])
+      .then(([snapData, settingsData]) => {
+        const snaps = snapData.snapshots ?? []
+        const cfg   = settingsData.settings ?? DEFAULT_SETTINGS
         setSnapshots(snaps)
-        setProjection(buildProjection(snaps))
+        setSettings(cfg)
+        setProjection(buildProjection(snaps, cfg))
       })
       .finally(() => setLoading(false))
   }, [])
@@ -158,7 +161,7 @@ export default function ProjectionsPage() {
       const updated = [...snapshots.filter(s => s.month !== data.snapshot.month), data.snapshot]
         .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       setSnapshots(updated)
-      setProjection(buildProjection(updated))
+      setProjection(buildProjection(updated, settings))
       setSaved(true)
     }
     setSaving(false)
@@ -179,7 +182,10 @@ export default function ProjectionsPage() {
           15-Year Wealth Forecast
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Based on current assets and monthly contribution assumptions.
+          Based on current assets and monthly contribution assumptions.{" "}
+          <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
+            Edit inputs
+          </Link>
         </p>
       </div>
 
@@ -199,7 +205,7 @@ export default function ProjectionsPage() {
                   Millionaire milestone
                 </p>
                 <p className="text-xl font-semibold text-green-500">
-                  Age {milestone.age} · Year {(milestone.age - 31)}
+                  Age {milestone.age} · Year {milestone.age - settings.startAge}
                 </p>
               </div>
               <div className="text-right">
