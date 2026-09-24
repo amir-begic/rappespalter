@@ -191,6 +191,126 @@ function StatCard({ onClick, children }: { onClick: () => void; children: ReactN
   )
 }
 
+function BudgetSankey({
+  income,
+  byCategory,
+  bySavings,
+  net,
+}: {
+  income: number
+  byCategory: Summary["byCategory"]
+  bySavings:  Summary["bySavings"]
+  net:        number
+}) {
+  if (income <= 0) return null
+
+  const rightNodes = [
+    ...byCategory.filter(c => c.type === "fixed").sort((a, b) => b.actual - a.actual),
+    ...byCategory.filter(c => c.type === "variable").sort((a, b) => b.actual - a.actual),
+    ...bySavings.sort((a, b) => b.actual - a.actual),
+    ...(net > 0 ? [{ categoryName: "Remaining", actual: net, color: "#9999aa" }] : []),
+  ].map(c => ({ name: c.categoryName, value: c.actual, color: c.color }))
+
+  if (rightNodes.length === 0) return null
+
+  const VW = 660
+  const leftLabelW = 98, nodeW = 14, rightLabelW = 158
+  const pTop = 10, pBottom = 10, gap = 5
+
+  const leftNodeX  = leftLabelW
+  const rightNodeX = VW - rightLabelW - nodeW
+
+  // srcH is fixed — income bar always fills this height.
+  // VH grows to give the right column room for inter-node gaps.
+  const srcH = 280
+  const VH   = srcH + pTop + pBottom + (rightNodes.length - 1) * gap
+
+  // Link heights: strictly proportional to value/income — no minimum clamping
+  // so the source links always sum exactly to srcH.
+  const linkHeights = rightNodes.map(n => (n.value / income) * srcH)
+
+  // Source side: stacked flush, no gaps — sums to srcH
+  let sy = pTop
+  const srcPos = rightNodes.map((_, i) => {
+    const h   = linkHeights[i]
+    const pos = { y1: sy, y2: sy + h }
+    sy += h
+    return pos
+  })
+
+  // Destination side: same heights, separated by gaps — starts at pTop
+  let dy = pTop
+  const destPos = rightNodes.map((_, i) => {
+    const h   = linkHeights[i]
+    const pos = { y: dy, h }
+    dy += h + gap
+    return pos
+  })
+
+  const midX     = (leftNodeX + nodeW + rightNodeX) / 2
+  const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n - 1) + "…" : s
+
+  return (
+    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }}>
+      {/* Income node — always spans full srcH */}
+      <rect x={leftNodeX} y={pTop} width={nodeW} height={srcH} fill="#6aaa7a" rx={2} />
+      <text
+        x={leftNodeX - 7} y={pTop + srcH / 2 - 7}
+        textAnchor="end" dominantBaseline="middle"
+        fontSize={11} fill="currentColor" opacity={0.8}
+      >
+        Income
+      </text>
+      <text
+        x={leftNodeX - 7} y={pTop + srcH / 2 + 7}
+        textAnchor="end" dominantBaseline="middle"
+        fontSize={9} fill="currentColor" opacity={0.5}
+      >
+        Fr. {fmtR(income)}
+      </text>
+
+      {rightNodes.map((node, i) => {
+        const { y1, y2 }  = srcPos[i]
+        const { y, h }    = destPos[i]
+        const path = [
+          `M ${leftNodeX + nodeW} ${y1}`,
+          `C ${midX} ${y1} ${midX} ${y} ${rightNodeX} ${y}`,
+          `L ${rightNodeX} ${y + h}`,
+          `C ${midX} ${y + h} ${midX} ${y2} ${leftNodeX + nodeW} ${y2}`,
+          `Z`,
+        ].join(" ")
+        const midY   = y + h / 2
+        const labelX = rightNodeX + nodeW + 6
+
+        return (
+          <g key={node.name}>
+            <path d={path} fill={node.color} opacity={0.2} />
+            <rect x={rightNodeX} y={y} width={nodeW} height={h} fill={node.color} rx={2} />
+            {h >= 8 && (
+              <text
+                x={labelX} y={midY - (h >= 18 ? 6 : 0)}
+                dominantBaseline="middle" fontSize={10}
+                fill="currentColor" opacity={0.75}
+              >
+                {truncate(node.name, 17)}
+              </text>
+            )}
+            {h >= 18 && (
+              <text
+                x={labelX} y={midY + 8}
+                dominantBaseline="middle" fontSize={9}
+                fill="currentColor" opacity={0.5}
+              >
+                Fr. {fmtR(node.value)}
+              </text>
+            )}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 // A single row in the "Largest outflows" list — shared by the default view and
 // the per-category filtered view.
 function OutflowRow({ date, counterparty, amount, categoryName, color }: {
@@ -402,6 +522,23 @@ useEffect(() => {
   </StatCard>
 </div>
 
+
+{/* Money flow */}
+<Card>
+  <CardHeader className="pb-2">
+    <CardTitle className="text-sm font-medium text-muted-foreground">
+      Money flow
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="pt-0 pb-3">
+    <BudgetSankey
+      income={data.summary.income}
+      byCategory={data.byCategory}
+      bySavings={data.bySavings}
+      net={data.summary.net}
+    />
+  </CardContent>
+</Card>
 
 {/* Savings breakdown */}
 {data.bySavings.length > 0 && (
