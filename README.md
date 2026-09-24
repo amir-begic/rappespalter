@@ -55,6 +55,15 @@ Income, expenses, saved, and savings-rate over time (the in-progress month is ex
 ### 🏦 Net Worth
 Net-worth history built from monthly balance snapshots — stacked composition (checking, savings, ETF, pillar 3a, pillar 2) plus a total line, split into liquid vs. locked assets.
 
+### 📉 Portfolio
+Standalone investment tracker fed by **Yuh** activity CSV exports. Holdings are matched to market listings automatically (by the currency and price of your first trade — no hard-coded tickers) and valued at daily closing prices, converted to CHF.
+- Value over time vs. net deposits, with 3M / 6M / 1Y / All ranges
+- Time-weighted and money-weighted (IRR) returns
+- Holdings: units, average cost, price, gain, weight — filterable by ETFs / stocks
+- Dividends per month and per holding, withholding tax, yield on cost; trading & FX fees
+- Per-holding price source: auto-matched listing, a listing you choose, or manual prices
+- Independent of the rest of the app: nothing here feeds spending, savings or net worth
+
 ### 💵 Income
 Income broken down by source (category) with a monthly stacked trend, year filter, top-source ranking, and a transaction drill-down.
 
@@ -62,7 +71,7 @@ Income broken down by source (category) with a monthly stacked trend, year filte
 Down-payment tracker for a property purchase. Enter price, down-payment %, and extra costs; it projects an on-track date from your trailing 6-month **liquid** savings rate (deliberately conservative — ignores ETF growth and locked pension assets). Inputs persist in your browser.
 
 ### 🔮 Projections
-15-year wealth forecast. Record balance snapshots, then the engine compounds each asset class (default rates: ETF 6%, pillar 3a 5%, savings 0.75%, pillar 2 2.5%) plus your monthly contributions, with checkpoints at 0/1/3/5/7/10/15 years and a CHF 1M milestone banner. Personal contribution amounts and starting age come from environment variables (see [Configuration](#configuration)).
+15-year wealth forecast. Record balance snapshots, then the engine compounds each asset class (default rates: ETF 6%, pillar 3a 5%, savings 0.75%, pillar 2 2.5%) plus your monthly contributions, with checkpoints at 0/1/3/5/7/10/15 years and a CHF 1M milestone banner. Contribution amounts, starting age and opening balances are edited on the **Settings** page (defaults come from environment variables — see [Configuration](#configuration)).
 
 ### 🗄️ Data
 A built-in database browser: paginated, filterable transaction table with inline category re-mapping, plus tabs for categories, budgets, and snapshots.
@@ -132,7 +141,7 @@ All config lives in `.env` (gitignored — copy from [`.env.example`](.env.examp
 | `NEXT_PUBLIC_START_AGE` | Your age (projection x-axis start) | `30` |
 | `NEXT_PUBLIC_INIT_ETF` / `_SAVINGS` / `_PILLAR3A` / `_PILLAR2` | Opening balances used only when no snapshot exists yet | `0` |
 
-These are read by the **Projections** page. Because they're personal, they stay in your local `.env` and out of the repository.
+The `NEXT_PUBLIC_*` values are only **defaults** for the **Settings** page — anything saved there takes precedence (and works in the desktop app, where env vars are fixed at build time). Because they're personal, they stay in your local `.env` and out of the repository.
 
 ---
 
@@ -157,12 +166,14 @@ Full details, DB locations per OS, and troubleshooting are in **[docs/ELECTRON.m
 
 ## Data model
 
-SQLite via Prisma — four tables ([`prisma/schema.prisma`](prisma/schema.prisma)):
+SQLite via Prisma ([`prisma/schema.prisma`](prisma/schema.prisma)):
 
 - **Transaction** — `date`, `counterparty`, `amount` (+income / −outflow), `account`, `categoryId`, `bookingText`, and a unique `sourceHash` for dedup
 - **Category** — `name`, `color`, `type` (`fixed` · `variable` · `savings` · `transfer` · `income`)
 - **Budget** — one `monthlyLimit` per category
 - **Snapshot** — monthly asset balances: `etf`, `savings`, `pillar3a`, `pillar2`, `checking`
+- **Setting** — key/value user settings (projection inputs)
+- **PortfolioActivity** / **Security** / **SecurityPrice** / **FxRate** — the standalone portfolio tracker: imported broker activities, how each holding is priced, and cached daily prices and CHF exchange rates
 
 **Category types** drive the math: `savings`/`transfer` are excluded from expense totals; `income` is positive cash flow; `fixed`/`variable` are spending.
 
@@ -212,3 +223,5 @@ pnpm dist                                 # build a desktop installer for this O
 ## Privacy
 
 Local-first by design: your statements, transactions, balances, and projections live only in your local SQLite database and `.env`. Nothing is uploaded, and both are gitignored so they can't be committed accidentally.
+
+The **Portfolio** page is the one feature that goes online: it fetches public market prices (Yahoo Finance) and exchange rates (European Central Bank via Frankfurter). Only ticker symbols, currency codes and date ranges are sent — never your holdings or amounts. Prices are cached, so the page keeps working offline.

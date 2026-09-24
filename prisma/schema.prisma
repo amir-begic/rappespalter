@@ -55,3 +55,63 @@ model Setting {
   key   String @id
   value String
 }
+
+// ── Portfolio (standalone investment tracker, fed by broker CSV exports) ──
+// Kept separate from Transaction/Snapshot: broker deposits are already counted
+// on the bank side, so nothing here feeds spending, savings or net worth.
+
+// One row per imported broker activity (trade, dividend, deposit, FX exchange…).
+model PortfolioActivity {
+  id              Int      @id @default(autoincrement())
+  date            DateTime
+  type            String   // buy | sell | dividend | deposit | withdrawal | fx | reward | other
+  symbol          String?  // broker asset symbol, e.g. "VWRL"
+  quantity        Float?
+  price           Float?   // per unit, in `currency`
+  amount          Float    // signed cash effect in `currency` (fees already included)
+  currency        String
+  fee             Float    @default(0) // informational — already part of `amount`
+  tax             Float    @default(0) // withholding tax on dividends (amount is net)
+  counterAmount   Float?   // fx: the leg received
+  counterCurrency String?
+  description     String
+  broker          String   @default("yuh")
+  sourceHash      String   @unique
+  importedAt      DateTime @default(now())
+
+  @@index([date])
+}
+
+// A held asset and how to price it. Matched to a market listing automatically
+// on import; the user can override the listing or switch to manual prices.
+model Security {
+  symbol        String   @id // broker asset symbol
+  name          String
+  currency      String   // trade currency
+  kind          String?  // ETF | EQUITY | … (from the price source)
+  priceSource   String   @default("yahoo") // yahoo | manual
+  priceSymbol   String?  // listing on the price source, e.g. "VWRL.SW"
+  priceCurrency String?  // currency the listing is quoted in
+  pinned        Boolean  @default(false) // user chose priceSymbol — never auto-rematch
+  lastError     String?
+  updatedAt     DateTime @updatedAt
+}
+
+// Daily closing prices per security, fetched or entered manually.
+model SecurityPrice {
+  symbol String // Security.symbol
+  date   String // YYYY-MM-DD
+  close  Float  // in Security.priceCurrency
+  source String // yahoo | manual
+
+  @@id([symbol, date])
+}
+
+// Daily exchange rates: 1 unit of `currency` in CHF.
+model FxRate {
+  currency String
+  date     String // YYYY-MM-DD
+  rate     Float
+
+  @@id([currency, date])
+}

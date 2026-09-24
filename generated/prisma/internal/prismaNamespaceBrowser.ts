@@ -55,7 +55,11 @@ export const ModelName = {
   Snapshot: 'Snapshot',
   Budget: 'Budget',
   Category: 'Category',
-  Setting: 'Setting'
+  Setting: 'Setting',
+  PortfolioActivity: 'PortfolioActivity',
+  Security: 'Security',
+  SecurityPrice: 'SecurityPrice',
+  FxRate: 'FxRate'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -127,6 +131,63 @@ export const SettingScalarFieldEnum = {
 } as const
 
 export type SettingScalarFieldEnum = (typeof SettingScalarFieldEnum)[keyof typeof SettingScalarFieldEnum]
+
+
+export const PortfolioActivityScalarFieldEnum = {
+  id: 'id',
+  date: 'date',
+  type: 'type',
+  symbol: 'symbol',
+  quantity: 'quantity',
+  price: 'price',
+  amount: 'amount',
+  currency: 'currency',
+  fee: 'fee',
+  tax: 'tax',
+  counterAmount: 'counterAmount',
+  counterCurrency: 'counterCurrency',
+  description: 'description',
+  broker: 'broker',
+  sourceHash: 'sourceHash',
+  importedAt: 'importedAt'
+} as const
+
+export type PortfolioActivityScalarFieldEnum = (typeof PortfolioActivityScalarFieldEnum)[keyof typeof PortfolioActivityScalarFieldEnum]
+
+
+export const SecurityScalarFieldEnum = {
+  symbol: 'symbol',
+  name: 'name',
+  currency: 'currency',
+  kind: 'kind',
+  priceSource: 'priceSource',
+  priceSymbol: 'priceSymbol',
+  priceCurrency: 'priceCurrency',
+  pinned: 'pinned',
+  lastError: 'lastError',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SecurityScalarFieldEnum = (typeof SecurityScalarFieldEnum)[keyof typeof SecurityScalarFieldEnum]
+
+
+export const SecurityPriceScalarFieldEnum = {
+  symbol: 'symbol',
+  date: 'date',
+  close: 'close',
+  source: 'source'
+} as const
+
+export type SecurityPriceScalarFieldEnum = (typeof SecurityPriceScalarFieldEnum)[keyof typeof SecurityPriceScalarFieldEnum]
+
+
+export const FxRateScalarFieldEnum = {
+  currency: 'currency',
+  date: 'date',
+  rate: 'rate'
+} as const
+
+export type FxRateScalarFieldEnum = (typeof FxRateScalarFieldEnum)[keyof typeof FxRateScalarFieldEnum]
 
 
 export const SortOrder = {

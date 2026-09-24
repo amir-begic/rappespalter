@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, ChartLine, Wallet, PiggyBank, Target, Landmark,
-  ChartArea, Upload, Database, Settings, type LucideIcon,
+  ChartArea, ChartCandlestick, Upload, Database, Settings, type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -25,6 +25,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
       { href: "/budgets",     label: "Budgets",     icon: PiggyBank },
       { href: "/goal",        label: "Goal",        icon: Target },
       { href: "/networth",    label: "Net Worth",   icon: Landmark },
+      { href: "/portfolio",   label: "Portfolio",   icon: ChartCandlestick },
       { href: "/projections", label: "Projections", icon: ChartArea },
     ],
   },

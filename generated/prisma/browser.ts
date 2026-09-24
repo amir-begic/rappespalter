@@ -42,3 +42,23 @@ export type Category = Prisma.CategoryModel
  * 
  */
 export type Setting = Prisma.SettingModel
+/**
+ * Model PortfolioActivity
+ * 
+ */
+export type PortfolioActivity = Prisma.PortfolioActivityModel
+/**
+ * Model Security
+ * 
+ */
+export type Security = Prisma.SecurityModel
+/**
+ * Model SecurityPrice
+ * 
+ */
+export type SecurityPrice = Prisma.SecurityPriceModel
+/**
+ * Model FxRate
+ * 
+ */
+export type FxRate = Prisma.FxRateModel

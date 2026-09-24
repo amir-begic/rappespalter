@@ -53,3 +53,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Local scratch files (e.g. bank exports being analyzed)
+/temp/

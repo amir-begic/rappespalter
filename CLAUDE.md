@@ -27,6 +27,7 @@ src/
     dashboard/page.tsx       — monthly spending overview
     import/page.tsx          — xlsx upload page
     projections/page.tsx     — 15-year wealth forecast
+    portfolio/page.tsx       — standalone investment tracker (Yuh CSV + market prices)
     api/
       import/route.ts        — parses and imports Raiffeisen XLSX
       transactions/route.ts  — CRUD + filtering
@@ -34,11 +35,14 @@ src/
       summary/route.ts       — aggregated monthly dashboard data
       months/route.ts        — distinct months in the database
       settings/route.ts      — user-editable settings (projection inputs)
+      portfolio/             — summary + delete, import, refresh, securities (overrides/manual prices)
     settings/page.tsx        — edit projection inputs (overrides env defaults)
   lib/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
+    portfolio/               — yuh.ts (CSV parser), market.ts (Yahoo/ECB), engine.ts (pure maths),
+                               store.ts (DB + refresh), schema.ts (create tables if missing)
 generated/
   prisma/
     client.ts                — generated Prisma client (do not edit)
@@ -65,7 +69,7 @@ Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 `pnpm dist`. Full details in [docs/ELECTRON.md](docs/ELECTRON.md).
 
 ## Database schema
-Five tables:
+Tables:
 - **Transaction** — imported bank transactions with sourceHash for deduplication
 - **Category** — spending categories with color and type (fixed/variable/savings)
 - **Budget** — monthly limits per category
@@ -73,6 +77,8 @@ Five tables:
 - **Setting** — key/value user settings edited on /settings; missing keys fall back
   to the `NEXT_PUBLIC_*` env defaults. `/api/settings` creates the table if absent
   because the desktop app doesn't migrate existing userData databases.
+- **PortfolioActivity / Security / SecurityPrice / FxRate** — portfolio tracker (see below);
+  created on demand by `ensurePortfolioSchema()` for the same reason.
 
 ## Prisma setup (important)
 Prisma 7 requires an explicit adapter — no parameterless PrismaClient constructor.
@@ -138,6 +144,24 @@ others none).
 
 The annual card fee ("Gebühr / Jahresgebühr Kreditkarte") does **not** match the
 filter and correctly stays as a real expense.
+
+## Portfolio tracker
+Standalone: it never touches Transaction/Snapshot. Deposits into Yuh are already
+recorded on the Raiffeisen side (as *ETF Investment*), so importing them as
+transactions would double-count savings.
+
+- **Import** (`yuh.ts`): Yuh "Activities" CSV — `;`-separated, UTF-8 BOM, DD/MM/YYYY,
+  text wrapped in extra quotes. Order amounts include fees; dividend credits are net
+  of withholding tax (FEES column). Rejected orders are skipped (their amounts are
+  garbage). Identical rows are legitimate, so `sourceHash` includes an occurrence index.
+- **Pricing** (`market.ts`): no hard-coded tickers. A broker symbol is matched to a
+  Yahoo listing whose currency equals the trade currency and whose close on the
+  first trade date is nearest the traded price (≤15% off). Users can pin another
+  listing or switch to manual prices. FX from ECB (Frankfurter). Yahoo's API is
+  unofficial — keep provider code confined to `market.ts`.
+- **Maths** (`engine.ts`, pure): account = securities + cash; deposits/withdrawals are
+  the only external flows. Cost basis in CHF at the trade-date ECB rate; average-cost
+  realised gains; daily TWR and XIRR.
 
 ## Financial context
 The dashboard models a Swiss personal-finance setup with these inputs (all values
