@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { ensurePortfolioSchema } from "./schema"
+import { ensureSettingTable } from "@/lib/setting-table"
 import { BASE_CURRENCY, fetchFxRates, fetchListing, matchListing } from "./market"
 import { computeHoldingDetail, computePortfolio, type Series } from "./engine"
 import type { ParseResult } from "./yuh"
@@ -46,16 +47,40 @@ export async function importActivities(parsed: ParseResult) {
 
 // ── Market data refresh ────────────────────────────────────────────────────
 
+// Automatic refreshes (on opening the Portfolio page) run at most this often;
+// manual refreshes and imports always run. The attempt time is stored even when
+// the price service fails, so an outage or rate limit isn't retried on every visit.
+export const AUTO_REFRESH_HOURS = 4
+const LAST_REFRESH_KEY = "portfolio.lastRefreshAt"
+
+export async function getLastRefresh(): Promise<string | null> {
+  await ensureSettingTable()
+  return (await prisma.setting.findUnique({ where: { key: LAST_REFRESH_KEY } }))?.value ?? null
+}
+
 export interface RefreshResult {
+  skipped?: boolean // auto refresh not due yet
+  lastRefreshAt: string | null
   matched:  string[]
   failed:   { symbol: string; error: string }[]
   prices:   number
   fxRates:  number
 }
 
-export async function refreshMarketData(): Promise<RefreshResult> {
+export async function refreshMarketData(opts: { auto?: boolean } = {}): Promise<RefreshResult> {
   await ensurePortfolioSchema()
-  const result: RefreshResult = { matched: [], failed: [], prices: 0, fxRates: 0 }
+  const last = await getLastRefresh()
+  if (opts.auto && last && Date.now() - Date.parse(last) < AUTO_REFRESH_HOURS * 3_600_000) {
+    return { skipped: true, lastRefreshAt: last, matched: [], failed: [], prices: 0, fxRates: 0 }
+  }
+
+  const startedAt = new Date().toISOString()
+  await prisma.setting.upsert({
+    where:  { key: LAST_REFRESH_KEY },
+    update: { value: startedAt },
+    create: { key: LAST_REFRESH_KEY, value: startedAt },
+  })
+  const result: RefreshResult = { lastRefreshAt: startedAt, matched: [], failed: [], prices: 0, fxRates: 0 }
   const end = today()
 
   const first = await prisma.portfolioActivity.findFirst({ orderBy: { date: "asc" }, select: { date: true } })
@@ -185,10 +210,11 @@ async function loadEngineInput(symbol?: string) {
 }
 
 export async function loadPortfolio() {
-  const [{ input, activities, securities, prices }, lastPrice] = await Promise.all([
+  const [{ input, activities, securities, prices }, lastPrice, lastRefreshAt] = await Promise.all([
     loadEngineInput(),
     ensurePortfolioSchema().then(() =>
       prisma.securityPrice.findFirst({ where: { source: "yahoo" }, orderBy: { date: "desc" } })),
+    getLastRefresh(),
   ])
   const result = computePortfolio(input)
 
@@ -208,6 +234,7 @@ export async function loadPortfolio() {
     })),
     activityCount: activities.length,
     lastPriceDate: lastPrice?.date ?? null,
+    lastRefreshAt,
   }
 }
 

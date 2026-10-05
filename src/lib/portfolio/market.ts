@@ -18,10 +18,87 @@ export interface Listing {
   points:    PricePoint[]
 }
 
-async function getJson(url: string): Promise<unknown> {
-  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15_000) })
-  if (!res.ok) throw new Error(`${new URL(url).host} responded ${res.status}`)
-  return res.json()
+// ── Polite HTTP ─────────────────────────────────────────────────────────────
+// Free providers throttle bursts (HTTP 429). Requests to each host are spaced
+// out, transient failures are retried with growing waits, and a host that keeps
+// refusing is left alone for a while instead of being hit once per holding.
+
+export class RateLimitedError extends Error {
+  constructor(host: string, retryAt: number) {
+    const secs = Math.max(1, Math.ceil((retryAt - Date.now()) / 1000))
+    super(`${host} is limiting requests — try again in ${secs < 90 ? `${secs}s` : `${Math.ceil(secs / 60)} min`}`)
+    this.name = "RateLimitedError"
+  }
+}
+
+export const HTTP_POLICY = {
+  minGapMs:     300,                // between requests to the same host
+  retryDelays:  [2_000, 5_000, 10_000], // after 429 / 5xx / network errors
+  maxWaitMs:    30_000,             // cap on a server-requested Retry-After
+  coolDownMs:   60_000,             // after retries are exhausted on a 429
+  timeoutMs:    15_000,
+}
+
+const queues   = new Map<string, Promise<unknown>>()
+const lastSent = new Map<string, number>()
+const coolDown = new Map<string, number>()
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+// Seconds or HTTP-date, per RFC 9110. Null when absent or unparseable.
+function retryAfterMs(res: Response): number | null {
+  const h = res.headers.get("retry-after")
+  if (!h) return null
+  const secs = Number(h)
+  const ms = Number.isFinite(secs) ? secs * 1000 : Date.parse(h) - Date.now()
+  return Number.isFinite(ms) && ms >= 0 ? Math.min(ms, HTTP_POLICY.maxWaitMs) : null
+}
+
+async function attempt(url: string, host: string): Promise<unknown> {
+  for (let i = 0; ; i++) {
+    const wait = (lastSent.get(host) ?? 0) + HTTP_POLICY.minGapMs - Date.now()
+    if (wait > 0) await sleep(wait)
+    lastSent.set(host, Date.now())
+
+    let res: Response | null = null
+    let networkError: unknown = null
+    try {
+      res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(HTTP_POLICY.timeoutMs) })
+    } catch (e) {
+      networkError = e
+    }
+    if (res?.ok) return res.json()
+
+    const retryable = networkError != null || res!.status === 429 || res!.status >= 500
+    if (!retryable || i >= HTTP_POLICY.retryDelays.length) {
+      if (res?.status === 429) {
+        const until = Date.now() + HTTP_POLICY.coolDownMs
+        coolDown.set(host, until)
+        throw new RateLimitedError(host, until)
+      }
+      if (networkError) throw new Error(`Couldn't reach ${host}`, { cause: networkError })
+      throw new Error(`${host} responded ${res!.status}`)
+    }
+    const backoff = HTTP_POLICY.retryDelays[i] * (0.8 + Math.random() * 0.4) // jitter
+    await sleep((res && retryAfterMs(res)) ?? backoff)
+  }
+}
+
+// Requests to one host run one at a time, so pacing and back-off apply across
+// concurrent refreshes too.
+export function getJson(url: string): Promise<unknown> {
+  const host = new URL(url).host
+  const until = coolDown.get(host) ?? 0
+  if (Date.now() < until) return Promise.reject(new RateLimitedError(host, until))
+
+  const run = (queues.get(host) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(() => {
+      const blocked = coolDown.get(host) ?? 0
+      if (Date.now() < blocked) throw new RateLimitedError(host, blocked)
+      return attempt(url, host)
+    })
+  queues.set(host, run)
+  return run
 }
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10)
@@ -98,7 +175,8 @@ export async function matchListing(brokerSymbol: string, trade: Fingerprint): Pr
       if (!close || listing.currency !== trade.currency) continue
       const deviation = Math.abs(close - trade.price) / trade.price
       if (!best || deviation < best.deviation) best = { symbol, currency: listing.currency, kind: listing.kind, deviation }
-    } catch {
+    } catch (e) {
+      if (e instanceof RateLimitedError) throw e
       // Thinly traded listings often have no data — just skip them.
     }
   }

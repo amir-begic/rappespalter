@@ -166,6 +166,12 @@ transactions would double-count savings.
   first trade date is nearest the traded price (≤15% off). Users can pin another
   listing or switch to manual prices. FX from ECB (Frankfurter). Yahoo's API is
   unofficial — keep provider code confined to `market.ts`.
+- **Being polite to providers** (`market.ts` `getJson`): requests are serialised
+  and spaced per host, 429/5xx/network errors retry with backoff (honouring
+  Retry-After), and a host still answering 429 is put on a 60 s cool-down
+  (`RateLimitedError`) instead of being hit once per holding. The Portfolio page's
+  automatic refresh (`?auto=1`) runs at most every `AUTO_REFRESH_HOURS` (4 h),
+  tracked in Setting `portfolio.lastRefreshAt`; manual refreshes and imports always run.
 - **Maths** (`engine.ts`, pure): account = securities + cash; deposits/withdrawals are
   the only external flows. Cost basis in CHF at the trade-date ECB rate; average-cost
   realised gains; daily TWR and XIRR.

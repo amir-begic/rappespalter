@@ -74,7 +74,7 @@ function SecurityRow({ sec, onChanged }: {
         <span className="text-sm text-muted-foreground truncate">{sec.name}</span>
         {manual ? (
           <Badge variant="secondary">Manual prices</Badge>
-        ) : sec.lastError ? (
+        ) : sec.lastError && sec.priceCount === 0 ? (
           <Badge variant="destructive">Not priced</Badge>
         ) : sec.priceSymbol ? (
           <Badge variant="outline">
@@ -86,7 +86,11 @@ function SecurityRow({ sec, onChanged }: {
         <span className="text-xs text-muted-foreground">{sec.priceCount} prices</span>
       </div>
 
-      {sec.lastError && !manual && <p className="text-xs text-destructive">{sec.lastError}</p>}
+      {sec.lastError && !manual && (
+        <p className={`text-xs ${sec.priceCount ? "text-highlight" : "text-destructive"}`}>
+          {sec.priceCount ? "Last update failed — using saved prices. " : ""}{sec.lastError}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {!manual && (

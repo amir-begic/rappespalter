@@ -61,15 +61,22 @@ export default function PortfolioPage() {
     return d as PortfolioSummary
   }, [])
 
-  const refresh = useCallback(async (quiet = false) => {
-    setBusy("Updating prices…")
+  // `auto` lets the server skip the refresh if one ran in the last few hours;
+  // it runs silently in the background. Manual refreshes always run.
+  const refresh = useCallback(async ({ quiet = false, auto = false } = {}) => {
+    if (!auto) setBusy("Updating prices…")
     try {
-      const res = await fetch("/api/portfolio/refresh", { method: "POST" })
+      const res = await fetch(`/api/portfolio/refresh${auto ? "?auto=1" : ""}`, { method: "POST" })
       const r = await res.json()
       if (!res.ok) throw new Error(r.error ?? "Refresh failed")
+      if (r.skipped) return
       await load()
       if (r.failed?.length) {
-        setNotice({ tone: "warn", text: `Some prices couldn't be updated: ${r.failed.map((f: { symbol: string }) => f.symbol).join(", ")}. See Price sources below.` })
+        const failed: { symbol: string; error: string }[] = r.failed
+        const limited = failed.find(f => /limiting requests/.test(f.error))
+        setNotice({ tone: "warn", text: limited
+          ? `${limited.error}. Showing the last saved prices.`
+          : `Some prices couldn't be updated: ${failed.map(f => f.symbol).join(", ")}. See Price sources below.` })
       } else if (!quiet) {
         setNotice({ tone: "ok", text: r.matched?.length ? `Prices updated. Matched ${r.matched.join(", ")}.` : "Prices updated." })
       }
@@ -80,14 +87,14 @@ export default function PortfolioPage() {
     }
   }, [load])
 
-  // Load, then top up prices once per visit if they're not from today.
+  // Load, then ask for a background top-up; the server skips it if prices were
+  // checked recently, so frequent visits don't hammer the price service.
   useEffect(() => {
     load()
       .then(d => {
-        const today = new Date().toISOString().slice(0, 10)
-        if (d.activityCount > 0 && d.lastPriceDate !== today && !autoRefreshed.current) {
+        if (d.activityCount > 0 && !autoRefreshed.current) {
           autoRefreshed.current = true
-          refresh(true)
+          refresh({ quiet: true, auto: true })
         }
       })
       .catch(e => setError(e.message))
@@ -102,7 +109,7 @@ export default function PortfolioPage() {
       const res = await fetch("/api/portfolio/import", { method: "POST", body: form })
       const r = await res.json()
       if (!res.ok) throw new Error(r.error ?? "Import failed")
-      await refresh(true)
+      await refresh({ quiet: true })
       const extra = [
         r.skipped  ? `${r.skipped} already imported` : "",
         r.rejected ? `${r.rejected} rejected orders ignored` : "",
@@ -159,7 +166,9 @@ export default function PortfolioPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Investments</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Performance, dividends and holdings from your Yuh exports, valued at daily market prices.
-            {data?.lastPriceDate && <> Prices as of {dayLabel(data.lastPriceDate)}.</>}
+            {data?.lastPriceDate && <> Prices as of {dayLabel(data.lastPriceDate)}</>}
+            {data?.lastRefreshAt && <>, checked {new Date(data.lastRefreshAt).toLocaleString("de-CH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</>}
+            {data?.lastPriceDate && "."}
           </p>
         </div>
         <div className="flex items-center gap-2">
