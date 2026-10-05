@@ -109,6 +109,13 @@ pnpm dlx prisma generate
 - **fixed** — rent, taxes, insurance, utilities (recurring, predictable)
 - **variable** — groceries, dining, shopping, entertainment (discretionary)
 - **savings** — ETF transfers, 3a contributions, savings transfers (retained assets)
+- **income** — salary and other money in
+- **transfer** — movements between own accounts; excluded from all totals
+
+Categories are managed on Data → Categories (add, rename, recolor, change type,
+delete). Type definitions live in src/lib/categories.ts; only fixed/variable can
+have budgets, so switching away from those drops the budget. Deleting a category
+leaves its transactions uncategorized.
 
 Savings transactions are excluded from expense totals and shown separately
 in the dashboard. They do not count as spending.

@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table"
+import { BUDGETABLE_TYPES, CATEGORY_TYPES } from "@/lib/categories"
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -70,6 +71,8 @@ const typeColor: Record<string, string> = {
   fixed:    "#8ab4d4",
   variable: "#f0c080",
   savings:  "#6aaa7a",
+  income:   "#4caf72",
+  transfer: "#9999aa",
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -85,7 +88,7 @@ export default function DataPage() {
           Database Overview
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Browse every table and re-map transaction categories without a database browser.
+          Browse every table, re-map transaction categories and manage your categories — without a database browser.
         </p>
       </div>
 
@@ -317,11 +320,46 @@ function TransactionsTab() {
   )
 }
 
-// ── Categories tab (overview) ──────────────────────────────────────
+// ── Categories tab (manage) ────────────────────────────────────────
+
+const selectClass = "text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+
+// Native <select> of category types, grouped Expense / Income / Other.
+function TypeSelect({ value, onChange, id, className = "" }: {
+  value: string; onChange: (v: string) => void; id?: string; className?: string
+}) {
+  const groups = [...new Set(CATEGORY_TYPES.map(t => t.group))]
+  return (
+    <select id={id} value={value} onChange={e => onChange(e.target.value)} className={`${selectClass} ${className}`}>
+      {groups.map(g => (
+        <optgroup key={g} label={g}>
+          {CATEGORY_TYPES.filter(t => t.group === g).map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  )
+}
+
+const typeLabel = (type: string) => CATEGORY_TYPES.find(t => t.value === type)?.label ?? type
+const typeHint  = (type: string) => CATEGORY_TYPES.find(t => t.value === type)?.hint ?? ""
+
+async function sendCategory(method: "POST" | "PATCH" | "DELETE", body?: object, id?: number) {
+  const res = await fetch(id != null ? `/api/categories?id=${id}` : "/api/categories", {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body:    body ? JSON.stringify(body) : undefined,
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error ?? "Request failed")
+  return data as { category?: Category }
+}
 
 function CategoriesTab() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading]       = useState(true)
+  const [editingId, setEditingId]   = useState<number | null>(null)
 
   useEffect(() => {
     fetch("/api/categories")
@@ -330,47 +368,184 @@ function CategoriesTab() {
       .finally(() => setLoading(false))
   }, [])
 
+  const sorted = (list: Category[]) => [...list].sort((a, b) => a.name.localeCompare(b.name))
+
   if (loading) return <Loading />
-  if (categories.length === 0) return <Empty label="No categories yet." />
+
+  return (
+    <div className="space-y-4">
+      <AddCategory onAdded={c => setCategories(prev => sorted([...prev, c]))} />
+
+      {categories.length === 0 ? <Empty label="No categories yet." /> : (
+        <Card>
+          <CardContent className="pt-6 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Transactions</TableHead>
+                  <TableHead className="text-right">Budget</TableHead>
+                  <TableHead className="w-36"><span className="sr-only">Actions</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categories.map(c => editingId === c.id ? (
+                  <EditCategoryRow
+                    key={c.id}
+                    category={c}
+                    onCancel={() => setEditingId(null)}
+                    onSaved={updated => {
+                      setCategories(prev => sorted(prev.map(x => x.id === updated.id ? updated : x)))
+                      setEditingId(null)
+                    }}
+                  />
+                ) : (
+                  <TableRow key={c.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: c.color }} />
+                        {c.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" title={typeHint(c.type)} style={{ borderColor: typeColor[c.type] ?? "var(--border)" }}>
+                        {typeLabel(c.type)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {c._count.transactions}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {c.budget ? `Fr. ${fmt(c.budget.monthlyLimit)}` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(c.id)}>Edit</Button>
+                      <Button
+                        size="sm" variant="ghost" className="text-destructive"
+                        onClick={async () => {
+                          const n = c._count.transactions
+                          const msg = `Delete "${c.name}"?` +
+                            (n ? `\n\n${n} transaction${n === 1 ? "" : "s"} will become uncategorized.` : "") +
+                            (c.budget ? "\nIts budget will be removed." : "")
+                          if (!confirm(msg)) return
+                          try {
+                            await sendCategory("DELETE", undefined, c.id)
+                            setCategories(prev => prev.filter(x => x.id !== c.id))
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : "Delete failed")
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+function AddCategory({ onAdded }: { onAdded: (c: Category) => void }) {
+  const [name, setName]   = useState("")
+  const [type, setType]   = useState("variable")
+  const [busy, setBusy]   = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const { category } = await sendCategory("POST", { name, type })
+      if (category) onAdded(category)
+      setName("")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add category")
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Category</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-right">Transactions</TableHead>
-              <TableHead className="text-right">Budget</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categories.map(c => (
-              <TableRow key={c.id}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: c.color }} />
-                    {c.name}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" style={{ borderColor: typeColor[c.type] ?? "var(--border)" }}>
-                    {c.type}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">
-                  {c._count.transactions}
-                </TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">
-                  {c.budget ? `Fr. ${fmt(c.budget.monthlyLimit)}` : "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <form onSubmit={add} className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-48">
+            <label htmlFor="new-category-name" className="text-xs text-muted-foreground mb-1 block">New category</label>
+            <Input
+              id="new-category-name" placeholder="e.g. Gym, Freelance, Gifts"
+              value={name} maxLength={40} onChange={e => setName(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="new-category-type" className="text-xs text-muted-foreground mb-1 block">Type</label>
+            <TypeSelect id="new-category-type" value={type} onChange={setType} />
+          </div>
+          <Button type="submit" disabled={busy || !name.trim()}>
+            {busy ? "Adding…" : "Add category"}
+          </Button>
+        </form>
+        <p className="text-xs text-muted-foreground mt-2">{typeHint(type)}</p>
+        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
       </CardContent>
     </Card>
+  )
+}
+
+function EditCategoryRow({ category, onSaved, onCancel }: {
+  category: Category
+  onSaved:  (c: Category) => void
+  onCancel: () => void
+}) {
+  const [name, setName]   = useState(category.name)
+  const [type, setType]   = useState(category.type)
+  const [color, setColor] = useState(category.color)
+  const [busy, setBusy]   = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const losesBudget = !!category.budget && BUDGETABLE_TYPES.has(category.type) && !BUDGETABLE_TYPES.has(type)
+
+  async function save() {
+    setBusy(true)
+    setError(null)
+    try {
+      const { category: updated } = await sendCategory("PATCH", { id: category.id, name, type, color })
+      if (updated) onSaved(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <TableRow className="bg-muted/30">
+      <TableCell colSpan={4}>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="color" aria-label="Color" value={color} onChange={e => setColor(e.target.value)}
+            className="h-8 w-8 cursor-pointer rounded border border-border bg-background p-0.5"
+          />
+          <Input
+            aria-label="Name" value={name} maxLength={40} onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") onCancel() }}
+            className="w-48" autoFocus
+          />
+          <TypeSelect value={type} onChange={setType} />
+        </div>
+        {losesBudget && <p className="text-xs text-highlight mt-2">Its budget will be removed — budgets only apply to expenses.</p>}
+        {error && <p className="text-xs text-destructive mt-2">{error}</p>}
+      </TableCell>
+      <TableCell className="text-right whitespace-nowrap align-top">
+        <Button size="sm" onClick={save} disabled={busy || !name.trim()}>Save</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
+      </TableCell>
+    </TableRow>
   )
 }
 

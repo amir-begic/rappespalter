@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { BUDGETABLE_TYPES as BUDGETABLE } from "@/lib/categories"
 
 interface Category {
   id:     number
@@ -15,8 +16,6 @@ interface Category {
 
 const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
 
-// Only fixed & variable categories get budgets — savings/transfers/income don't.
-const BUDGETABLE = new Set(["fixed", "variable"])
 
 export default function BudgetsPage() {
   const [cats, setCats]       = useState<Category[] | null>(null)
