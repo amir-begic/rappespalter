@@ -34,6 +34,7 @@ src/
       snapshots/route.ts     — monthly asset balance history
       summary/route.ts       — aggregated monthly dashboard data
       months/route.ts        — distinct months in the database
+      income/streams/route.ts — per-source income trends over the full history
       settings/route.ts      — user-editable settings (projection inputs)
       portfolio/             — summary + delete, import, refresh, securities (overrides/manual prices)
     settings/page.tsx        — edit projection inputs (overrides env defaults)
@@ -41,6 +42,7 @@ src/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
+    income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
     portfolio/               — yuh.ts (CSV parser), market.ts (Yahoo/ECB), engine.ts (pure maths),
                                store.ts (DB + refresh), schema.ts (create tables if missing)
 generated/
@@ -175,6 +177,15 @@ transactions would double-count savings.
 - **Maths** (`engine.ts`, pure): account = securities + cash; deposits/withdrawals are
   the only external flows. Cost basis in CHF at the trade-date ECB rate; average-cost
   realised gains; daily TWR and XIRR.
+
+## Income streams
+The Income page's trend view (`src/lib/income.ts`, pure) analyses each income
+category over the full history. Income = positive amounts excluding
+transfer-type categories (same rule as `/api/income`). Monthly series are
+zero-filled with a trailing 12-month average; "this year" and "last 12 months"
+compare **to the day** against the same days a year earlier, so a month in
+progress isn't compared with a complete one. A stream's partial first year is
+not used as a comparison base.
 
 ## Financial context
 The dashboard models a Swiss personal-finance setup with these inputs (all values

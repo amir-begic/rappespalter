@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -14,6 +14,8 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts"
+import { ALL_STREAM, type StreamAnalysis } from "@/lib/income"
+import { StreamTrends, StreamsByYear } from "./stream-trends"
 
 interface IncomeData {
   total: number
@@ -58,6 +60,11 @@ export default function IncomePage() {
   const [year, setYear]   = useState<string>("all")
   const [years, setYears] = useState<string[]>([])
 
+  // Per-stream trends (full history, independent of the year filter).
+  const [streams, setStreams]               = useState<StreamAnalysis[]>([])
+  const [selectedStream, setSelectedStream] = useState<string>(ALL_STREAM)
+  const trendsRef = useRef<HTMLDivElement>(null)
+
   // Drill-down dialog: which income source is open, and its transactions.
   const [openSource, setOpenSource] = useState<string | null>(null)
   const [txns, setTxns]             = useState<Txn[] | null>(null)
@@ -74,10 +81,28 @@ export default function IncomePage() {
       .catch(() => setYears([]))
   }, [])
 
-  // (Re)load the income breakdown whenever the year filter changes.
   useEffect(() => {
+    fetch("/api/income/streams")
+      .then(r => r.json())
+      .then(d => setStreams(d.streams ?? []))
+      .catch(() => setStreams([]))
+  }, [])
+
+  // Select a source in the trends card and bring it into view.
+  function showTrend(name: string) {
+    setSelectedStream(name)
+    trendsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  // Changing the year shows the spinner until the new breakdown arrives.
+  function changeYear(y: string) {
+    setYear(y)
     setLoading(true)
     setError(null)
+  }
+
+  // (Re)load the income breakdown whenever the year filter changes.
+  useEffect(() => {
     const params = new URLSearchParams(yearRange(year))
 
     fetch(`/api/income?${params}`)
@@ -127,7 +152,7 @@ export default function IncomePage() {
           </p>
         </div>
 
-        <Select value={year} onValueChange={setYear}>
+        <Select value={year} onValueChange={changeYear}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Year" />
           </SelectTrigger>
@@ -209,6 +234,20 @@ export default function IncomePage() {
             ))}
           </div>
 
+          {streams.length > 0 && (
+            <>
+              <StreamTrends
+                ref={trendsRef}
+                streams={streams}
+                selected={selectedStream}
+                onSelect={setSelectedStream}
+                year={year}
+                onShowPayments={name => openTransactions(name === ALL_STREAM ? null : name)}
+              />
+              <StreamsByYear streams={streams} selected={selectedStream} onSelect={setSelectedStream} />
+            </>
+          )}
+
           {/* Breakdown by source */}
           <Card>
             <CardHeader className="pb-2">
@@ -219,7 +258,13 @@ export default function IncomePage() {
             <CardContent>
               <div className="space-y-3">
                 {data.byCategory.map(c => (
-                  <div key={c.categoryName}>
+                  <button
+                    key={c.categoryName}
+                    type="button"
+                    onClick={() => showTrend(c.categoryName)}
+                    className="block w-full text-left rounded-md -mx-2 px-2 py-1 hover:bg-muted/60 transition-colors"
+                    title={`Show how ${c.categoryName} develops`}
+                  >
                     <div className="flex justify-between text-sm mb-1">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c.color }} />
@@ -234,7 +279,7 @@ export default function IncomePage() {
                         style={{ width: `${c.share}%`, background: c.color }}
                       />
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </CardContent>
@@ -245,7 +290,7 @@ export default function IncomePage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Monthly trend
+                  All sources per month
                 </CardTitle>
               </CardHeader>
               <CardContent>
