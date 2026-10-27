@@ -7,6 +7,7 @@ import {
   ChartArea, ChartCandlestick, Upload, Database, Settings, type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useUpdates } from "@/lib/updates"
 
 type NavItem = { href: string; label: string; icon: LucideIcon }
 
@@ -46,6 +47,16 @@ function useIsActive() {
   return (href: string) => pathname === href || pathname.startsWith(href + "/")
 }
 
+// A dot on Settings while a newer version waits to be installed (Settings → Updates).
+function useBadges() {
+  const { state } = useUpdates()
+  return (href: string) => href === "/settings" && Boolean(state?.available)
+}
+
+function UpdateDot() {
+  return <span className="ml-auto size-1.5 rounded-full bg-info" aria-label="Update available" />
+}
+
 function Brand() {
   return (
     <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
@@ -59,6 +70,7 @@ function Brand() {
 // Fixed left sidebar on md+ screens.
 export function Sidebar() {
   const isActive = useIsActive()
+  const hasBadge = useBadges()
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="h-14 flex items-center px-3">
@@ -85,6 +97,7 @@ export function Sidebar() {
                   >
                     <Icon className="size-4 shrink-0" strokeWidth={isActive(href) ? 2.25 : 1.75} />
                     {label}
+                    {hasBadge(href) && <UpdateDot />}
                   </Link>
                 </li>
               ))}
@@ -99,6 +112,7 @@ export function Sidebar() {
 // Compact top bar with a scrollable tab strip on small screens.
 export function MobileNav() {
   const isActive = useIsActive()
+  const hasBadge = useBadges()
   return (
     <header className="md:hidden sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur">
       <div className="h-12 flex items-center px-3">
@@ -119,6 +133,7 @@ export function MobileNav() {
           >
             <Icon className="size-3.5" />
             {label}
+            {hasBadge(href) && <UpdateDot />}
           </Link>
         ))}
       </nav>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { UpdatesCard } from "@/components/updates-card"
 import { SETTING_FIELDS, type SettingKey, type Settings } from "@/lib/settings"
 
 const GROUPS = [
@@ -143,6 +144,10 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <div className="mt-10">
+        <UpdatesCard />
+      </div>
     </div>
   )
 }

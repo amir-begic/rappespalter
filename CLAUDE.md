@@ -54,8 +54,9 @@ prisma/
   dev.db                     — SQLite database file (gitignored)
 prisma.config.ts             — Prisma 7 config (url, migrations, seed)
 electron/
-  main.js                    — Electron main process (spawns standalone server)
-  preload.js                 — minimal preload (no privileged bridge)
+  main.js                    — Electron main process (spawns standalone server, installs updates)
+  updater.js                 — update feed check + verified installer download
+  preload.js                 — exposes window.rappespalter.updates (the only bridge)
 scripts/
   assemble-standalone.mjs    — post-build: copy static/public + snapshot db template
 ```
@@ -69,6 +70,16 @@ from a bundled `template.db` on first launch). Build requires `output: "standalo
 plus `outputFileTracingIncludes` for `generated/prisma` and the libsql adapter.
 Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 `pnpm dist`. Full details in [docs/ELECTRON.md](docs/ELECTRON.md).
+
+**Updates** (Windows, modelled on Aperture): a pushed `vX.Y.Z` tag (must match
+package.json) is built by `release.yml` as a pre-release with `latest.json`
+(version, notes, installer URL/size/SHA-256); `promote.yml` makes one the latest
+release, the only one installed copies read. `electron/updater.js` checks the feed
+(1 min after start, every 6 h) and downloads + verifies the installer; `installUpdate`
+in `main.js` copies the DB to `backups/before-update/`, runs the NSIS installer with
+`/S --updated --force-run` and quits. The renderer reaches it only through
+`window.rappespalter.updates` (preload.js, typed in `src/lib/updates.ts`); UI is
+Settings → Updates (`src/components/updates-card.tsx`). The repo must be public.
 
 ## Database schema
 Tables:

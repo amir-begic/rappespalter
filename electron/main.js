@@ -7,12 +7,17 @@
 // The SQLite database lives in the OS per-user data directory so it stays writable
 // after the app is installed (the app bundle itself is read-only). On first launch
 // a seeded template database is copied there.
+//
+// Updates (Windows): electron/updater.js checks the promoted release's latest.json and
+// downloads + verifies the installer; installUpdate() below copies the database and
+// runs the installer silently, which restarts the app.
 
-const { app, BrowserWindow, Menu, dialog, nativeTheme, shell } = require("electron")
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require("electron")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
 const { spawn } = require("node:child_process")
+const { createUpdater } = require("./updater")
 
 // Pin the app name so the userData directory is deterministic
 // (%APPDATA%\Rappespalter on Windows) regardless of how Electron resolves the
@@ -27,6 +32,7 @@ let mainWindow = null
 let logFile = null
 let serverOutput = "" // captured child stdout/stderr, surfaced if startup fails
 let isRestarting = false // suppresses the exit→quit handler during a deliberate restart
+let updater = null
 
 // --- logging -------------------------------------------------------------
 
@@ -293,6 +299,140 @@ async function promptImportDatabase() {
   }
 }
 
+// --- updates -------------------------------------------------------------
+
+const BEFORE_UPDATE_KEEP = 5
+
+// Copy the database (and its WAL, if any) to backups/before-update, keeping the
+// newest few. The server must be stopped so the copy is consistent.
+function backupDatabase(fromVersion) {
+  const dbPath = path.join(app.getPath("userData"), "rappespalter.db")
+  if (!fs.existsSync(dbPath)) return null
+  const dir = path.join(app.getPath("userData"), "backups", "before-update")
+  fs.mkdirSync(dir, { recursive: true })
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-")
+  const target = path.join(dir, `rappespalter-${fromVersion}-${stamp}.db`)
+  fs.copyFileSync(dbPath, target)
+  for (const ext of ["-wal", "-shm"]) {
+    if (fs.existsSync(dbPath + ext)) fs.copyFileSync(dbPath + ext, target + ext)
+  }
+
+  const copies = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".db"))
+    .sort()
+    .reverse()
+  for (const old of copies.slice(BEFORE_UPDATE_KEEP)) {
+    for (const ext of ["", "-wal", "-shm"]) fs.rmSync(path.join(dir, old + ext), { force: true })
+  }
+  log(`Database copied to ${target}`)
+  return target
+}
+
+let updating = false
+
+async function installUpdate() {
+  const release = updater && updater.available()
+  if (!release || updating) return
+  updating = true
+  try {
+    await runUpdate(release)
+  } finally {
+    updating = false
+  }
+}
+
+// Confirm, download the release, copy the database and hand over to the NSIS
+// installer: silent (/S), as an update (--updated keeps the shortcuts as they are),
+// and start the app when done (--force-run). We quit right after.
+async function runUpdate(release) {
+  const choice = await dialog.showMessageBox(mainWindow, {
+    type: "question",
+    buttons: ["Cancel", "Install"],
+    defaultId: 1,
+    cancelId: 0,
+    message: `Install Rappespalter ${release.version}?`,
+    detail:
+      "Rappespalter downloads the new version, closes, saves a copy of your database " +
+      "and starts again once it's installed. Takes about a minute.",
+  })
+  if (choice.response !== 1) return
+
+  let installer
+  try {
+    ;({ installer } = await updater.downloadAvailable())
+  } catch (err) {
+    log(`Update download failed: ${err && err.stack ? err.stack : err}`)
+    updater.setError(String((err && err.message) || err))
+    return
+  }
+
+  updater.setInstalling(true)
+  isRestarting = true
+  try {
+    await stopServer()
+    const backup = backupDatabase(updater.current)
+    updater.writeStatus({ state: "installing", from: updater.current, version: release.version, backup })
+    const child = spawn(installer, ["--updated", "/S", "--force-run"], { detached: true, stdio: "ignore" })
+    await new Promise((resolve, reject) => {
+      child.once("spawn", resolve)
+      child.once("error", reject)
+    })
+    child.unref()
+    log(`Started installer for ${release.version}`)
+    app.quit()
+  } catch (err) {
+    log(`Update failed: ${err && err.stack ? err.stack : err}`)
+    updater.writeStatus({
+      state: "failed",
+      from: updater.current,
+      version: release.version,
+      message: String((err && err.message) || err),
+    })
+    updater.setInstalling(false)
+    // Bring the current version back up.
+    try {
+      const url = await startServer()
+      if (mainWindow) mainWindow.loadURL(url + "/settings#updates")
+    } catch (restartErr) {
+      log(`Restart after failed update failed: ${restartErr}`)
+      dialog.showErrorBox("Rappespalter failed to restart", String(restartErr))
+      app.quit()
+    }
+  } finally {
+    isRestarting = false
+  }
+}
+
+// The renderer (via preload.js) may only talk to the main window.
+function fromMainWindow(event) {
+  return mainWindow && event.sender === mainWindow.webContents
+}
+
+function registerUpdateIpc() {
+  ipcMain.handle("updates:state", (event) => (fromMainWindow(event) ? updater.state() : null))
+  ipcMain.handle("updates:check", (event) => (fromMainWindow(event) ? updater.check() : null))
+  ipcMain.handle("updates:install", async (event) => {
+    if (fromMainWindow(event)) await installUpdate()
+    return updater.state()
+  })
+  updater.onChange((state) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("updates:changed", state)
+  })
+}
+
+// If the app fails to start right after an update, say where the old database is.
+function afterUpdateHint() {
+  const status = updater && updater.recentStatus()
+  if (!status || status.state !== "succeeded" || status.version !== updater.current) return ""
+  return (
+    `\n\nThis is the first start after updating from ${status.from} to ${status.version}. ` +
+    (status.backup ? `Your database from before the update is at:\n${status.backup}\n` : "") +
+    "Reinstall the previous version from the GitHub releases page, then use " +
+    "File → Import Database… to load that copy if needed."
+  )
+}
+
 function buildMenu() {
   const template = [
     {
@@ -318,6 +458,9 @@ function buildMenu() {
 
 app.whenReady().then(async () => {
   buildMenu()
+  updater = createUpdater({ log })
+  updater.start()
+  registerUpdateIpc()
   try {
     const url = isDev ? DEV_URL : await startServer()
     createWindow(url)
@@ -327,7 +470,8 @@ app.whenReady().then(async () => {
       "Rappespalter failed to start",
       `${err && err.message ? err.message : err}\n\n` +
         `--- server output ---\n${serverOutput || "(none)"}\n\n` +
-        `Full log: ${logFile || "(unavailable)"}`,
+        `Full log: ${logFile || "(unavailable)"}` +
+        afterUpdateHint(),
     )
     app.quit()
   }

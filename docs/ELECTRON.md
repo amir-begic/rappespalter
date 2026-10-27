@@ -125,7 +125,7 @@ copy \\wsl$\Ubuntu\home\amir\dev\rappespalter\dev.db .
 # 4. install dependencies (pulls the Windows libsql + Electron binaries)
 pnpm install
 
-# 5a. build an installer  ->  dist\Rappespalter Setup 0.1.0.exe
+# 5a. build an installer  ->  dist\Rappespalter-Setup.exe
 pnpm dist
 
 # 5b. OR build an unpacked, no-install folder you can zip and copy anywhere
@@ -144,9 +144,59 @@ Windows PC and run `Rappespalter.exe` directly — no install needed.
 
 ### No Windows toolchain? Use CI instead
 
-If you'd rather not install Node on Windows, build the `.exe` on a GitHub Actions
-`windows-latest` runner (`pnpm install && pnpm dist`) and download the artifact.
-Same result, fully reproducible.
+*Actions → Release → Run workflow* builds the installer on a `windows-latest`
+runner and keeps it as a workflow artifact for 3 days, without publishing anything.
+Pushing a version tag builds and publishes a release (see [Updates](#updates)).
+
+## Updates
+
+The installed Windows app updates itself, but only to versions you promoted by hand:
+
+1. **Release:** bump `version` in package.json, commit, then tag and push the tag:
+   ```bash
+   git tag v0.1.5 && git push origin v0.1.5
+   ```
+   [release.yml](../.github/workflows/release.yml) builds `Rappespalter-Setup.exe`
+   and publishes it as a **pre-release** with `latest.json`: the version, the commits
+   since the previous tag as notes, and the installer's address, size and SHA-256.
+   The run fails if the tag doesn't match package.json. Installed copies never see
+   pre-releases.
+2. **Try it** by downloading the installer from the pre-release.
+3. **Promote:** *Actions → Promote → Run workflow* (empty = the newest release, or
+   enter a version). [promote.yml](../.github/workflows/promote.yml) makes it the
+   repository's *latest* release, which is what installed copies read. These
+   addresses always point to the latest promoted release:
+   - installer: `https://github.com/amir-begic/rappespalter/releases/latest/download/Rappespalter-Setup.exe`
+   - feed: `https://github.com/amir-begic/rappespalter/releases/latest/download/latest.json`
+
+The repository must be **public**: the app reads the feed and downloads the
+installer without signing in.
+
+**In the app** ([electron/updater.js](../electron/updater.js)): a minute after start
+and then every six hours it reads the feed; opening *Settings* checks too if
+nothing has been checked yet. A newer version puts a dot on *Settings* in the nav,
+and *Settings → Updates → Install update* installs it:
+
+1. downloads the installer into `updates/` in the data folder and checks its size
+   and SHA-256 against the feed (a mismatch is discarded);
+2. stops the server and copies the database to `backups/before-update/`
+   (the newest 5 are kept);
+3. runs the installer silently as an update (`/S --updated --force-run`), quits,
+   and the installer starts the new version when it's done.
+
+`updates/status.json` records the update. On the next start the app marks it as
+succeeded (now running the new version) or failed (still the old one: the
+installer didn't finish), and *Settings → Updates* says so for a week. There is no
+automatic rollback: if the new version won't start, its error dialog names the
+database copy; reinstall the previous version from its release page and, if needed,
+load the copy with *File → Import Database…*.
+
+Versions are compared as `major.minor.patch`. A copy in development (`pnpm
+electron:dev`), or on Linux/macOS, has no updates. `RAPPESPALTER_UPDATE_FEED`
+points the app at another `latest.json`, e.g. for testing.
+
+The installers are unsigned, so SmartScreen warns on the first manual install
+(*More info → Run anyway*). Updates the app downloads itself aren't affected.
 
 ## WSL2 / Linux notes
 
@@ -177,6 +227,9 @@ self-contained and portable. `@swc/helpers` is also force-listed in
 
 ## Troubleshooting
 
+- **An update didn't work** — *Settings → Updates* says what happened; details are
+  in `startup.log`. Database copies from before each update are in
+  `backups\before-update\` in the data folder.
 - **App opens and immediately exits** — the standalone server crashed on startup.
   The main process writes a log and shows the error in a dialog. Find the log at:
   - Windows: `%APPDATA%\Rappespalter\startup.log`

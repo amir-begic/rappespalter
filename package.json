@@ -91,6 +91,9 @@
         "nsis"
       ]
     },
+    "nsis": {
+      "artifactName": "Rappespalter-Setup.${ext}"
+    },
     "mac": {
       "target": [
         "dmg"

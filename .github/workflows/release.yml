@@ -1,0 +1,136 @@
+# Every pushed vX.Y.Z tag: build the Windows installer and publish it as a pre-release,
+# with latest.json, the feed entry installed copies read (electron/updater.js). They
+# don't see it yet: they read the repository's *latest* release, and a pre-release never
+# is. promote.yml makes one the latest once you've tried it, so the newest promoted
+# installer is always at …/releases/latest/download/Rappespalter-Setup.exe.
+#
+# Runs on a real Windows runner, where `pnpm install` pulls the Windows-native libsql
+# binary (@libsql/win32-x64-msvc). Cross-building from Linux doesn't work because the
+# SQLite layer is native.
+#
+# Run by hand (Actions → Release → Run workflow) for a test build: the installer is kept
+# as a workflow artifact for 3 days and nothing is published.
+name: Release
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*" # git tag v0.1.5 && git push origin v0.1.5
+
+permissions:
+  contents: write # needed to create the Release
+
+# Run JavaScript actions on Node 24. Several pinned actions (incl.
+# pnpm/action-setup@v4, which has no Node 24 release yet) still declare Node 20,
+# which GitHub is deprecating. This opts all of them into Node 24 now; it becomes
+# the default on 2026-06-16, after which this line is a harmless no-op.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30 # a hung run would otherwise burn minutes up to the 6-hour default
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the release notes list the commits since the previous tag
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check the version matches the tag
+        # Installed copies compare package.json's version (app.getVersion()) with the
+        # feed's, so a tag that doesn't match would be offered again and again.
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::package.json says $version but the tag is $GITHUB_REF_NAME. Bump the version, commit, and tag that commit."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build installer
+        # `pnpm dist` runs: next build -> assemble-standalone -> electron-builder.
+        # No dev.db exists in CI, so the app ships with an empty database (each
+        # user imports their own data) — assemble-standalone.mjs handles this.
+        # DATABASE_URL is set only to satisfy module load during `next build`.
+        run: pnpm dist --publish never
+        env:
+          DATABASE_URL: "file:./dev.db"
+
+      - name: Upload installer artifact
+        # Only for manual runs; tag builds attach the installer to the Release,
+        # which doesn't count against Actions storage.
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rappespalter-windows
+          path: dist/Rappespalter-Setup.exe
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0 # .exe is already compressed; skip wasted CPU
+
+      - name: Publish as a pre-release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          installer=dist/Rappespalter-Setup.exe
+
+          previous="$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)"
+          if [ -n "$previous" ]; then
+            git log --format='- %s' "$previous..$tag" > notes.md
+          else
+            git log -1 --format='- %s' "$tag" > notes.md
+          fi
+
+          # The feed entry: what the release is, and per system where its installer is,
+          # its size and SHA-256 (toRelease in electron/updater.js).
+          node -e '
+            const fs = require("node:fs"), crypto = require("node:crypto")
+            const [tag, installer, repo] = process.argv.slice(1)
+            const file = require("node:path").basename(installer)
+            const bytes = fs.readFileSync(installer)
+            const feed = {
+              version: tag.replace(/^v/, ""),
+              published: new Date().toISOString(),
+              notes: fs.readFileSync("notes.md", "utf8"),
+              page: `https://github.com/${repo}/releases/tag/${tag}`,
+              packages: {
+                "win-x64": {
+                  file,
+                  size: bytes.length,
+                  sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+                  download: `https://github.com/${repo}/releases/download/${tag}/${file}`,
+                },
+              },
+            }
+            fs.writeFileSync("latest.json", JSON.stringify(feed, null, 2) + "\n")
+          ' "$tag" "$installer" "$GITHUB_REPOSITORY"
+          cat latest.json
+
+          # A re-run for the same tag replaces the files and leaves the Release as it is
+          # (promoted or not).
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" "$installer" latest.json --clobber
+          else
+            gh release create "$tag" "$installer" latest.json --prerelease --latest=false \
+              --title "Rappespalter ${tag#v}" --notes-file notes.md --verify-tag
+          fi
