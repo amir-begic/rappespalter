@@ -134,13 +134,13 @@ npm install -g pnpm
 
 # 2. Get the code onto Windows. Either git clone your remote, or copy from WSL
 #    (replace "Ubuntu" with your distro name — check with `wsl -l` ):
-robocopy \\wsl$\Ubuntu\home\amir\dev\rappespalter C:\dev\rappespalter /E /XD node_modules .next dist build .git
+robocopy \\wsl$\Ubuntu\home\<you>\dev\rappespalter C:\dev\rappespalter /E /XD node_modules .next dist build .git
 
 cd C:\dev\rappespalter
 
 # 3. (optional) bring your current data so the app ships with it.
 #    dev.db is gitignored, so copy it explicitly if you cloned via git:
-copy \\wsl$\Ubuntu\home\amir\dev\rappespalter\dev.db .
+copy \\wsl$\Ubuntu\home\<you>\dev\rappespalter\dev.db .
 
 # 4. install dependencies (pulls the Windows libsql + Electron binaries)
 pnpm install
