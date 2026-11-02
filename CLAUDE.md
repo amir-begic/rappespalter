@@ -51,6 +51,7 @@ src/
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
     budget-drift.ts          — pure budget-vs-actual analysis (window of complete months)
     pace.ts                  — pure spending projection for the month in progress
+    projection.ts            — pure wealth forecast (rates, monthly steps, forecast vs. actual)
     rules.ts                 — pure rule matching (rules-store.ts: table + DB planning)
     portfolio/               — yuh.ts (CSV parser), market.ts (Yahoo/ECB/Xtrackers), engine.ts (pure maths),
                                store.ts (DB + refresh), schema.ts (create tables if missing),

@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings"
+import { ASSET_KEYS, compareForecast, projectAfter, totalOf } from "@/lib/projection"
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, Legend,
+  ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts"
 
 interface Snapshot {
@@ -30,13 +31,7 @@ interface ProjectionPoint {
   total:    number
 }
 
-// ── Projection engine
-// Assumptions:
-//   ETF:      6% annual return + monthly contributions
-//   3a:       5% annual return + monthly contributions
-//   Savings:  static (no new contributions, 0.75% interest)
-//   2. Säule: 2.5% annual return + monthly contributions
-//
+// ── Projection engine (rates and monthly steps in lib/projection)
 // Personal inputs (monthly contributions, starting age, and the fallback opening
 // balances used when no snapshot exists yet) come from /api/settings — edited on
 // the Settings page, defaulting to the NEXT_PUBLIC_* env vars (see lib/settings).
@@ -52,51 +47,46 @@ function buildProjection(snapshots: Snapshot[], settings: Settings): ProjectionP
         pillar2:  settings.initPillar2,
       }
 
-  const MONTHLY_ETF        = settings.monthlyEtf
-  const MONTHLY_3A         = settings.monthly3a
-  const MONTHLY_PILLAR2    = settings.monthlyPillar2
-  const RATE_ETF           = 0.06 / 12
-  const RATE_3A            = 0.05 / 12
-  const RATE_SAVINGS       = 0.0075 / 12
-  const RATE_PILLAR2       = 0.025 / 12
-  const START_AGE          = settings.startAge
-
   const checkpoints = [0, 12, 36, 60, 84, 120, 180] // months
 
-  let etf      = latest.etf
-  let savings  = latest.savings
-  let pillar3a = latest.pillar3a
-  let pillar2  = latest.pillar2
-
-  const points: ProjectionPoint[] = []
-  let month = 0
-
-  for (const checkpoint of checkpoints) {
-    // Advance month by month to the next checkpoint
-    while (month < checkpoint) {
-      etf      = etf      * (1 + RATE_ETF)     + MONTHLY_ETF
-      pillar3a = pillar3a * (1 + RATE_3A)      + MONTHLY_3A
-      savings  = savings  * (1 + RATE_SAVINGS)
-      pillar2  = pillar2  * (1 + RATE_PILLAR2) + MONTHLY_PILLAR2
-      month++
-    }
-
+  return checkpoints.map(checkpoint => {
+    const b = projectAfter(latest, checkpoint, settings)
     const years = checkpoint / 12
-    points.push({
+    return {
       label:   checkpoint === 0 ? "Now" : `${years}y`,
-      age:     START_AGE + years,
-      pillar2:  Math.round(pillar2),
-      savings:  Math.round(savings),
-      pillar3a: Math.round(pillar3a),
-      etf:      Math.round(etf),
-      total:    Math.round(etf + savings + pillar3a + pillar2),
-    })
-  }
+      age:     settings.startAge + years,
+      pillar2:  Math.round(b.pillar2),
+      savings:  Math.round(b.savings),
+      pillar3a: Math.round(b.pillar3a),
+      etf:      Math.round(b.etf),
+      total:    Math.round(totalOf(b)),
+    }
+  })
+}
 
-  return points
+// Snapshot months are stored as local midnight on the 1st; read them back in
+// local time (toISOString would give the previous month east of UTC).
+const monthKey = (d: string) => {
+  const date = new Date(d)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+const fmtMonth = (m: string) => {
+  const [y, mo] = m.split("-").map(Number)
+  return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "short", year: "2-digit" })
+}
+
+const ASSET_LABELS: Record<(typeof ASSET_KEYS)[number], string> = {
+  etf:      "ETF portfolio",
+  savings:  "Savings account",
+  pillar3a: "Säule 3a",
+  pillar2:  "2. Säule",
 }
 
 const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
+
+const fmtSigned = (n: number) =>
+  `${Math.round(n) >= 0 ? "+" : "−"}Fr. ${fmtR(Math.abs(n))}`
 
 const fmtM = (n: number) =>
   n >= 1_000_000
@@ -176,6 +166,17 @@ export default function ProjectionsPage() {
 
   const latest    = projection[projection.length - 1]
   const milestone = projection.find(p => p.total >= 1_000_000)
+
+  // Forecast vs. actual: what the forecast made at an earlier snapshot expected.
+  // Any snapshot but the latest can be the starting point; default is the first.
+  const [baseMonth, setBaseMonth] = useState<string | null>(null)
+  const snapMonths  = snapshots.map(s => ({ ...s, month: monthKey(s.month) }))
+  const baseOptions = snapMonths.slice(0, -1).map(s => s.month)
+  const base = baseMonth && baseOptions.includes(baseMonth) ? baseMonth : baseOptions[0]
+  const comparison = base ? compareForecast(snapMonths, base, settings) : null
+  const gap = comparison
+    ? totalOf(comparison.today.actual) - totalOf(comparison.today.plan)
+    : 0
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
@@ -305,6 +306,151 @@ export default function ProjectionsPage() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Forecast vs. actual */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Forecast vs. actual
+              </CardTitle>
+              {comparison && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  Forecast from
+                  <select
+                    value={base}
+                    onChange={e => setBaseMonth(e.target.value)}
+                    className="text-xs border border-border rounded-md px-2 py-1 bg-background text-foreground"
+                  >
+                    {baseOptions.map(m => (
+                      <option key={m} value={m}>{fmtMonth(m)}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </CardHeader>
+            <CardContent>
+              {!comparison ? (
+                <p className="text-xs text-muted-foreground">
+                  Record snapshots in at least two months to compare the forecast with what actually happened.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    What the forecast starting from your {fmtMonth(comparison.base)}{" "}snapshot expected, next to
+                    your snapshots since, and the forecast from your latest snapshot for the next 12 months.
+                    Totals are ETF, savings, 3a and 2. Säule (checking isn&apos;t forecast).
+                  </p>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={comparison.points} margin={{ left: 10, right: 10, top: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis
+                        dataKey="month"
+                        tickFormatter={fmtMonth}
+                        tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        minTickGap={16}
+                      />
+                      <YAxis
+                        domain={["auto", "auto"]}
+                        tickFormatter={fmtM}
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={70}
+                      />
+                      <Tooltip
+                        labelFormatter={label => fmtMonth(String(label))}
+                        formatter={(value, name) => [`Fr. ${fmtR(Number(value))}`, name]}
+                        contentStyle={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          color: "var(--card-foreground)",
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "12px" }} />
+                      <ReferenceLine
+                        x={comparison.latest}
+                        stroke="var(--muted-foreground)"
+                        strokeOpacity={0.5}
+                        label={{ value: "Latest snapshot", position: "insideTopRight", fontSize: 10, fill: "var(--muted-foreground)" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="plan"
+                        name={`Forecast from ${fmtMonth(comparison.base)}`}
+                        stroke="var(--info)"
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="current"
+                        name="Forecast from now"
+                        stroke="var(--highlight)"
+                        strokeWidth={2}
+                        strokeDasharray="2 3"
+                        dot={false}
+                      />
+                      <Line
+                        type="linear"
+                        dataKey="actual"
+                        name="Actual"
+                        stroke="var(--foreground)"
+                        strokeWidth={2}
+                        dot={{ r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--foreground)" }}
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground">
+                          <th className="text-left pb-2 font-normal">{fmtMonth(comparison.latest)}</th>
+                          <th className="text-right pb-2 font-normal">Actual</th>
+                          <th className="text-right pb-2 font-normal">Forecast from {fmtMonth(comparison.base)}</th>
+                          <th className="text-right pb-2 font-normal">Difference</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ASSET_KEYS.map(k => {
+                          const diff = comparison.today.actual[k] - comparison.today.plan[k]
+                          return (
+                            <tr key={k} className="border-b border-border">
+                              <td className="py-2 text-muted-foreground">{ASSET_LABELS[k]}</td>
+                              <td className="py-2 text-right font-mono">Fr. {fmtR(comparison.today.actual[k])}</td>
+                              <td className="py-2 text-right font-mono">Fr. {fmtR(comparison.today.plan[k])}</td>
+                              <td className={`py-2 text-right font-mono ${diff >= 0 ? "text-positive" : "text-negative"}`}>
+                                {fmtSigned(diff)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        <tr className="font-semibold">
+                          <td className="pt-2">Total</td>
+                          <td className="pt-2 text-right font-mono">Fr. {fmtR(totalOf(comparison.today.actual))}</td>
+                          <td className="pt-2 text-right font-mono">Fr. {fmtR(totalOf(comparison.today.plan))}</td>
+                          <td className={`pt-2 text-right font-mono ${gap >= 0 ? "text-positive" : "text-negative"}`}>
+                            {fmtSigned(gap)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    A difference comes from returns other than the assumed rates or from contributions other
+                    than your monthly settings, such as a one-off deposit. The earlier forecast uses today&apos;s
+                    settings, so changing them changes it too.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
