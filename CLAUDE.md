@@ -454,6 +454,25 @@ only (`Assumptions`); inflation above 0 deflates every amount to today's francs
 plan (`assumptionsFrom`), nominal.
 No milestone banners — amounts aren't judged.
 
+## Regenerating the README screenshots
+
+Never screenshot your real database. `scripts/demo-db.mjs` builds a separate one
+with fictional transactions, balances and trades (market prices and exchange
+rates are real, fetched once from Yahoo and the ECB):
+
+```bash
+node scripts/demo-db.mjs demo.db
+DATABASE_URL="file:./demo.db" NEXT_PUBLIC_MONTHLY_ETF=1000 NEXT_PUBLIC_MONTHLY_3A=500 \
+  NEXT_PUBLIC_MONTHLY_PILLAR2=650 NEXT_PUBLIC_BIRTH_DATE=1990-01-01 NEXT_PUBLIC_INIT_ETF=40000 \
+  NEXT_PUBLIC_INIT_SAVINGS=15000 NEXT_PUBLIC_INIT_PILLAR3A=36000 NEXT_PUBLIC_INIT_PILLAR2=80000 \
+  pnpm dev
+```
+
+Override every `NEXT_PUBLIC_*` variable as above, or your own values from `.env`
+show up as defaults on Settings. For the look-through, upload the funds' public
+holdings files on Portfolio → Look-through. Capture at 1440×1000 in the default
+(light) theme, with the Next.js dev badge hidden (`nextjs-portal { display: none }`).
+
 ## Commands
 
 ```bash

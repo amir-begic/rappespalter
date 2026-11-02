@@ -8,7 +8,7 @@ Built for a Swiss context (CHF, pillar 2 / pillar 3a, Raiffeisen exports), but t
 
 ## Screenshots
 
-_All figures are made-up demo data (see [Regenerating](#regenerating-the-screenshots))._
+_All figures are made-up demo data (how they are made: [CLAUDE.md](CLAUDE.md#regenerating-the-readme-screenshots))._
 
 | Dashboard | Trends |
 | --- | --- |
@@ -33,25 +33,6 @@ _All figures are made-up demo data (see [Regenerating](#regenerating-the-screens
 | Data | Settings |
 | --- | --- |
 | ![Data](docs/screenshots/data.png) | ![Settings](docs/screenshots/settings.png) |
-
-### Regenerating the screenshots
-
-Never screenshot your real database. `scripts/demo-db.mjs` builds a separate one
-with fictional transactions, balances and trades (market prices and exchange
-rates are real, fetched once from Yahoo and the ECB):
-
-```bash
-node scripts/demo-db.mjs demo.db
-DATABASE_URL="file:./demo.db" NEXT_PUBLIC_MONTHLY_ETF=1000 NEXT_PUBLIC_MONTHLY_3A=500 \
-  NEXT_PUBLIC_MONTHLY_PILLAR2=650 NEXT_PUBLIC_BIRTH_DATE=1990-01-01 NEXT_PUBLIC_INIT_ETF=40000 \
-  NEXT_PUBLIC_INIT_SAVINGS=15000 NEXT_PUBLIC_INIT_PILLAR3A=36000 NEXT_PUBLIC_INIT_PILLAR2=80000 \
-  pnpm dev
-```
-
-Override every `NEXT_PUBLIC_*` variable as above, or your own values from `.env`
-show up as defaults on Settings. For the look-through, upload the funds' public
-holdings files on Portfolio → Look-through. Capture at 1440×1000 in the default
-(light) theme, with the Next.js dev badge hidden (`nextjs-portal { display: none }`).
 
 ---
 
@@ -256,12 +237,6 @@ scripts/         # standalone build assembly
 pnpm dev                                  # dev server (http://localhost:3000)
 pnpm build                                # production web build
 pnpm start                                # serve the production build
-
----
-
-## License
-
-[MIT](LICENSE)
 pnpm lint                                 # eslint
 
 pnpm exec prisma studio                    # browse the DB at localhost:5555
@@ -281,3 +256,9 @@ pnpm dist                                 # build a desktop installer for this O
 Local-first by design: your statements, transactions, balances, and projections live only in your local SQLite database and `.env`. Nothing is uploaded, and both are gitignored so they can't be committed accidentally.
 
 The **Portfolio** page is the one feature that goes online: it fetches public market prices (Yahoo Finance) and exchange rates (European Central Bank via Frankfurter), and refreshes Xtrackers ETF holdings files from DWS. Only ticker symbols, fund ISINs, currency codes and date ranges are sent — never your holdings or amounts. Prices are cached, so the page keeps working offline.
+
+---
+
+## License
+
+[MIT](LICENSE)

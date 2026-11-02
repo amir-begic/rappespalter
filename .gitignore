@@ -56,3 +56,6 @@ next-env.d.ts
 
 # Local scratch files (e.g. bank exports being analyzed)
 /temp/
+
+# Promo video: render scripts, screenshots and rendered videos (see promo/README.md)
+/promo/
