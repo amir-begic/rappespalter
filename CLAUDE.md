@@ -342,4 +342,11 @@ DATABASE_URL="file:./prisma/dev.db"
   not raw Tailwind hues; in Recharts use `var(--border)` etc. (tokens are oklch,
   so never wrap them in `hsl()`)
 - Navigation lives in src/components/app-nav.tsx — add new pages to `SECTIONS`
+- Pages are one root `<div>` whose children are the sections; content shown after
+  loading goes in a `space-y-*` stack. globals.css fades these in top to bottom on
+  every navigation (off under reduced motion). Show `<PageLoading />`
+  (@/components/page-loading) while a page first fetches — it stays hidden for quick
+  loads. When a filter (month, year) reloads data, keep the content mounted and dim
+  it after a delay (`opacity-60 delay-300`, `aria-busy`; quick loads never dim)
+  instead, so it doesn't collapse and fade in again
 - Prisma client imported from @/lib/prisma in all API routes

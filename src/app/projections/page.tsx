@@ -9,6 +9,7 @@ import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts"
+import { PageLoading } from "@/components/page-loading"
 
 interface Snapshot {
   id:        number
@@ -198,10 +199,7 @@ export default function ProjectionsPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+        <PageLoading />
       ) : (
         <div className="space-y-4">
 

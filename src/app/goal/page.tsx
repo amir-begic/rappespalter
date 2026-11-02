@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { PageLoading } from "@/components/page-loading"
 
 const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
 
@@ -79,10 +80,7 @@ export default function GoalPage() {
       </div>
 
       {loading && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+        <PageLoading />
       )}
 
       {error && <div className="text-sm text-destructive py-20 text-center">{error}</div>}

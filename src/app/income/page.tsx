@@ -16,6 +16,7 @@ import {
 } from "recharts"
 import { ALL_STREAM, type StreamAnalysis } from "@/lib/income"
 import { StreamTrends, StreamsByYear } from "./stream-trends"
+import { PageLoading } from "@/components/page-loading"
 
 interface IncomeData {
   total: number
@@ -94,7 +95,8 @@ export default function IncomePage() {
     trendsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  // Changing the year shows the spinner until the new breakdown arrives.
+  // Changing the year keeps the current breakdown on screen, dimmed, until the
+  // new one arrives (the spinner is for the first load only).
   function changeYear(y: string) {
     setYear(y)
     setLoading(true)
@@ -165,12 +167,7 @@ export default function IncomePage() {
         </Select>
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
-      )}
+      {loading && !data && <PageLoading />}
 
       {error && (
         <div className="text-sm text-destructive py-20 text-center">
@@ -180,14 +177,14 @@ export default function IncomePage() {
         </div>
       )}
 
-      {data && !loading && data.byCategory.length === 0 && (
+      {data && data.byCategory.length === 0 && (
         <p className="text-sm text-muted-foreground py-20 text-center">
           No income recorded yet.
         </p>
       )}
 
-      {data && !loading && data.byCategory.length > 0 && (
-        <div className="space-y-4">
+      {data && data.byCategory.length > 0 && (
+        <div className={`space-y-4 transition-opacity ${loading ? "opacity-60 delay-300" : ""}`} aria-busy={loading}>
 
           {/* Total + per-source stat cards — click to drill into transactions */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

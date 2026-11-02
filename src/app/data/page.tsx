@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table"
 import { BUDGETABLE_TYPES, CATEGORY_TYPES } from "@/lib/categories"
 import { RulesTab, createRule } from "./rules-tab"
+import { PageLoading } from "@/components/page-loading"
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -130,6 +131,7 @@ function TransactionsTab() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading]       = useState(true)
+  const [loaded, setLoaded]         = useState(false) // the first results have arrived
 
   // filters
   const [month, setMonth]       = useState("")     // "" = all months
@@ -166,7 +168,7 @@ function TransactionsTab() {
         setTransactions(d.transactions ?? [])
         setPagination(d.pagination ?? null)
       })
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); setLoaded(true) })
   }, [month, category, search, page, reloadKey])
 
   async function remap(tx: Transaction, newCategoryId: number | null) {
@@ -246,17 +248,16 @@ function TransactionsTab() {
         />
       )}
 
-      {loading ? (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+      {/* Changing a filter keeps the current rows on screen, dimmed, until the new
+          ones arrive; the spinner is for the first load only. */}
+      {!loaded ? (
+        <PageLoading />
       ) : transactions.length === 0 ? (
         <p className="text-sm text-muted-foreground py-20 text-center">
           No transactions match these filters.
         </p>
       ) : (
-        <Card>
+        <Card className={`transition-opacity ${loading ? "opacity-60 delay-300" : ""}`} aria-busy={loading}>
           <CardContent className="pt-6">
             <Table>
               <TableHeader>
@@ -428,7 +429,7 @@ function CategoriesTab() {
 
   const sorted = (list: Category[]) => [...list].sort((a, b) => a.name.localeCompare(b.name))
 
-  if (loading) return <Loading />
+  if (loading) return <PageLoading />
 
   return (
     <div className="space-y-4">
@@ -620,7 +621,7 @@ function BudgetsTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <Loading />
+  if (loading) return <PageLoading />
   if (budgets.length === 0) return <Empty label="No budgets set yet." />
 
   return (
@@ -667,7 +668,7 @@ function SnapshotsTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <Loading />
+  if (loading) return <PageLoading />
   if (snapshots.length === 0) return <Empty label="No snapshots recorded yet." />
 
   return (
@@ -706,14 +707,6 @@ function SnapshotsTab() {
 
 // ── Shared small states ────────────────────────────────────────────
 
-function Loading() {
-  return (
-    <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-      <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      Loading...
-    </div>
-  )
-}
 
 function Empty({ label }: { label: string }) {
   return <p className="text-sm text-muted-foreground py-20 text-center">{label}</p>

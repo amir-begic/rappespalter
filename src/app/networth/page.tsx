@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts"
+import { PageLoading } from "@/components/page-loading"
 
 interface Snapshot {
   month:    string
@@ -94,10 +95,7 @@ export default function NetWorthPage() {
       </div>
 
       {loading && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+        <PageLoading />
       )}
 
       {error && (

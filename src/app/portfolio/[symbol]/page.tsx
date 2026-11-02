@@ -15,6 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import type { HoldingDetailSummary } from "@/lib/portfolio/store"
+import { PageLoading } from "@/components/page-loading"
 
 const fmtR   = (n: number) => Math.round(n).toLocaleString("de-CH")
 const fmt2   = (n: number) => n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -74,10 +75,7 @@ export default function HoldingPage() {
       {error ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : !data || !s ? (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+        <PageLoading />
       ) : (
         <div className="space-y-4">
           {/* Header */}

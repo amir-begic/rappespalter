@@ -8,6 +8,7 @@ import { UpdatesCard } from "@/components/updates-card"
 import { AppearanceCard } from "@/components/appearance-card"
 import { BackupCard } from "@/components/backup-card"
 import { SETTING_FIELDS, type SettingKey, type Settings } from "@/lib/settings"
+import { PageLoading } from "@/components/page-loading"
 
 const GROUPS = [
   { id: "profile", title: "Profile",               hint: "Used as the starting age on the projection timeline." },
@@ -95,10 +96,7 @@ export default function SettingsPage() {
         error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : (
-          <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-            <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            Loading...
-          </div>
+          <PageLoading />
         )
       ) : (
         <div className="space-y-4">

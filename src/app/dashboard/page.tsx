@@ -19,6 +19,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
+import { PageLoading } from "@/components/page-loading"
 
 interface Summary {
   month: string
@@ -277,6 +278,14 @@ function BudgetSankey({
   const midX     = (leftNodeX + nodeW + rightNodeX) / 2
   const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n - 1) + "…" : s
 
+  // Switching months moves the nodes, links and labels to their new places instead
+  // of redrawing (elements are keyed by name). Bars and links transition their
+  // geometry (y, height and d are CSS properties for SVG); <text> x/y aren't, so
+  // labels are placed with a transform.
+  const EASE   = "500ms cubic-bezier(0.33, 1, 0.68, 1)"
+  const shape  = { transition: `y ${EASE}, height ${EASE}, d ${EASE}` }
+  const at     = (x: number, y: number) => ({ transform: `translate(${x}px, ${y}px)`, transition: `transform ${EASE}` })
+
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }} role="img"
       aria-label={`Money flow: income Fr. ${fmtR(income)} to ${rightNodes.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ")}`}>
@@ -286,11 +295,11 @@ function BudgetSankey({
         const labelY = Math.max(y + h / 2, i > 0 ? leftPos[i - 1].y + leftPos[i - 1].h / 2 + 28 : 0)
         return (
           <g key={n.name}>
-            <rect x={leftNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={n.color} rx={2} />
-            <text x={leftNodeX - 7} y={labelY - 7} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="currentColor" opacity={0.8}>
+            <rect x={leftNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={n.color} rx={2} style={shape} />
+            <text style={at(leftNodeX - 7, labelY - 7)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="currentColor" opacity={0.8}>
               {truncate(n.name, 15)}
             </text>
-            <text x={leftNodeX - 7} y={labelY + 7} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
+            <text style={at(leftNodeX - 7, labelY + 7)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
               Fr. {fmtR(n.value)}
             </text>
           </g>
@@ -312,12 +321,12 @@ function BudgetSankey({
 
         return (
           <g key={node.name}>
-            <path d={path} fill={node.color} opacity={0.2} />
-            <rect x={rightNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={node.color} rx={2} />
-            <text x={labelX} y={midY - 6} dominantBaseline="middle" fontSize={10} fill="currentColor" opacity={0.75}>
+            <path d={path} fill={node.color} opacity={0.2} style={shape} />
+            <rect x={rightNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={node.color} rx={2} style={shape} />
+            <text style={at(labelX, midY - 6)} dominantBaseline="middle" fontSize={10} fill="currentColor" opacity={0.75}>
               {truncate(node.name, 22)}
             </text>
-            <text x={labelX} y={midY + 7} dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
+            <text style={at(labelX, midY + 7)} dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
               Fr. {fmtR(node.value)}
             </text>
           </g>
@@ -483,12 +492,9 @@ useEffect(() => {
         </select>
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
-      )}
+      {/* The spinner is for the first load only; switching months keeps the
+          current month on screen, dimmed, until the next one arrives. */}
+      {loading && !data && <PageLoading />}
 
       {error && (
         <div className="text-sm text-destructive py-20 text-center">
@@ -500,8 +506,8 @@ useEffect(() => {
         </div>
       )}
 
-      {data && !loading && (
-        <div className="space-y-4">
+      {data && (
+        <div className={`space-y-4 transition-opacity ${loading ? "opacity-60 delay-300" : ""}`} aria-busy={loading}>
 
           {/* Stat cards — click to drill into the underlying transactions */}
 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

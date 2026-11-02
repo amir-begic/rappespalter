@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import type { LookThroughSummary } from "@/lib/portfolio/store"
+import { PageLoading } from "@/components/page-loading"
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -94,10 +95,7 @@ export default function LookThroughPage() {
       {error ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : !data ? (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+        <PageLoading />
       ) : data.total === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-2">

@@ -149,6 +149,17 @@
   }
   html {
     @apply font-sans;
+    /* Keep the scrollbar's space even when a page doesn't scroll. Pages are short
+       while they load, so otherwise the scrollbar comes and goes on every
+       navigation and the whole layout, top bar included, jumps sideways. */
+    scrollbar-gutter: stable;
+  }
+  /* Radix (selects, dialogs) locks scrolling while open and adds a right margin the
+     width of the scrollbar it hides. The gutter above already keeps that space, so
+     the margin would squeeze the layout sideways a second time. (An !important in
+     a layer beats the library's unlayered one.) */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
   body {
     @apply bg-background text-foreground;
@@ -231,9 +242,42 @@
   100% { transform: translate3d(-1.25rem, 1.5rem, 0) rotate(-8deg) scale(0.97); }
 }
 
+/* Page entrance: a page's sections fade up one after another, top to bottom. Pages
+   are a single root <div> in <main>; its children are the sections, except a
+   space-y-* stack (the content most pages show once loaded), whose children
+   cascade instead. CSS animations run when an element is inserted, so this plays
+   on every navigation and again for content that arrives after loading.
+   `backwards` (not `both`) so nothing is held after the animation, e.g. the
+   tiles' hover transform. */
+:root { --reveal-step: 110ms; }
+main > * > :not([class*="space-y-"]),
+main > * > [class*="space-y-"] > * {
+  animation: reveal 900ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+  animation-delay: calc(var(--reveal-step) * var(--reveal-i, 0));
+}
+main > * > [class*="space-y-"] > * { --reveal-offset: 1; }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(1) { --reveal-i: var(--reveal-offset, 0); }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(2) { --reveal-i: calc(1 + var(--reveal-offset, 0)); }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(3) { --reveal-i: calc(2 + var(--reveal-offset, 0)); }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(4) { --reveal-i: calc(3 + var(--reveal-offset, 0)); }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(5) { --reveal-i: calc(4 + var(--reveal-offset, 0)); }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(6) { --reveal-i: calc(5 + var(--reveal-offset, 0)); }
+:is(main > * > *, main > * > [class*="space-y-"] > *):nth-child(n+7) { --reveal-i: calc(6 + var(--reveal-offset, 0)); }
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+/* Page spinner (components/page-loading.tsx): hidden for the first 250 ms, so a
+   quick load shows the content straight away instead of flashing a spinner. */
+html main .page-loading { animation: page-loading-in 200ms ease-out 250ms backwards; }
+@keyframes page-loading-in {
+  from { opacity: 0; }
+}
+
 /* Reduced motion: chosen in Settings, or the OS's preference when that is "System".
    Animations stop and transitions become instant (the blobs' shape-changing is SVG
    <animate>, paused in blobs.tsx). */
+html[data-motion="reduce"] { --reveal-step: 0ms; }
 html[data-motion="reduce"] *,
 html[data-motion="reduce"] *::before,
 html[data-motion="reduce"] *::after {
@@ -243,6 +287,7 @@ html[data-motion="reduce"] *::after {
   scroll-behavior: auto !important;
 }
 @media (prefers-reduced-motion: reduce) {
+  html[data-motion="system"] { --reveal-step: 0ms; }
   html[data-motion="system"] *,
   html[data-motion="system"] *::before,
   html[data-motion="system"] *::after {

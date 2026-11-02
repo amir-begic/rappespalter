@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts"
+import { PageLoading } from "@/components/page-loading"
 
 interface TrendRow {
   month:       string
@@ -65,10 +66,7 @@ export default function TrendsPage() {
       </div>
 
       {loading && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
+        <PageLoading />
       )}
 
       {error && <div className="text-sm text-destructive py-20 text-center">{error}</div>}

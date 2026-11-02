@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { BUDGETABLE_TYPES as BUDGETABLE } from "@/lib/categories"
 import { BudgetDrift } from "./drift"
+import { PageLoading } from "@/components/page-loading"
 
 interface Category {
   id:     number
@@ -106,12 +107,7 @@ export default function BudgetsPage() {
         </Button>
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          Loading...
-        </div>
-      )}
+      {loading && !cats && <PageLoading />}
 
       {error && <div className="text-sm text-destructive py-4 text-center">{error}</div>}
       {saved && <div className="text-sm text-positive py-2">Budgets saved.</div>}
@@ -120,8 +116,8 @@ export default function BudgetsPage() {
         <BudgetDrift version={version} onUseAverage={(id, amount) => setLimit(id, String(amount))} />
       </div>
 
-      {cats && !loading && (
-        <Card>
+      {cats && (
+        <Card className={`transition-opacity ${loading ? "opacity-60 delay-300" : ""}`} aria-busy={loading}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm text-muted-foreground">
