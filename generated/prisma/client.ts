@@ -106,3 +106,13 @@ export type FundSource = Prisma.FundSourceModel
  * 
  */
 export type FundConstituent = Prisma.FundConstituentModel
+/**
+ * Model Goal
+ * 
+ */
+export type Goal = Prisma.GoalModel
+/**
+ * Model GoalAllocation
+ * 
+ */
+export type GoalAllocation = Prisma.GoalAllocationModel

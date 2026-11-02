@@ -27,7 +27,7 @@ const SECTIONS: { title: string; color: string; items: NavItem[] }[] = [
     color: "bg-pop-green",
     items: [
       { href: "/budgets",     label: "Budgets" },
-      { href: "/goal",        label: "Goal" },
+      { href: "/goal",        label: "Goals" },
       { href: "/networth",    label: "Net Worth" },
       { href: "/portfolio",   label: "Portfolio" },
       { href: "/projections", label: "Projections" },

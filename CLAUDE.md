@@ -29,6 +29,7 @@ src/
     projections/page.tsx     — 15-year wealth forecast
     portfolio/page.tsx       — standalone investment tracker (Yuh CSV + market prices)
     portfolio/look-through/  — ETFs broken down into companies / countries / sectors
+    goal/page.tsx            — savings goals (home, travel, …) with assets allocated to each
     recurring/page.tsx       — recurring payments: coming up, changes, yearly cost
     review/page.tsx          — review inbox (uncategorized + guessed categories)
     tax/page.tsx             — figures for one year's tax return
@@ -45,6 +46,7 @@ src/
       review/route.ts        — review inbox: list / counts, mark reviewed, re-map a group
       recurring/route.ts     — recurring series + upcoming payments
       tax/route.ts           — one year's 3a, balances, securities, dividends, income
+      goals/route.ts         — goals CRUD, balances + savings pace per asset, PATCH category → asset
       settings/route.ts      — user-editable settings (projection inputs)
       appearance/route.ts    — theme + motion preference
       backup/                — GET: database backup download; restore/: POST a backup to replace all data
@@ -59,6 +61,9 @@ src/
     marks.ts                 — TransactionMark table (one-off, category source, reviewed) + NOT_ONE_OFF
     recurring.ts             — pure recurring-payment detection
     tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
+    goals.ts                 — pure goal maths: allocation, savings pace per asset, projection
+                               (goals-store.ts: tables on demand + loading)
+    blob.ts                  — blob outlines shared by the page blobs and the goal illustrations
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
     budget-drift.ts          — pure budget-vs-actual analysis (window of complete months)
@@ -295,7 +300,7 @@ not used as a comparison base. One-offs are left out.
 `TransactionMark.oneOff`, toggled on Data → Transactions (hover a row) and in the
 review inbox. One-offs (an inheritance, a car) stay in totals — dashboard summary,
 Income page, tax summary — but are left out of trends and averages: `/api/trends`
-(and so the Goal page), income streams, budget drift, pace's "usual", and recurring
+(and so the old Goal page's pace), income streams, budget drift, pace's "usual", and recurring
 detection. Filter with `NOT_ONE_OFF` from src/lib/marks.ts.
 
 ## Review inbox
@@ -324,6 +329,21 @@ securities valued with `computePortfolio` as of 31 Dec (or today); dividends per
 security, gross = net + withholding, CHF at each payment day's ECB rate; income by
 category excluding transfers. One-offs count.
 
+## Goals
+Planning → Goals (`src/lib/goals.ts`, pure; tables `Goal` + `GoalAllocation`,
+created on demand by `ensureGoalTables()`). A goal has a kind (picks its illustration
+in `components/goal-art.tsx` and its colour), a target (home: price × (down payment +
+costs)%), an optional target date and allocations of the latest snapshot's balances:
+a fixed CHF amount or a percentage. Per asset, fixed amounts come first, percentages
+apply to the rest; over-allocation is scaled down and flagged, never counted twice.
+Säule 3a / 2. Säule only for home goals (early withdrawal). Timelines split the
+savings pace: each asset's average monthly inflow over the last 6 complete months
+(one-offs left out; checking = income − spending − saving; 2. Säule = the
+monthlyPillar2 setting) goes to goals by their percentage; fixed amounts don't grow;
+returns ignored. Which asset a savings category feeds defaults from its name and is
+set on the page (Setting `goals.source.<categoryId>`). The old localStorage house
+goal is migrated into a Home goal on first load.
+
 ## Modelled finances
 The app models a typical Swiss personal-finance setup. All values are entered by the
 user (imports, snapshots, Settings) — nothing is hard-coded:
@@ -332,7 +352,7 @@ user (imports, snapshots, Settings) — nothing is hard-coded:
 - Säule 3a (pillar 3a) monthly contribution
 - A savings-account balance
 - 2. Säule (pillar 2) balance
-- An optional savings goal, e.g. a property down payment (Goal page)
+- Savings goals, e.g. a property down payment or a trip (Goals page)
 
 ## Projection assumptions (defaults)
 - ETF: 6% annual return, monthly compounding

@@ -396,7 +396,9 @@ export const ModelName = {
   SecurityPrice: 'SecurityPrice',
   FxRate: 'FxRate',
   FundSource: 'FundSource',
-  FundConstituent: 'FundConstituent'
+  FundConstituent: 'FundConstituent',
+  Goal: 'Goal',
+  GoalAllocation: 'GoalAllocation'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -412,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "transaction" | "transactionMark" | "snapshot" | "budget" | "category" | "categoryRule" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent"
+    modelProps: "transaction" | "transactionMark" | "snapshot" | "budget" | "category" | "categoryRule" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent" | "goal" | "goalAllocation"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1378,6 +1380,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    Goal: {
+      payload: Prisma.$GoalPayload<ExtArgs>
+      fields: Prisma.GoalFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GoalFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GoalFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>
+        }
+        findFirst: {
+          args: Prisma.GoalFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GoalFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>
+        }
+        findMany: {
+          args: Prisma.GoalFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>[]
+        }
+        create: {
+          args: Prisma.GoalCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>
+        }
+        createMany: {
+          args: Prisma.GoalCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GoalCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>[]
+        }
+        delete: {
+          args: Prisma.GoalDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>
+        }
+        update: {
+          args: Prisma.GoalUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>
+        }
+        deleteMany: {
+          args: Prisma.GoalDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GoalUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GoalUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>[]
+        }
+        upsert: {
+          args: Prisma.GoalUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalPayload>
+        }
+        aggregate: {
+          args: Prisma.GoalAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGoal>
+        }
+        groupBy: {
+          args: Prisma.GoalGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoalGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GoalCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoalCountAggregateOutputType> | number
+        }
+      }
+    }
+    GoalAllocation: {
+      payload: Prisma.$GoalAllocationPayload<ExtArgs>
+      fields: Prisma.GoalAllocationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.GoalAllocationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.GoalAllocationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>
+        }
+        findFirst: {
+          args: Prisma.GoalAllocationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.GoalAllocationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>
+        }
+        findMany: {
+          args: Prisma.GoalAllocationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>[]
+        }
+        create: {
+          args: Prisma.GoalAllocationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>
+        }
+        createMany: {
+          args: Prisma.GoalAllocationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.GoalAllocationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>[]
+        }
+        delete: {
+          args: Prisma.GoalAllocationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>
+        }
+        update: {
+          args: Prisma.GoalAllocationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>
+        }
+        deleteMany: {
+          args: Prisma.GoalAllocationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.GoalAllocationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.GoalAllocationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>[]
+        }
+        upsert: {
+          args: Prisma.GoalAllocationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$GoalAllocationPayload>
+        }
+        aggregate: {
+          args: Prisma.GoalAllocationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateGoalAllocation>
+        }
+        groupBy: {
+          args: Prisma.GoalAllocationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoalAllocationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.GoalAllocationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.GoalAllocationCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1583,6 +1733,31 @@ export const FundConstituentScalarFieldEnum = {
 export type FundConstituentScalarFieldEnum = (typeof FundConstituentScalarFieldEnum)[keyof typeof FundConstituentScalarFieldEnum]
 
 
+export const GoalScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  kind: 'kind',
+  target: 'target',
+  targetDate: 'targetDate',
+  params: 'params',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt'
+} as const
+
+export type GoalScalarFieldEnum = (typeof GoalScalarFieldEnum)[keyof typeof GoalScalarFieldEnum]
+
+
+export const GoalAllocationScalarFieldEnum = {
+  id: 'id',
+  goalId: 'goalId',
+  asset: 'asset',
+  mode: 'mode',
+  value: 'value'
+} as const
+
+export type GoalAllocationScalarFieldEnum = (typeof GoalAllocationScalarFieldEnum)[keyof typeof GoalAllocationScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1747,6 +1922,8 @@ export type GlobalOmitConfig = {
   fxRate?: Prisma.FxRateOmit
   fundSource?: Prisma.FundSourceOmit
   fundConstituent?: Prisma.FundConstituentOmit
+  goal?: Prisma.GoalOmit
+  goalAllocation?: Prisma.GoalAllocationOmit
 }
 
 /* Types for Logging */

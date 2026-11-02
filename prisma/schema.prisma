@@ -171,3 +171,30 @@ model FundConstituent {
 
   @@index([symbol])
 }
+
+// ── Goals (Goals page): savings goals with assets allocated to them ──
+// Created on demand (src/lib/goals-store.ts), like the other tables added later.
+model Goal {
+  id          Int              @id @default(autoincrement())
+  name        String
+  kind        String           @default("other") // GOAL_KINDS in src/lib/goals.ts: picks the illustration
+  target      Float            @default(0)       // CHF
+  targetDate  String?          // YYYY-MM, optional
+  params      String?          // JSON, kind-specific inputs (home: price, depositPct, costsPct)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  allocations GoalAllocation[]
+}
+
+// Part of an asset (a snapshot balance) set aside for a goal: a percentage of
+// what's left after fixed amounts, or a fixed amount in CHF.
+model GoalAllocation {
+  id     Int    @id @default(autoincrement())
+  goalId Int
+  goal   Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  asset  String // checking | savings | etf | pillar3a | pillar2
+  mode   String @default("percent") // percent | amount
+  value  Float  // 0–100 for percent, CHF for amount
+
+  @@index([goalId])
+}

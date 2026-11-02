@@ -63,7 +63,9 @@ export const ModelName = {
   SecurityPrice: 'SecurityPrice',
   FxRate: 'FxRate',
   FundSource: 'FundSource',
-  FundConstituent: 'FundConstituent'
+  FundConstituent: 'FundConstituent',
+  Goal: 'Goal',
+  GoalAllocation: 'GoalAllocation'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -246,6 +248,31 @@ export const FundConstituentScalarFieldEnum = {
 } as const
 
 export type FundConstituentScalarFieldEnum = (typeof FundConstituentScalarFieldEnum)[keyof typeof FundConstituentScalarFieldEnum]
+
+
+export const GoalScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  kind: 'kind',
+  target: 'target',
+  targetDate: 'targetDate',
+  params: 'params',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt'
+} as const
+
+export type GoalScalarFieldEnum = (typeof GoalScalarFieldEnum)[keyof typeof GoalScalarFieldEnum]
+
+
+export const GoalAllocationScalarFieldEnum = {
+  id: 'id',
+  goalId: 'goalId',
+  asset: 'asset',
+  mode: 'mode',
+  value: 'value'
+} as const
+
+export type GoalAllocationScalarFieldEnum = (typeof GoalAllocationScalarFieldEnum)[keyof typeof GoalAllocationScalarFieldEnum]
 
 
 export const SortOrder = {
