@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DEFAULT_SETTINGS, type Settings } from "@/lib/settings"
-import { ASSET_KEYS, compareForecast, projectAfter, totalOf } from "@/lib/projection"
+import { Button } from "@/components/ui/button"
+import { DEFAULT_SETTINGS, ageOn, type Settings } from "@/lib/settings"
+import {
+  ASSET_KEYS, RETIREMENT_AGE, assumptionsFrom, compareForecast, forecastToRetirement, totalOf,
+  type Assumptions, type AssetKey, type Balances,
+} from "@/lib/projection"
 import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, CartesianGrid, ReferenceLine,
@@ -22,48 +26,25 @@ interface Snapshot {
   total:     number
 }
 
-interface ProjectionPoint {
-  label:    string
-  age:      number
-  pillar2:  number
-  savings:  number
-  pillar3a: number
-  etf:      number
-  total:    number
+// What the forecast starts from: the latest snapshot, or the opening balances from
+// Settings until one is recorded. Personal inputs (contributions, birth date)
+// come from /api/settings, defaulting to the NEXT_PUBLIC_* env vars (lib/settings).
+function startOf(snapshots: Snapshot[], settings: Settings): { balances: Balances; month: string } {
+  const last = snapshots.at(-1)
+  if (last) return { balances: last, month: monthKey(last.month) }
+  const d = new Date()
+  return {
+    balances: { etf: settings.initEtf, savings: settings.initSavings, pillar3a: settings.initPillar3a, pillar2: settings.initPillar2 },
+    month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+  }
 }
 
-// ── Projection engine (rates and monthly steps in lib/projection)
-// Personal inputs (monthly contributions, starting age, and the fallback opening
-// balances used when no snapshot exists yet) come from /api/settings — edited on
-// the Settings page, defaulting to the NEXT_PUBLIC_* env vars (see lib/settings).
-function buildProjection(snapshots: Snapshot[], settings: Settings): ProjectionPoint[] {
-  // Use the most recent snapshot as the starting point; fall back to the
-  // configured opening balances if no snapshots exist yet.
-  const latest = snapshots.length > 0
-    ? snapshots[snapshots.length - 1]
-    : {
-        etf:      settings.initEtf,
-        savings:  settings.initSavings,
-        pillar3a: settings.initPillar3a,
-        pillar2:  settings.initPillar2,
-      }
-
-  const checkpoints = [0, 12, 36, 60, 84, 120, 180] // months
-
-  return checkpoints.map(checkpoint => {
-    const b = projectAfter(latest, checkpoint, settings)
-    const years = checkpoint / 12
-    return {
-      label:   checkpoint === 0 ? "Now" : `${years}y`,
-      age:     settings.startAge + years,
-      pillar2:  Math.round(b.pillar2),
-      savings:  Math.round(b.savings),
-      pillar3a: Math.round(b.pillar3a),
-      etf:      Math.round(b.etf),
-      total:    Math.round(totalOf(b)),
-    }
-  })
-}
+// The calculator: the plan from Settings with the default returns, which the
+// sliders change for this visit only — nothing is saved.
+// inflation: 0 shows nominal francs; above 0, every amount is in today's francs.
+interface Scenario { a: Assumptions; retirementAge: number; inflation: number }
+const planOf = (settings: Settings): Scenario => ({ a: assumptionsFrom(settings), retirementAge: RETIREMENT_AGE, inflation: 0 })
+const sameScenario = (x: Scenario, y: Scenario) => JSON.stringify(x) === JSON.stringify(y)
 
 // Snapshot months are stored as local midnight on the 1st; read them back in
 // local time (toISOString would give the previous month east of UTC).
@@ -89,6 +70,13 @@ const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
 const fmtSigned = (n: number) =>
   `${Math.round(n) >= 0 ? "+" : "−"}Fr. ${fmtR(Math.abs(n))}`
 
+const fmtMonthLong = (m: string) => {
+  const [y, mo] = m.split("-").map(Number)
+  return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" })
+}
+
+const fmtPct = (r: number) => `${(r * 100).toLocaleString("de-CH", { maximumFractionDigits: 2 })}%`
+
 const fmtM = (n: number) =>
   n >= 1_000_000
     ? `Fr. ${(n / 1_000_000).toFixed(2)}M`
@@ -104,8 +92,8 @@ const COLORS = {
 export default function ProjectionsPage() {
   const [snapshots, setSnapshots]   = useState<Snapshot[]>([])
   const [loading, setLoading]       = useState(true)
-  const [projection, setProjection] = useState<ProjectionPoint[]>([])
   const [settings, setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
+  const [scenario, setScenario]     = useState<Scenario>(() => planOf(DEFAULT_SETTINGS))
 
   // Snapshot form state
   const [formMonth,    setFormMonth]    = useState(() => {
@@ -134,7 +122,7 @@ export default function ProjectionsPage() {
         const cfg   = settingsData.settings ?? DEFAULT_SETTINGS
         setSnapshots(snaps)
         setSettings(cfg)
-        setProjection(buildProjection(snaps, cfg))
+        setScenario(planOf(cfg))
       })
       .finally(() => setLoading(false))
   }, [])
@@ -159,14 +147,24 @@ export default function ProjectionsPage() {
       const updated = [...snapshots.filter(s => s.month !== data.snapshot.month), data.snapshot]
         .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       setSnapshots(updated)
-      setProjection(buildProjection(updated, settings))
       setSaved(true)
     }
     setSaving(false)
   }
 
-  const latest    = projection[projection.length - 1]
-  const milestone = projection.find(p => p.total >= 1_000_000)
+  // The forecast, month by month until retirement (one point a year).
+  const start     = startOf(snapshots, settings)
+  const birthDate = settings.birthDate ?? `${new Date().getFullYear() - 30}-01-01`
+  const forecast  = forecastToRetirement(start.balances, start.month, birthDate, scenario.retirementAge, scenario.a, scenario.inflation)
+  const real      = scenario.inflation > 0
+  const final     = forecast.at(-1)!
+  const changed   = !sameScenario(scenario, planOf(settings))
+  // Cards: now, every 5 years of age (10 for long spans), and retirement.
+  const step      = scenario.retirementAge - (forecast[0]?.age ?? 0) > 35 ? 10 : 5
+  const cards     = forecast.filter((p, i) => i === 0 || i === forecast.length - 1 || (p.age % step === 0 && scenario.retirementAge - p.age >= step / 2))
+  // What goes in over the whole span vs. what returns add.
+  const years     = final.age - (forecast[0]?.age ?? final.age)
+  const growth    = final.total - totalOf(start.balances) - final.paidIn
 
   // Forecast vs. actual: what the forecast made at an earlier snapshot expected.
   // Any snapshot but the latest can be the starting point; default is the first.
@@ -174,7 +172,7 @@ export default function ProjectionsPage() {
   const snapMonths  = snapshots.map(s => ({ ...s, month: monthKey(s.month) }))
   const baseOptions = snapMonths.slice(0, -1).map(s => s.month)
   const base = baseMonth && baseOptions.includes(baseMonth) ? baseMonth : baseOptions[0]
-  const comparison = base ? compareForecast(snapMonths, base, settings) : null
+  const comparison = base ? compareForecast(snapMonths, base, assumptionsFrom(settings)) : null
   const gap = comparison
     ? totalOf(comparison.today.actual) - totalOf(comparison.today.plan)
     : 0
@@ -188,10 +186,11 @@ export default function ProjectionsPage() {
           Projections
         </p>
         <h1>
-          15-Year Wealth Forecast
+          Forecast to retirement
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Based on current assets and monthly contribution assumptions.{" "}
+          Where your assets are heading until you&apos;re {scenario.retirementAge}, from your latest balances and monthly
+          contributions. Try other returns and amounts in the calculator below.{" "}
           <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
             Edit inputs
           </Link>
@@ -203,44 +202,18 @@ export default function ProjectionsPage() {
       ) : (
         <div className="space-y-4">
 
-          {/* Milestone banner */}
-          {milestone && (
-            <div className="rounded-lg border border-positive/25 bg-positive/10 px-5 py-4 flex justify-between items-center flex-wrap gap-4">
-              <div>
-                <p className="text-xs uppercase text-positive/80 mb-1">
-                  Millionaire milestone
-                </p>
-                <p className="text-xl text-positive">
-                  Age {milestone.age} · Year {milestone.age - settings.startAge}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-positive/80 mb-1 uppercase">
-                  15Y total
-                </p>
-                <p className="font-display text-3xl text-highlight">
-                  {latest ? fmtM(latest.total) : "—"}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Snapshot cards */}
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-            {projection.map(p => (
-              <Card key={p.label} className="text-center">
-                <CardContent className="pt-4 pb-3">
+          {/* Checkpoints by age */}
+          <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
+            {cards.map((p, i) => (
+              <Card key={p.month} className="text-center">
+                <CardContent className="px-1 pt-4 pb-3">
                   <p className="text-xs uppercase text-muted-foreground mb-1">
-                    {p.label}
+                    {i === 0 ? "Now" : `Age ${p.age}`}
                   </p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Age {p.age}
+                    {i === 0 ? `Age ${ageOn(birthDate)}` : p.month.slice(0, 4)}
                   </p>
-                  <p className={`text-base font-mono ${
-                    p.total >= 1_000_000 ? "text-highlight" : "text-positive"
-                  }`}>
-                    {fmtM(p.total)}
-                  </p>
+                  <p className="text-sm font-mono whitespace-nowrap">{fmtM(p.total)}</p>
                 </CardContent>
               </Card>
             ))}
@@ -248,14 +221,15 @@ export default function ProjectionsPage() {
 
           {/* Area chart */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-baseline justify-between gap-2">
               <CardTitle className="text-sm text-muted-foreground">
-                Total assets over 15 years
+                Total assets until age {scenario.retirementAge}{real && " · in today's francs"}
               </CardTitle>
+              {changed && <span className="text-xs text-info">What-if from the calculator</span>}
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={projection} margin={{ left: 10, right: 10, top: 10, bottom: 0 }}>
+                <AreaChart data={forecast} margin={{ left: 10, right: 10, top: 10, bottom: 0 }}>
                   <defs>
                     {Object.entries(COLORS).map(([key, color]) => (
                       <linearGradient key={key} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
@@ -266,10 +240,11 @@ export default function ProjectionsPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis
-                    dataKey="label"
+                    dataKey="age"
                     tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                     axisLine={false}
                     tickLine={false}
+                    minTickGap={16}
                   />
                   <YAxis
                     tickFormatter={fmtM}
@@ -279,7 +254,8 @@ export default function ProjectionsPage() {
                     width={70}
                   />
                   <Tooltip
-                    formatter={(value) => [`Fr. ${fmtR(Number(value))}`, ""]}
+                    labelFormatter={(age, payload) => `Age ${age} · ${payload?.[0]?.payload?.month ? fmtMonth(payload[0].payload.month) : ""}`}
+                    formatter={(value, name) => [`Fr. ${fmtR(Number(value))}`, ASSET_LABELS[name as AssetKey] ?? name]}
                     contentStyle={{
                       background: "var(--card)",
                       border: "1px solid var(--border)",
@@ -287,23 +263,57 @@ export default function ProjectionsPage() {
                       fontSize: "12px",
                     }}
                   />
-                  <Area type="monotone" dataKey="pillar2"  stackId="1" stroke={COLORS.pillar2}  fill={`url(#grad-pillar2)`}  strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="savings"  stackId="1" stroke={COLORS.savings}  fill={`url(#grad-savings)`}  strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="pillar3a" stackId="1" stroke={COLORS.pillar3a} fill={`url(#grad-pillar3a)`} strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="etf"      stackId="1" stroke={COLORS.etf}      fill={`url(#grad-etf)`}      strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="pillar2"  stackId="1" stroke={COLORS.pillar2}  fill={`url(#grad-pillar2)`}  strokeWidth={1.5} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="savings"  stackId="1" stroke={COLORS.savings}  fill={`url(#grad-savings)`}  strokeWidth={1.5} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="pillar3a" stackId="1" stroke={COLORS.pillar3a} fill={`url(#grad-pillar3a)`} strokeWidth={1.5} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="etf"      stackId="1" stroke={COLORS.etf}      fill={`url(#grad-etf)`}      strokeWidth={1.5} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-4 mt-3 justify-center">
-                {Object.entries(COLORS).map(([key, color]) => (
+                {ASSET_KEYS.map(key => (
                   <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
-                    {key === "pillar2"  ? "2. Säule"       : ""}
-                    {key === "savings"  ? "Savings account" : ""}
-                    {key === "pillar3a" ? "Säule 3a"        : ""}
-                    {key === "etf"      ? "ETF portfolio"   : ""}
+                    <div className="w-2 h-2 rounded-sm" style={{ background: COLORS[key] }} />
+                    {ASSET_LABELS[key]}
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Calculator */}
+          <Calculator
+            scenario={scenario}
+            changed={changed}
+            onChange={setScenario}
+            onReset={() => setScenario(planOf(settings))}
+          />
+
+          {/* At retirement */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">
+                At {scenario.retirementAge} · {fmtMonthLong(final.month)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {ASSET_KEYS.map(key => (
+                <div key={key} className="flex justify-between items-center py-2 border-b border-border text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-sm" style={{ background: COLORS[key] }} />
+                    <span className="text-muted-foreground">{ASSET_LABELS[key]}</span>
+                  </div>
+                  <span className="font-mono">Fr. {fmtR(final[key])}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-3 text-sm font-semibold">
+                <span>Total</span>
+                <span className="font-mono">Fr. {fmtR(final.total)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                {real && <>In today&apos;s francs, at {fmtPct(scenario.inflation)} inflation a year. </>}
+                Of that, Fr. {fmtR(totalOf(start.balances))} is what you have today, Fr. {fmtR(final.paidIn)} is what you
+                put in over {years} years, and Fr. {fmtR(growth)} comes from returns{real && " after inflation"}.
+              </p>
             </CardContent>
           </Card>
 
@@ -452,44 +462,6 @@ export default function ProjectionsPage() {
             </CardContent>
           </Card>
 
-          {/* Year 15 breakdown */}
-          {latest && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">
-                  Year 15 breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {[
-                  { label: "2. Säule",        value: latest.pillar2,  color: COLORS.pillar2  },
-                  { label: "Savings account", value: latest.savings,  color: COLORS.savings  },
-                  { label: "Säule 3a",        value: latest.pillar3a, color: COLORS.pillar3a },
-                  { label: "ETF portfolio",   value: latest.etf,      color: COLORS.etf      },
-                ].map(row => (
-                  <div
-                    key={row.label}
-                    className="flex justify-between items-center py-2 border-b border-border last:border-0 text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-sm" style={{ background: row.color }} />
-                      <span className="text-muted-foreground">{row.label}</span>
-                    </div>
-                    <span className="font-mono" style={{ color: row.color }}>
-                      Fr. {fmtR(row.value)}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-3 text-sm">
-                  <span>Total</span>
-                  <span className="font-mono text-highlight">
-                    Fr. {fmtR(latest.total)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Record snapshot */}
           <Card>
             <CardHeader className="pb-2">
@@ -606,7 +578,10 @@ export default function ProjectionsPage() {
 
           {/* Assumptions */}
           <p className="text-xs text-muted-foreground text-center pb-4 leading-relaxed">
-            ETF 6% avg · Säule 3a 5% · Savings 0.75% (static) · 2. Säule 2.5% + monthly contributions
+            Returns a year: {ASSET_KEYS.map(k => `${ASSET_LABELS[k]} ${fmtPct(scenario.a.rates[k])}`).join(" · ")}, compounded monthly.
+            {" "}{real
+              ? `Amounts in today's francs at ${fmtPct(scenario.inflation)} inflation a year; tax isn't taken into account.`
+              : "Nominal amounts: inflation and tax aren't taken into account."}
             <br />
             Projections are estimates. Past performance does not guarantee future results.
           </p>
@@ -614,5 +589,90 @@ export default function ProjectionsPage() {
         </div>
       )}
     </div>
+  )
+}
+// Sliders for returns, contributions and retirement age. Changes only this view.
+const RETURN_MAX = 0.12
+const MONTHLY_MAX: Record<AssetKey, number> = { etf: 10000, savings: 5000, pillar3a: 1000, pillar2: 3000 }
+const MONTHLY_STEP: Record<AssetKey, number> = { etf: 50, savings: 50, pillar3a: 10, pillar2: 25 }
+
+function Slider({ label, value, min, max, step, display, onChange }: {
+  label: string; value: number; min: number; max: number; step: number
+  display: string; onChange: (v: number) => void
+}) {
+  return (
+    <label className="block">
+      <span className="flex items-baseline justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono">{display}</span>
+      </span>
+      <input
+        type="range" min={min} max={Math.max(max, value)} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        className="mt-1 w-full accent-primary"
+      />
+    </label>
+  )
+}
+
+function Calculator({ scenario, changed, onChange, onReset }: {
+  scenario: Scenario; changed: boolean
+  onChange: (s: Scenario) => void; onReset: () => void
+}) {
+  const set = (part: "rates" | "monthly", key: AssetKey, value: number) =>
+    onChange({ ...scenario, a: { ...scenario.a, [part]: { ...scenario.a[part], [key]: value } } })
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+        <CardTitle className="text-sm text-muted-foreground">Play with the numbers</CardTitle>
+        {changed && <Button size="sm" variant="outline" onClick={onReset}>Back to my settings</Button>}
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-muted-foreground mb-4">
+          Try other returns and savings — the forecast above follows. Nothing is saved; your plan stays as set
+          on <Link href="/settings" className="underline">Settings</Link>.
+        </p>
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-xs uppercase text-muted-foreground">Return a year</p>
+            {ASSET_KEYS.map(k => (
+              <Slider
+                key={k} label={ASSET_LABELS[k]} value={scenario.a.rates[k]}
+                min={0} max={RETURN_MAX} step={0.0025} display={fmtPct(scenario.a.rates[k])}
+                onChange={v => set("rates", k, v)}
+              />
+            ))}
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs uppercase text-muted-foreground">Added each month</p>
+            {ASSET_KEYS.map(k => (
+              <Slider
+                key={k} label={ASSET_LABELS[k]} value={scenario.a.monthly[k]}
+                min={0} max={MONTHLY_MAX[k]} step={MONTHLY_STEP[k]} display={`Fr. ${fmtR(scenario.a.monthly[k])}`}
+                onChange={v => set("monthly", k, v)}
+              />
+            ))}
+          </div>
+          <Slider
+            label="Retirement age" value={scenario.retirementAge}
+            min={58} max={70} step={1} display={String(scenario.retirementAge)}
+            onChange={v => onChange({ ...scenario, retirementAge: v })}
+          />
+          <div>
+            <Slider
+              label="Inflation a year" value={scenario.inflation}
+              min={0} max={0.04} step={0.0025}
+              display={scenario.inflation > 0 ? fmtPct(scenario.inflation) : "off"}
+              onChange={v => onChange({ ...scenario, inflation: v })}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Above 0, every amount is shown in today&apos;s francs. The Swiss National Bank aims to keep inflation
+              below 2% a year.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button"
 import { UpdatesCard } from "@/components/updates-card"
 import { AppearanceCard } from "@/components/appearance-card"
 import { BackupCard } from "@/components/backup-card"
-import { SETTING_FIELDS, type SettingKey, type Settings } from "@/lib/settings"
+import { SETTING_FIELDS, ageOn, type SettingKey, type Settings } from "@/lib/settings"
 import { PageLoading } from "@/components/page-loading"
 
 const GROUPS = [
-  { id: "profile", title: "Profile",               hint: "Used as the starting age on the projection timeline." },
   { id: "monthly", title: "Monthly contributions", hint: "CHF added every month in the projection." },
   { id: "initial", title: "Opening balances",      hint: "CHF starting balances, used only until you record a snapshot on the Projections page." },
 ] as const
@@ -20,13 +19,17 @@ const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
 
 export default function SettingsPage() {
   const [values, setValues]     = useState<Record<SettingKey, string> | null>(null)
+  const [birthDate, setBirthDate] = useState("")
+  const [estimated, setEstimated] = useState(false) // birth date guessed from the old age setting
   const [defaults, setDefaults] = useState<Settings | null>(null)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [error, setError]       = useState<string | null>(null)
 
-  function apply(d: { settings: Settings; defaults: Settings }) {
+  function apply(d: { settings: Settings; defaults: Settings; birthDateEstimated: boolean }) {
     setDefaults(d.defaults)
+    setBirthDate(d.settings.birthDate ?? "")
+    setEstimated(d.birthDateEstimated)
     setValues(Object.fromEntries(
       SETTING_FIELDS.map(f => [f.key, String(d.settings[f.key])])
     ) as Record<SettingKey, string>)
@@ -46,7 +49,7 @@ export default function SettingsPage() {
 
   async function save(reset = false) {
     if (!values) return
-    const payload: Record<string, number | null> = {}
+    const payload: Record<string, number | string | null> = {}
     for (const f of SETTING_FIELDS) {
       const n = Number(values[f.key])
       if (!reset && (values[f.key].trim() === "" || !Number.isFinite(n) || n < 0)) {
@@ -54,6 +57,12 @@ export default function SettingsPage() {
         return
       }
       payload[f.key] = reset ? null : n
+    }
+    if (reset) payload.birthDate = null
+    else if (birthDate && !estimated) payload.birthDate = birthDate
+    else if (!birthDate) {
+      setError("Birth date: pick a date")
+      return
     }
 
     setSaving(true)
@@ -100,6 +109,37 @@ export default function SettingsPage() {
         )
       ) : (
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Profile</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground mb-4">
+                Places the forecast on your age and runs it until retirement.
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div>
+                  <label htmlFor="birthDate" className="text-xs text-muted-foreground mb-1 block">Birth date</label>
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={birthDate}
+                    onChange={e => { setSaved(false); setEstimated(false); setBirthDate(e.target.value) }}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {birthDate ? `Age ${ageOn(birthDate)}` : "Not set"}
+                  </p>
+                </div>
+              </div>
+              {estimated && (
+                <p className="text-xs text-negative mt-3">
+                  Estimated from the age you entered before — please set your real birth date.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {GROUPS.map(group => (
             <Card key={group.id}>
               <CardHeader className="pb-2">

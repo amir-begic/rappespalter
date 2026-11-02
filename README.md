@@ -43,7 +43,7 @@ rates are real, fetched once from Yahoo and the ECB):
 ```bash
 node scripts/demo-db.mjs demo.db
 DATABASE_URL="file:./demo.db" NEXT_PUBLIC_MONTHLY_ETF=1000 NEXT_PUBLIC_MONTHLY_3A=500 \
-  NEXT_PUBLIC_MONTHLY_PILLAR2=650 NEXT_PUBLIC_START_AGE=32 NEXT_PUBLIC_INIT_ETF=40000 \
+  NEXT_PUBLIC_MONTHLY_PILLAR2=650 NEXT_PUBLIC_BIRTH_DATE=1990-01-01 NEXT_PUBLIC_INIT_ETF=40000 \
   NEXT_PUBLIC_INIT_SAVINGS=15000 NEXT_PUBLIC_INIT_PILLAR3A=36000 NEXT_PUBLIC_INIT_PILLAR2=80000 \
   pnpm dev
 ```
@@ -105,11 +105,11 @@ Standalone investment tracker fed by **Yuh** activity CSV exports. Holdings are 
 ### 💵 Income
 Income broken down by source (category) with a monthly stacked trend, year filter, top-source ranking, and a transaction drill-down.
 
-### 🎯 Goal
-Down-payment tracker for a property purchase. Enter price, down-payment %, and extra costs; it projects an on-track date from your trailing 6-month **liquid** savings rate (deliberately conservative — ignores ETF growth and locked pension assets). Inputs persist in your browser.
+### 🎯 Goals
+Any number of savings goals — home, travel, wedding, car, safety net, education, family or anything else — each with its own illustration. Set aside part of your accounts for each (a percentage or a fixed amount; pension money only for a home), and each goal's timeline follows your actual savings pace per account (last 6 complete months, one-offs left out, returns ignored).
 
 ### 🔮 Projections
-15-year wealth forecast. Record balance snapshots, then the engine compounds each asset class (default rates: ETF 6%, pillar 3a 5%, savings 0.75%, pillar 2 2.5%) plus your monthly contributions, with checkpoints at 0/1/3/5/7/10/15 years and a CHF 1M milestone banner. Contribution amounts, starting age and opening balances are edited on the **Settings** page (defaults come from environment variables — see [Configuration](#configuration)).
+Forecast until retirement (65 by default) on an age axis. Record balance snapshots, then the engine compounds each asset class (default rates: ETF 6%, pillar 3a 5%, savings 0.75%, pillar 2 2.5%) plus your monthly contributions. A calculator lets you try other returns, contributions, retirement ages and inflation (showing everything in today's francs) without changing your settings. A *Forecast vs. actual* card compares an earlier forecast with your snapshots since. Contribution amounts, birth date and opening balances are edited on the **Settings** page (defaults come from environment variables — see [Configuration](#configuration)).
 
 ### 🗄️ Data
 A built-in database browser: paginated, filterable transaction table with inline category re-mapping, plus tabs for categories, budgets, and snapshots.
@@ -176,7 +176,8 @@ All config lives in `.env` (gitignored — copy from [`.env.example`](.env.examp
 | `NEXT_PUBLIC_MONTHLY_ETF` | Monthly ETF contribution (projections) | `0` |
 | `NEXT_PUBLIC_MONTHLY_3A` | Monthly pillar 3a contribution | `0` |
 | `NEXT_PUBLIC_MONTHLY_PILLAR2` | Monthly pillar 2 contribution | `0` |
-| `NEXT_PUBLIC_START_AGE` | Your age (projection x-axis start) | `30` |
+| `NEXT_PUBLIC_BIRTH_DATE` | Your birth date, `YYYY-MM-DD` (forecast age axis, runs until retirement) | — |
+| `NEXT_PUBLIC_START_AGE` | Legacy: an age, only used to estimate a birth date when none is set | `30` |
 | `NEXT_PUBLIC_INIT_ETF` / `_SAVINGS` / `_PILLAR3A` / `_PILLAR2` | Opening balances used only when no snapshot exists yet | `0` |
 
 The `NEXT_PUBLIC_*` values are only **defaults** for the **Settings** page — anything saved there takes precedence (and works in the desktop app, where env vars are fixed at build time). Because they're personal, they stay in your local `.env` and out of the repository.

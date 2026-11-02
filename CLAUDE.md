@@ -360,6 +360,17 @@ user (imports, snapshots, Settings) — nothing is hard-coded:
 - Savings account: 0.75% (static, no new contributions)
 - 2. Säule: 2.5% annual return + monthly contributions
 
+The forecast (`forecastToRetirement` in src/lib/projection.ts) runs from the latest
+snapshot until the month the user turns `RETIREMENT_AGE` (65), on an age axis from the
+**birth date** setting. Settings stores it as `birthDate` (YYYY-MM-DD); it replaced a
+numeric `startAge`, which is only used to estimate a birth date (1 Jan) when none is
+saved (`birthDateEstimated`; saving a birth date deletes `startAge`). The Projections
+calculator changes returns, contributions, retirement age and inflation for the visit
+only (`Assumptions`); inflation above 0 deflates every amount to today's francs
+(contributions stay fixed in nominal francs). Forecast vs. actual always uses the saved
+plan (`assumptionsFrom`), nominal.
+No milestone banners — amounts aren't judged.
+
 ## Commands
 
 ```bash

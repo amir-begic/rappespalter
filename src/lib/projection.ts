@@ -1,6 +1,6 @@
-// Pure projection maths for the Projections page: the 15-year forecast and the
-// forecast-vs-actual comparison. Checking isn't modelled (it's spending money),
-// so every total here is ETF + savings + 3a + 2. Säule.
+// Pure projection maths for the Projections page: the forecast to retirement,
+// the calculator and the forecast-vs-actual comparison. Checking isn't modelled
+// (it's spending money), so every total here is ETF + savings + 3a + 2. Säule.
 
 import type { Settings } from "@/lib/settings"
 
@@ -11,34 +11,97 @@ export interface Balances {
   pillar2:  number
 }
 
-export type Contributions = Pick<Settings, "monthlyEtf" | "monthly3a" | "monthlyPillar2">
+export const ASSET_KEYS = ["etf", "savings", "pillar3a", "pillar2"] as const
+export type AssetKey = (typeof ASSET_KEYS)[number]
 
-// Annual returns, compounded monthly. Savings get interest but no contributions.
-export const RATES = {
+// What a forecast assumes per asset: the annual return (compounded monthly) and
+// the CHF added every month.
+export interface Assumptions {
+  rates:   Record<AssetKey, number> // 0.06 = 6% a year
+  monthly: Record<AssetKey, number>
+}
+
+// Default annual returns. The calculator starts from these; everything else
+// (forecast vs. actual, the saved plan) uses them as they are.
+export const RATES: Record<AssetKey, number> = {
   etf:      0.06,
   pillar3a: 0.05,
   savings:  0.0075,
   pillar2:  0.025,
-} as const
+}
 
-export const ASSET_KEYS = ["etf", "savings", "pillar3a", "pillar2"] as const
+export const RETIREMENT_AGE = 65 // Swiss reference age (AHV)
 
-export const totalOf = (b: Balances) => b.etf + b.savings + b.pillar3a + b.pillar2
-
-export function stepMonth(b: Balances, c: Contributions): Balances {
+// The plan as saved in Settings, with the default returns. The savings account
+// gets interest but no contributions (there's no setting for it).
+export function assumptionsFrom(s: Pick<Settings, "monthlyEtf" | "monthly3a" | "monthlyPillar2">): Assumptions {
   return {
-    etf:      b.etf      * (1 + RATES.etf / 12)      + c.monthlyEtf,
-    pillar3a: b.pillar3a * (1 + RATES.pillar3a / 12) + c.monthly3a,
-    savings:  b.savings  * (1 + RATES.savings / 12),
-    pillar2:  b.pillar2  * (1 + RATES.pillar2 / 12)  + c.monthlyPillar2,
+    rates:   { ...RATES },
+    monthly: { etf: s.monthlyEtf, pillar3a: s.monthly3a, savings: 0, pillar2: s.monthlyPillar2 },
   }
 }
 
+export const totalOf = (b: Balances) => b.etf + b.savings + b.pillar3a + b.pillar2
+
+export function stepMonth(b: Balances, a: Assumptions): Balances {
+  const step = (k: AssetKey) => b[k] * (1 + a.rates[k] / 12) + a.monthly[k]
+  return { etf: step("etf"), pillar3a: step("pillar3a"), savings: step("savings"), pillar2: step("pillar2") }
+}
+
 /** Balances after `months` months, starting from `start`. */
-export function projectAfter(start: Balances, months: number, c: Contributions): Balances {
+export function projectAfter(start: Balances, months: number, a: Assumptions): Balances {
   let b = start
-  for (let i = 0; i < months; i++) b = stepMonth(b, c)
+  for (let i = 0; i < months; i++) b = stepMonth(b, a)
   return b
+}
+
+export interface ForecastPoint extends Balances {
+  month:  string // YYYY-MM
+  age:    number // whole years, on the 1st of that month
+  total:  number
+  paidIn: number // contributions so far
+}
+
+/**
+ * Month by month from `start` (balances in month `from`) until the month the
+ * person turns `retirementAge`. One point a year (each birthday month, plus the
+ * start and the end); rounded to CHF.
+ *
+ * With `inflation` (a year, e.g. 0.01) every amount is in today's francs: a
+ * franc t years ahead is worth 1 / (1 + inflation)^t now. Contributions stay the
+ * same in nominal francs, so they shrink in today's money too.
+ */
+export function forecastToRetirement(
+  start: Balances, from: string, birthDate: string, retirementAge: number, a: Assumptions, inflation = 0,
+): ForecastPoint[] {
+  const [by, bm] = birthDate.split("-").map(Number)
+  const end = `${by + retirementAge}-${String(bm).padStart(2, "0")}`
+  const ageIn = (month: string) => {
+    const [y, m] = month.split("-").map(Number)
+    return y - by - (m < bm ? 1 : 0)
+  }
+  const monthlyFactor = 1 / Math.pow(1 + inflation, 1 / 12)
+  const perMonth = ASSET_KEYS.reduce((sum, k) => sum + a.monthly[k], 0)
+  let deflate = 1 // today's francs per franc in the current month
+  let paidIn = 0
+  const points: ForecastPoint[] = []
+  const push = (month: string, b: Balances) => points.push({
+    month, age: ageIn(month),
+    etf: Math.round(b.etf * deflate), savings: Math.round(b.savings * deflate),
+    pillar3a: Math.round(b.pillar3a * deflate), pillar2: Math.round(b.pillar2 * deflate),
+    total: Math.round(totalOf(b) * deflate),
+    paidIn: Math.round(paidIn),
+  })
+
+  let b = start
+  push(from, b)
+  for (let month = addMonths(from, 1); month <= end; month = addMonths(month, 1)) {
+    b = stepMonth(b, a)
+    deflate *= monthlyFactor
+    paidIn += perMonth * deflate
+    if (Number(month.slice(5)) === bm || month === end) push(month, b)
+  }
+  return points
 }
 
 // YYYY-MM arithmetic
@@ -78,7 +141,7 @@ export interface Comparison {
 export function compareForecast(
   snapshots: (Balances & { month: string })[],
   base: string,
-  c: Contributions,
+  c: Assumptions,
   monthsAhead = 12,
 ): Comparison | null {
   const sorted = [...snapshots].sort((a, b) => a.month.localeCompare(b.month))
