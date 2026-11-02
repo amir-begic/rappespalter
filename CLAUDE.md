@@ -104,7 +104,7 @@ electron/
   updater.js                 — update feed check + verified installer download
   preload.js                 — exposes window.rappespalter.updates (the only bridge)
 scripts/
-  assemble-standalone.mjs    — post-build: copy static/public + snapshot db template
+  assemble-standalone.mjs    — post-build: copy static/public + the clean resources/template.db (never dev.db)
 ```
 
 ## Desktop app (Electron)

@@ -1,7 +1,7 @@
 // Runs after `next build`. The standalone server.js does NOT include the static
 // assets or the public/ folder, so we copy them into the standalone tree where
-// server.js expects to serve them from. We also snapshot the current dev.db as
-// the template database that ships with the app (copied to userData on first run).
+// server.js expects to serve them from. We also copy the clean template database
+// that ships with the app (copied to userData on first run).
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { dirname, join } from "node:path"
@@ -24,24 +24,20 @@ if (existsSync(join(root, "public"))) {
   cpSync(join(root, "public"), join(standalone, "public"), { recursive: true })
 }
 
-// Produce the seed template shipped with the app and copied to userData on
-// first launch. A personal build (dev.db present) ships your own data; any other
-// build (e.g. CI, where dev.db is gitignored) ships the committed clean template
-// — schema + default categories, no personal data — so the app has a working,
-// queryable database out of the box.
+// The seed database shipped with the app and copied to userData on first launch:
+// always the committed clean template (schema + default categories). Never
+// dev.db, even when present: an installer built from it would carry your own
+// transactions to whoever gets the file. Bring your data in with Settings →
+// Backup & restore instead.
 const dist = join(root, "build", "resources")
 mkdirSync(dist, { recursive: true })
-const devDb = join(root, "dev.db")
 const seedTemplate = join(root, "resources", "template.db")
-if (existsSync(devDb)) {
-  cpSync(devDb, join(dist, "template.db"))
-  console.log("Seeded template.db from dev.db (personal build)")
-} else if (existsSync(seedTemplate)) {
-  cpSync(seedTemplate, join(dist, "template.db"))
-  console.log("Used clean seed template (resources/template.db)")
-} else {
-  console.warn("No dev.db or resources/template.db — packaged app will start with an empty database.")
+if (!existsSync(seedTemplate)) {
+  console.error("Missing resources/template.db — the app needs it as its starting database.")
+  process.exit(1)
 }
+cpSync(seedTemplate, join(dist, "template.db"))
+console.log("Used clean seed template (resources/template.db)")
 
 // Prune unused heavyweight modules the tracer pulled in regardless. sharp /
 // @img (native image-optimization libs, ~17 MB) are never loaded at runtime

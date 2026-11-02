@@ -50,7 +50,7 @@ SVG, run `node scripts/make-icons.mjs` to regenerate them.
   and `@prisma/adapter-libsql`. (`@libsql/client` is picked up automatically.)
 - **`scripts/assemble-standalone.mjs`** runs after `next build` to copy
   `.next/static` and `public/` into the standalone tree (server.js does not copy
-  them itself) and to snapshot the current `dev.db` as `build/resources/template.db`.
+  them itself) and to copy the clean `resources/template.db` to `build/resources/template.db`.
 - **electron-builder** (`build` block in [package.json](../package.json)) ships
   `electron/` in the app bundle and the standalone server + template DB as
   `extraResources`.
@@ -66,9 +66,9 @@ stays writable (the installed app bundle is read-only):
 | Windows | `%APPDATA%\Rappespalter\rappespalter.db`                      |
 | macOS   | `~/Library/Application Support/Rappespalter/rappespalter.db`  |
 
-On first launch this is seeded from `template.db` (a personal build snapshots your
-`dev.db`; other builds ship a clean schema + default categories). Delete the file
-to reset to the shipped template.
+On first launch this is seeded from `template.db` (schema + default categories,
+no data — every build ships the same clean template, never your `dev.db`). Delete
+the file to reset to the shipped template.
 
 ### Importing a database from the app
 
@@ -103,12 +103,16 @@ targets).
 
 ## Updating the shipped database template
 
-The template is just a copy of `dev.db` taken during `pnpm build:desktop`. To ship
-a different starting state (e.g. empty, or freshly seeded):
+The template is the committed `resources/template.db`, copied as-is by
+`pnpm build:desktop`. To change the starting state (e.g. after a schema change or
+new default categories), rebuild it from a freshly seeded database — never from
+your own `dev.db`:
 
 ```bash
-pnpm exec prisma migrate reset   # wipe + reapply migrations + seed categories
-pnpm build:desktop              # snapshots the new dev.db as template.db
+rm -f template-new.db
+DATABASE_URL="file:./template-new.db" pnpm exec prisma migrate deploy   # schema
+DATABASE_URL="file:./template-new.db" pnpm exec prisma db seed          # default categories
+mv template-new.db resources/template.db
 ```
 
 > The desktop build does **not** run Prisma migrations at runtime. The shipped
@@ -138,17 +142,13 @@ robocopy \\wsl$\Ubuntu\home\<you>\dev\rappespalter C:\dev\rappespalter /E /XD no
 
 cd C:\dev\rappespalter
 
-# 3. (optional) bring your current data so the app ships with it.
-#    dev.db is gitignored, so copy it explicitly if you cloned via git:
-copy \\wsl$\Ubuntu\home\<you>\dev\rappespalter\dev.db .
-
-# 4. install dependencies (pulls the Windows libsql + Electron binaries)
+# 3. install dependencies (pulls the Windows libsql + Electron binaries)
 pnpm install
 
-# 5a. build an installer  ->  dist\Rappespalter-Setup.exe
+# 4a. build an installer  ->  dist\Rappespalter-Setup.exe
 pnpm dist
 
-# 5b. OR build an unpacked, no-install folder you can zip and copy anywhere
+# 4b. OR build an unpacked, no-install folder you can zip and copy anywhere
 #     ->  dist\win-unpacked\Rappespalter.exe
 pnpm build:desktop
 pnpm exec electron-builder --win --dir
