@@ -120,6 +120,18 @@ for (const [i, t] of tx.entries()) {
   })
 }
 
+// ── Auto-categorization rules ───────────────────────────────────────────────
+
+for (const [pattern, category, direction = "any"] of [
+  ["Migros", "Groceries"], ["Coop", "Groceries"], ["Digitec", "Shopping"], ["SBB", "Transport"],
+  ["Spotify", "Entertainment"], ["Studio Blau", "Freelance", "in"],
+]) {
+  await db.execute({
+    sql: `INSERT INTO "CategoryRule" (pattern, matchType, direction, categoryId) VALUES (?, 'contains', ?, ?)`,
+    args: [pattern, direction, catId[category]],
+  })
+}
+
 // ── Monthly asset snapshots ─────────────────────────────────────────────────
 
 let etf = 18000, savings = 15000, p3a = 21500, p2 = 64000, checking = 6500
@@ -149,10 +161,11 @@ for (const [key, value] of Object.entries(SETTINGS)) {
 
 // ── Portfolio (real market prices, made-up trades) ──────────────────────────
 
+// target/ter: allocation targets and fund fees (illustrative, not quoted from factsheets).
 const SECURITIES = [
-  { symbol: "VWRL",  name: "World (Vanguard FTSE All-World Dis)",   listing: "VWRL.SW",  kind: "ETF",    monthly: 550 },
-  { symbol: "CHSPI", name: "Switzerland SPI (iShares Core SPI)",    listing: "CHSPI.SW", kind: "ETF",    monthly: 250 },
-  { symbol: "XMME",  name: "Emerging Markets (Xtrackers MSCI EM)",  listing: "XMME.SW",  kind: "ETF",    monthly: 200 },
+  { symbol: "VWRL",  name: "World (Vanguard FTSE All-World Dis)",   listing: "VWRL.SW",  kind: "ETF",    monthly: 550, target: 0.6,  ter: 0.0022 },
+  { symbol: "CHSPI", name: "Switzerland SPI (iShares Core SPI)",    listing: "CHSPI.SW", kind: "ETF",    monthly: 250, target: 0.25, ter: 0.001 },
+  { symbol: "XMME",  name: "Emerging Markets (Xtrackers MSCI EM)",  listing: "XMME.SW",  kind: "ETF",    monthly: 200, target: 0.15, ter: 0.0018 },
   { symbol: "AAPL",  name: "Apple",                                 listing: "AAPL",     kind: "EQUITY", once: [[2025, 4, 1500], [2026, 1, 1000]] },
 ]
 const UA = { "User-Agent": "Mozilla/5.0 (Rappespalter demo data)" }
@@ -190,9 +203,9 @@ const onOrBefore = (series, date, key) => {
 
 for (const s of SECURITIES) {
   await db.execute({
-    sql: `INSERT INTO "Security" (symbol, name, currency, kind, priceSource, priceSymbol, priceCurrency, pinned, updatedAt)
-          VALUES (?, ?, ?, ?, 'yahoo', ?, ?, true, ?)`,
-    args: [s.symbol, s.name, s.currency, s.kind, s.listing, s.currency, stamp(new Date())],
+    sql: `INSERT INTO "Security" (symbol, name, currency, kind, priceSource, priceSymbol, priceCurrency, pinned, updatedAt, targetWeight, ter)
+          VALUES (?, ?, ?, ?, 'yahoo', ?, ?, true, ?, ?, ?)`,
+    args: [s.symbol, s.name, s.currency, s.kind, s.listing, s.currency, stamp(new Date()), s.target ?? null, s.ter ?? null],
   })
   for (const p of prices[s.symbol]) {
     await db.execute({ sql: `INSERT INTO "SecurityPrice" (symbol, date, close, source) VALUES (?, ?, ?, 'yahoo')`, args: [s.symbol, p.date, p.close] })

@@ -89,6 +89,14 @@ Upload a Raiffeisen **Finanzassistent** `.xlsx` export.
 
 ### 💰 Budgets
 Set monthly CHF limits per category; totals roll up and feed the dashboard's budget bars.
+- **Plan vs. actual** over the last 3 / 6 / 12 complete months: average spend vs. budget per category, drift in CHF and %, how many months went over, a per-month mini chart, and one click to adopt the average as the new budget
+- Only months that were complete when you last imported count, so a partly imported month never looks like you stayed under budget
+
+### ⏱️ Month pace
+On the dashboard, the month in progress is projected per budget: fixed costs count once at their usual amount, variable spending continues at your usual rate — so you see "on pace for Fr. 940 in Groceries (budget 650)" while there's still time to react.
+
+### 🏷️ Auto-categorization rules
+Data → Rules: "counterparty contains *Migros* → Groceries", optionally only for money in or out. Imports apply your rules before the bank's categories; the longest matching text wins. Re-categorizing a transaction by hand offers to turn it into a rule, and rules can be applied to past transactions.
 
 ### 📈 Trends
 Income, expenses, saved, and savings-rate over time (the in-progress month is excluded so averages aren't skewed). Six-month averages for savings rate and cash flow.
@@ -103,7 +111,9 @@ Standalone investment tracker fed by **Yuh** activity CSV exports. Holdings are 
 - Holdings: units, average cost, price, gain, weight — filterable by ETFs / stocks
 - Dividends per month and per holding, withholding tax, yield on cost; trading & FX fees
 - Per-holding price source: auto-matched listing, a listing you choose, or manual prices
-- **Look-through**: upload each ETF's holdings file (iShares, Vanguard, Xtrackers) to see the companies, countries and sectors you actually own, combined across ETFs and directly held stocks ([details](docs/PORTFOLIO-LOOKTHROUGH.md))
+- **Look-through**: upload each ETF's holdings file (iShares, Vanguard, Xtrackers) to see the companies, countries, sectors and currencies you actually own, combined across ETFs and directly held stocks ([details](docs/PORTFOLIO-LOOKTHROUGH.md))
+- **Allocation & costs**: set target weights and see how far you've drifted, how to split your next contribution without selling, and what a full rebalance would take; enter each fund's TER to see your running costs per year (fund fees + trading fees)
+- Feeds **Net Worth**: the ETF line can use the portfolio's value at each month end, and the snapshot form offers it
 - Independent of the rest of the app: nothing here feeds spending, savings or net worth
 
 ### 💵 Income
@@ -217,6 +227,7 @@ SQLite via Prisma ([`prisma/schema.prisma`](prisma/schema.prisma)):
 - **Setting** — key/value user settings (projection inputs)
 - **PortfolioActivity** / **Security** / **SecurityPrice** / **FxRate** — the standalone portfolio tracker: imported broker activities, how each holding is priced, and cached daily prices and CHF exchange rates
 - **FundSource** / **FundConstituent** — the latest holdings file per ETF, for the look-through
+- **CategoryRule** — auto-categorization rules
 
 **Category types** drive the math: `savings`/`transfer` are excluded from expense totals; `income` is positive cash flow; `fixed`/`variable` are spending.
 

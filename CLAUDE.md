@@ -36,18 +36,26 @@ src/
       summary/route.ts       — aggregated monthly dashboard data
       months/route.ts        — distinct months in the database
       income/streams/route.ts — per-source income trends over the full history
+      budgets/drift/route.ts — budget vs. actual over the last N complete months
+      budgets/pace/route.ts  — projection for the month in progress
+      rules/route.ts         — auto-categorization rules (+ rules/apply)
       settings/route.ts      — user-editable settings (projection inputs)
       portfolio/             — summary + delete, import, refresh, securities (overrides/manual prices),
-                               lookthrough (ETF constituent upload + aggregated exposure)
+                               lookthrough (ETF constituent upload + aggregated exposure),
+                               targets (target weights + TERs), month-ends (value per month end)
     settings/page.tsx        — edit projection inputs (overrides env defaults)
   lib/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
+    budget-drift.ts          — pure budget-vs-actual analysis (window of complete months)
+    pace.ts                  — pure spending projection for the month in progress
+    rules.ts                 — pure rule matching (rules-store.ts: table + DB planning)
     portfolio/               — yuh.ts (CSV parser), market.ts (Yahoo/ECB/Xtrackers), engine.ts (pure maths),
                                store.ts (DB + refresh), schema.ts (create tables if missing),
-                               constituents.ts (ETF holdings file parsers), lookthrough.ts (pure matching)
+                               constituents.ts (ETF holdings file parsers), lookthrough.ts (pure matching),
+                               allocation.ts (pure targets / buy-only split / fees)
 generated/
   prisma/
     client.ts                — generated Prisma client (do not edit)
@@ -93,8 +101,11 @@ Tables:
 - **Setting** — key/value user settings edited on /settings; missing keys fall back
   to the `NEXT_PUBLIC_*` env defaults. `/api/settings` creates the table if absent
   because the desktop app doesn't migrate existing userData databases.
+- **CategoryRule** — auto-categorization rules (counterparty pattern → category);
+  created on demand by `ensureRuleTable()` (src/lib/rules-store.ts).
 - **PortfolioActivity / Security / SecurityPrice / FxRate / FundSource / FundConstituent** —
-  portfolio tracker and ETF look-through (see below);
+  portfolio tracker and ETF look-through (see below); `Security.ter` / `targetWeight`
+  hold fund fees and allocation targets;
   created on demand by `ensurePortfolioSchema()` for the same reason.
 
 ## Prisma setup (important)
@@ -198,6 +209,40 @@ importing broker deposits as transactions would double-count savings.
   (cross-country only when legal forms agree, so "Siemens AG" ≠ "Siemens Ltd").
   Xtrackers files re-fetch during refresh once a week old; the others are manual.
   In this code a *holding* is the user's position, a *constituent* is a company inside an ETF.
+  Currency exposure uses each constituent's trading currency (iShares/Xtrackers files)
+  or, where the file has none (Vanguard), the country's currency — shown as estimated.
+- **Allocation & costs** (`allocation.ts`, pure): targets apply to holdings that have one
+  and are scaled to 100% across them. "Buy next" water-fills new money into the most
+  underweight holdings (never sells); "full rebalance" is the exact buy/sell. Running
+  costs = Σ value × TER (user-entered) + trading/FX fees of the last 12 months.
+- **Net worth link**: `/api/portfolio/month-ends` gives the account value at each month
+  end (full daily series, not the chart's thinned one). Net Worth can use it for the
+  ETF line; the Projections snapshot form offers it for the ETF field.
+
+## Auto-categorization rules
+Data → Rules (`src/lib/rules.ts`, pure). A rule matches the counterparty (contains /
+starts with / equals, case- and whitespace-insensitive), optionally only money in or
+out. When several match, the **longest pattern wins** (no manual ordering). Import
+applies rules before the parser's `CATEGORY_MAP`; existing transactions change only
+via an explicit apply (`POST /api/rules`, `apply: true`, or `/api/rules/apply`), which
+overwrites hand-set categories. Re-mapping a transaction on Data → Transactions offers
+a rule for its counterparty. Deleting a category deletes its rules.
+
+## Spending pace
+Dashboard *Month pace* (`src/lib/pace.ts`, pure) projects the month in progress per
+budgeted category: fixed = max(spent, usual), variable = spent + usual × share of the
+month left, where usual = mean of the last 3 complete months (linear without history).
+"Today" is the latest import date if earlier — data after the last import isn't in.
+Renders nothing for a complete month.
+
+## Budget drift
+The Budgets page's *Plan vs. actual* card (`src/lib/budget-drift.ts`, pure) compares
+spending with today's budgets over the last 3/6/12 months. Spending uses the
+`/api/summary` rule (outgoing, excluding savings/transfer types), so budgeted +
+unbudgeted equals the dashboard's expenses for every month. The window holds only
+**complete** months: it ends before the month of the latest `importedAt` (a month
+imported while in progress isn't counted) and never extends past the data. Budgets
+aren't versioned, so all months are compared with the current limit.
 
 ## Income streams
 The Income page's trend view (`src/lib/income.ts`, pure) analyses each income

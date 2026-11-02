@@ -105,6 +105,15 @@ and Xtrackers use GICS and Vanguard uses ICB, so e.g. Vanguard's
 on every company (Alphabet is Technology in ICB but Communication Services in
 GICS), so sector totals are approximate.
 
+**Currency** is the trading currency of each holding line, which is what moves
+its CHF value when exchange rates change, whatever currency the ETF is quoted
+in. iShares (*Market Currency*) and Xtrackers (*Currency*) files say it.
+Vanguard's doesn't, so those rows use the country's currency (Chinese
+companies → HKD, as most index constituents are Hong Kong listings). The page
+shows what share of the total is estimated this way. It's counted per line,
+not per company, because one company can trade in several currencies (A and H
+shares).
+
 ## Data model
 
 Two tables, created on demand by `ensurePortfolioSchema()` like the other
@@ -114,7 +123,7 @@ portfolio tables. They are also in `prisma/schema.prisma` with a migration.
   `provider`, `asOf`, `fileName`, `sourceUrl` (auto-fetch, Xtrackers only),
   `importedAt`.
 - **FundConstituent**: one row per line of the latest file: `symbol`, `ticker`,
-  `isin`, `name`, `country`, `sector`, `assetClass` (`equity` | `cash` |
+  `isin`, `name`, `country`, `sector`, `currency`, `assetClass` (`equity` | `cash` |
   `other`), `weight` (fraction of the fund).
 
 A new file for an ETF replaces its previous rows (no history). *Delete
