@@ -20,8 +20,20 @@ export type SecurityModel = runtime.Types.Result.DefaultSelection<Prisma.$Securi
 
 export type AggregateSecurity = {
   _count: SecurityCountAggregateOutputType | null
+  _avg: SecurityAvgAggregateOutputType | null
+  _sum: SecuritySumAggregateOutputType | null
   _min: SecurityMinAggregateOutputType | null
   _max: SecurityMaxAggregateOutputType | null
+}
+
+export type SecurityAvgAggregateOutputType = {
+  ter: number | null
+  targetWeight: number | null
+}
+
+export type SecuritySumAggregateOutputType = {
+  ter: number | null
+  targetWeight: number | null
 }
 
 export type SecurityMinAggregateOutputType = {
@@ -34,6 +46,8 @@ export type SecurityMinAggregateOutputType = {
   priceCurrency: string | null
   pinned: boolean | null
   lastError: string | null
+  ter: number | null
+  targetWeight: number | null
   updatedAt: Date | null
 }
 
@@ -47,6 +61,8 @@ export type SecurityMaxAggregateOutputType = {
   priceCurrency: string | null
   pinned: boolean | null
   lastError: string | null
+  ter: number | null
+  targetWeight: number | null
   updatedAt: Date | null
 }
 
@@ -60,10 +76,22 @@ export type SecurityCountAggregateOutputType = {
   priceCurrency: number
   pinned: number
   lastError: number
+  ter: number
+  targetWeight: number
   updatedAt: number
   _all: number
 }
 
+
+export type SecurityAvgAggregateInputType = {
+  ter?: true
+  targetWeight?: true
+}
+
+export type SecuritySumAggregateInputType = {
+  ter?: true
+  targetWeight?: true
+}
 
 export type SecurityMinAggregateInputType = {
   symbol?: true
@@ -75,6 +103,8 @@ export type SecurityMinAggregateInputType = {
   priceCurrency?: true
   pinned?: true
   lastError?: true
+  ter?: true
+  targetWeight?: true
   updatedAt?: true
 }
 
@@ -88,6 +118,8 @@ export type SecurityMaxAggregateInputType = {
   priceCurrency?: true
   pinned?: true
   lastError?: true
+  ter?: true
+  targetWeight?: true
   updatedAt?: true
 }
 
@@ -101,6 +133,8 @@ export type SecurityCountAggregateInputType = {
   priceCurrency?: true
   pinned?: true
   lastError?: true
+  ter?: true
+  targetWeight?: true
   updatedAt?: true
   _all?: true
 }
@@ -143,6 +177,18 @@ export type SecurityAggregateArgs<ExtArgs extends runtime.Types.Extensions.Inter
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: SecurityAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: SecuritySumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: SecurityMinAggregateInputType
@@ -173,6 +219,8 @@ export type SecurityGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   _count?: SecurityCountAggregateInputType | true
+  _avg?: SecurityAvgAggregateInputType
+  _sum?: SecuritySumAggregateInputType
   _min?: SecurityMinAggregateInputType
   _max?: SecurityMaxAggregateInputType
 }
@@ -187,8 +235,12 @@ export type SecurityGroupByOutputType = {
   priceCurrency: string | null
   pinned: boolean
   lastError: string | null
+  ter: number | null
+  targetWeight: number | null
   updatedAt: Date
   _count: SecurityCountAggregateOutputType | null
+  _avg: SecurityAvgAggregateOutputType | null
+  _sum: SecuritySumAggregateOutputType | null
   _min: SecurityMinAggregateOutputType | null
   _max: SecurityMaxAggregateOutputType | null
 }
@@ -221,6 +273,8 @@ export type SecurityWhereInput = {
   priceCurrency?: Prisma.StringNullableFilter<"Security"> | string | null
   pinned?: Prisma.BoolFilter<"Security"> | boolean
   lastError?: Prisma.StringNullableFilter<"Security"> | string | null
+  ter?: Prisma.FloatNullableFilter<"Security"> | number | null
+  targetWeight?: Prisma.FloatNullableFilter<"Security"> | number | null
   updatedAt?: Prisma.DateTimeFilter<"Security"> | Date | string
 }
 
@@ -234,6 +288,8 @@ export type SecurityOrderByWithRelationInput = {
   priceCurrency?: Prisma.SortOrderInput | Prisma.SortOrder
   pinned?: Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
+  ter?: Prisma.SortOrderInput | Prisma.SortOrder
+  targetWeight?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -250,6 +306,8 @@ export type SecurityWhereUniqueInput = Prisma.AtLeast<{
   priceCurrency?: Prisma.StringNullableFilter<"Security"> | string | null
   pinned?: Prisma.BoolFilter<"Security"> | boolean
   lastError?: Prisma.StringNullableFilter<"Security"> | string | null
+  ter?: Prisma.FloatNullableFilter<"Security"> | number | null
+  targetWeight?: Prisma.FloatNullableFilter<"Security"> | number | null
   updatedAt?: Prisma.DateTimeFilter<"Security"> | Date | string
 }, "symbol">
 
@@ -263,10 +321,14 @@ export type SecurityOrderByWithAggregationInput = {
   priceCurrency?: Prisma.SortOrderInput | Prisma.SortOrder
   pinned?: Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
+  ter?: Prisma.SortOrderInput | Prisma.SortOrder
+  targetWeight?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SecurityCountOrderByAggregateInput
+  _avg?: Prisma.SecurityAvgOrderByAggregateInput
   _max?: Prisma.SecurityMaxOrderByAggregateInput
   _min?: Prisma.SecurityMinOrderByAggregateInput
+  _sum?: Prisma.SecuritySumOrderByAggregateInput
 }
 
 export type SecurityScalarWhereWithAggregatesInput = {
@@ -282,6 +344,8 @@ export type SecurityScalarWhereWithAggregatesInput = {
   priceCurrency?: Prisma.StringNullableWithAggregatesFilter<"Security"> | string | null
   pinned?: Prisma.BoolWithAggregatesFilter<"Security"> | boolean
   lastError?: Prisma.StringNullableWithAggregatesFilter<"Security"> | string | null
+  ter?: Prisma.FloatNullableWithAggregatesFilter<"Security"> | number | null
+  targetWeight?: Prisma.FloatNullableWithAggregatesFilter<"Security"> | number | null
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Security"> | Date | string
 }
 
@@ -295,6 +359,8 @@ export type SecurityCreateInput = {
   priceCurrency?: string | null
   pinned?: boolean
   lastError?: string | null
+  ter?: number | null
+  targetWeight?: number | null
   updatedAt?: Date | string
 }
 
@@ -308,6 +374,8 @@ export type SecurityUncheckedCreateInput = {
   priceCurrency?: string | null
   pinned?: boolean
   lastError?: string | null
+  ter?: number | null
+  targetWeight?: number | null
   updatedAt?: Date | string
 }
 
@@ -321,6 +389,8 @@ export type SecurityUpdateInput = {
   priceCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pinned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ter?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  targetWeight?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -334,6 +404,8 @@ export type SecurityUncheckedUpdateInput = {
   priceCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pinned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ter?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  targetWeight?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -347,6 +419,8 @@ export type SecurityCreateManyInput = {
   priceCurrency?: string | null
   pinned?: boolean
   lastError?: string | null
+  ter?: number | null
+  targetWeight?: number | null
   updatedAt?: Date | string
 }
 
@@ -360,6 +434,8 @@ export type SecurityUpdateManyMutationInput = {
   priceCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pinned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ter?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  targetWeight?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -373,6 +449,8 @@ export type SecurityUncheckedUpdateManyInput = {
   priceCurrency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pinned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ter?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  targetWeight?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -386,7 +464,14 @@ export type SecurityCountOrderByAggregateInput = {
   priceCurrency?: Prisma.SortOrder
   pinned?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
+  ter?: Prisma.SortOrder
+  targetWeight?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type SecurityAvgOrderByAggregateInput = {
+  ter?: Prisma.SortOrder
+  targetWeight?: Prisma.SortOrder
 }
 
 export type SecurityMaxOrderByAggregateInput = {
@@ -399,6 +484,8 @@ export type SecurityMaxOrderByAggregateInput = {
   priceCurrency?: Prisma.SortOrder
   pinned?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
+  ter?: Prisma.SortOrder
+  targetWeight?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
@@ -412,7 +499,14 @@ export type SecurityMinOrderByAggregateInput = {
   priceCurrency?: Prisma.SortOrder
   pinned?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
+  ter?: Prisma.SortOrder
+  targetWeight?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type SecuritySumOrderByAggregateInput = {
+  ter?: Prisma.SortOrder
+  targetWeight?: Prisma.SortOrder
 }
 
 export type BoolFieldUpdateOperationsInput = {
@@ -431,6 +525,8 @@ export type SecuritySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   priceCurrency?: boolean
   pinned?: boolean
   lastError?: boolean
+  ter?: boolean
+  targetWeight?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["security"]>
 
@@ -444,6 +540,8 @@ export type SecuritySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   priceCurrency?: boolean
   pinned?: boolean
   lastError?: boolean
+  ter?: boolean
+  targetWeight?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["security"]>
 
@@ -457,6 +555,8 @@ export type SecuritySelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   priceCurrency?: boolean
   pinned?: boolean
   lastError?: boolean
+  ter?: boolean
+  targetWeight?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["security"]>
 
@@ -470,10 +570,12 @@ export type SecuritySelectScalar = {
   priceCurrency?: boolean
   pinned?: boolean
   lastError?: boolean
+  ter?: boolean
+  targetWeight?: boolean
   updatedAt?: boolean
 }
 
-export type SecurityOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"symbol" | "name" | "currency" | "kind" | "priceSource" | "priceSymbol" | "priceCurrency" | "pinned" | "lastError" | "updatedAt", ExtArgs["result"]["security"]>
+export type SecurityOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"symbol" | "name" | "currency" | "kind" | "priceSource" | "priceSymbol" | "priceCurrency" | "pinned" | "lastError" | "ter" | "targetWeight" | "updatedAt", ExtArgs["result"]["security"]>
 
 export type $SecurityPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Security"
@@ -488,6 +590,8 @@ export type $SecurityPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     priceCurrency: string | null
     pinned: boolean
     lastError: string | null
+    ter: number | null
+    targetWeight: number | null
     updatedAt: Date
   }, ExtArgs["result"]["security"]>
   composites: {}
@@ -921,6 +1025,8 @@ export interface SecurityFieldRefs {
   readonly priceCurrency: Prisma.FieldRef<"Security", 'String'>
   readonly pinned: Prisma.FieldRef<"Security", 'Boolean'>
   readonly lastError: Prisma.FieldRef<"Security", 'String'>
+  readonly ter: Prisma.FieldRef<"Security", 'Float'>
+  readonly targetWeight: Prisma.FieldRef<"Security", 'Float'>
   readonly updatedAt: Prisma.FieldRef<"Security", 'DateTime'>
 }
     

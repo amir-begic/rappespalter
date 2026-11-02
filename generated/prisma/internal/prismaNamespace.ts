@@ -388,6 +388,7 @@ export const ModelName = {
   Snapshot: 'Snapshot',
   Budget: 'Budget',
   Category: 'Category',
+  CategoryRule: 'CategoryRule',
   Setting: 'Setting',
   PortfolioActivity: 'PortfolioActivity',
   Security: 'Security',
@@ -410,7 +411,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "transaction" | "snapshot" | "budget" | "category" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent"
+    modelProps: "transaction" | "snapshot" | "budget" | "category" | "categoryRule" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -707,6 +708,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CategoryCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CategoryCountAggregateOutputType> | number
+        }
+      }
+    }
+    CategoryRule: {
+      payload: Prisma.$CategoryRulePayload<ExtArgs>
+      fields: Prisma.CategoryRuleFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CategoryRuleFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CategoryRuleFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>
+        }
+        findFirst: {
+          args: Prisma.CategoryRuleFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CategoryRuleFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>
+        }
+        findMany: {
+          args: Prisma.CategoryRuleFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>[]
+        }
+        create: {
+          args: Prisma.CategoryRuleCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>
+        }
+        createMany: {
+          args: Prisma.CategoryRuleCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CategoryRuleCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>[]
+        }
+        delete: {
+          args: Prisma.CategoryRuleDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>
+        }
+        update: {
+          args: Prisma.CategoryRuleUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>
+        }
+        deleteMany: {
+          args: Prisma.CategoryRuleDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CategoryRuleUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CategoryRuleUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>[]
+        }
+        upsert: {
+          args: Prisma.CategoryRuleUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CategoryRulePayload>
+        }
+        aggregate: {
+          args: Prisma.CategoryRuleAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCategoryRule>
+        }
+        groupBy: {
+          args: Prisma.CategoryRuleGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CategoryRuleGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CategoryRuleCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CategoryRuleCountAggregateOutputType> | number
         }
       }
     }
@@ -1314,6 +1389,18 @@ export const CategoryScalarFieldEnum = {
 export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
 
 
+export const CategoryRuleScalarFieldEnum = {
+  id: 'id',
+  pattern: 'pattern',
+  matchType: 'matchType',
+  direction: 'direction',
+  categoryId: 'categoryId',
+  createdAt: 'createdAt'
+} as const
+
+export type CategoryRuleScalarFieldEnum = (typeof CategoryRuleScalarFieldEnum)[keyof typeof CategoryRuleScalarFieldEnum]
+
+
 export const SettingScalarFieldEnum = {
   key: 'key',
   value: 'value'
@@ -1354,6 +1441,8 @@ export const SecurityScalarFieldEnum = {
   priceCurrency: 'priceCurrency',
   pinned: 'pinned',
   lastError: 'lastError',
+  ter: 'ter',
+  targetWeight: 'targetWeight',
   updatedAt: 'updatedAt'
 } as const
 
@@ -1401,6 +1490,7 @@ export const FundConstituentScalarFieldEnum = {
   name: 'name',
   country: 'country',
   sector: 'sector',
+  currency: 'currency',
   assetClass: 'assetClass',
   weight: 'weight'
 } as const
@@ -1563,6 +1653,7 @@ export type GlobalOmitConfig = {
   snapshot?: Prisma.SnapshotOmit
   budget?: Prisma.BudgetOmit
   category?: Prisma.CategoryOmit
+  categoryRule?: Prisma.CategoryRuleOmit
   setting?: Prisma.SettingOmit
   portfolioActivity?: Prisma.PortfolioActivityOmit
   security?: Prisma.SecurityOmit

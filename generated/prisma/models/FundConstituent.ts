@@ -44,6 +44,7 @@ export type FundConstituentMinAggregateOutputType = {
   name: string | null
   country: string | null
   sector: string | null
+  currency: string | null
   assetClass: string | null
   weight: number | null
 }
@@ -56,6 +57,7 @@ export type FundConstituentMaxAggregateOutputType = {
   name: string | null
   country: string | null
   sector: string | null
+  currency: string | null
   assetClass: string | null
   weight: number | null
 }
@@ -68,6 +70,7 @@ export type FundConstituentCountAggregateOutputType = {
   name: number
   country: number
   sector: number
+  currency: number
   assetClass: number
   weight: number
   _all: number
@@ -92,6 +95,7 @@ export type FundConstituentMinAggregateInputType = {
   name?: true
   country?: true
   sector?: true
+  currency?: true
   assetClass?: true
   weight?: true
 }
@@ -104,6 +108,7 @@ export type FundConstituentMaxAggregateInputType = {
   name?: true
   country?: true
   sector?: true
+  currency?: true
   assetClass?: true
   weight?: true
 }
@@ -116,6 +121,7 @@ export type FundConstituentCountAggregateInputType = {
   name?: true
   country?: true
   sector?: true
+  currency?: true
   assetClass?: true
   weight?: true
   _all?: true
@@ -215,6 +221,7 @@ export type FundConstituentGroupByOutputType = {
   name: string
   country: string | null
   sector: string | null
+  currency: string | null
   assetClass: string
   weight: number
   _count: FundConstituentCountAggregateOutputType | null
@@ -250,6 +257,7 @@ export type FundConstituentWhereInput = {
   name?: Prisma.StringFilter<"FundConstituent"> | string
   country?: Prisma.StringNullableFilter<"FundConstituent"> | string | null
   sector?: Prisma.StringNullableFilter<"FundConstituent"> | string | null
+  currency?: Prisma.StringNullableFilter<"FundConstituent"> | string | null
   assetClass?: Prisma.StringFilter<"FundConstituent"> | string
   weight?: Prisma.FloatFilter<"FundConstituent"> | number
 }
@@ -262,6 +270,7 @@ export type FundConstituentOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   country?: Prisma.SortOrderInput | Prisma.SortOrder
   sector?: Prisma.SortOrderInput | Prisma.SortOrder
+  currency?: Prisma.SortOrderInput | Prisma.SortOrder
   assetClass?: Prisma.SortOrder
   weight?: Prisma.SortOrder
 }
@@ -277,6 +286,7 @@ export type FundConstituentWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"FundConstituent"> | string
   country?: Prisma.StringNullableFilter<"FundConstituent"> | string | null
   sector?: Prisma.StringNullableFilter<"FundConstituent"> | string | null
+  currency?: Prisma.StringNullableFilter<"FundConstituent"> | string | null
   assetClass?: Prisma.StringFilter<"FundConstituent"> | string
   weight?: Prisma.FloatFilter<"FundConstituent"> | number
 }, "id">
@@ -289,6 +299,7 @@ export type FundConstituentOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   country?: Prisma.SortOrderInput | Prisma.SortOrder
   sector?: Prisma.SortOrderInput | Prisma.SortOrder
+  currency?: Prisma.SortOrderInput | Prisma.SortOrder
   assetClass?: Prisma.SortOrder
   weight?: Prisma.SortOrder
   _count?: Prisma.FundConstituentCountOrderByAggregateInput
@@ -309,6 +320,7 @@ export type FundConstituentScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"FundConstituent"> | string
   country?: Prisma.StringNullableWithAggregatesFilter<"FundConstituent"> | string | null
   sector?: Prisma.StringNullableWithAggregatesFilter<"FundConstituent"> | string | null
+  currency?: Prisma.StringNullableWithAggregatesFilter<"FundConstituent"> | string | null
   assetClass?: Prisma.StringWithAggregatesFilter<"FundConstituent"> | string
   weight?: Prisma.FloatWithAggregatesFilter<"FundConstituent"> | number
 }
@@ -320,6 +332,7 @@ export type FundConstituentCreateInput = {
   name: string
   country?: string | null
   sector?: string | null
+  currency?: string | null
   assetClass: string
   weight: number
 }
@@ -332,6 +345,7 @@ export type FundConstituentUncheckedCreateInput = {
   name: string
   country?: string | null
   sector?: string | null
+  currency?: string | null
   assetClass: string
   weight: number
 }
@@ -343,6 +357,7 @@ export type FundConstituentUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sector?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assetClass?: Prisma.StringFieldUpdateOperationsInput | string
   weight?: Prisma.FloatFieldUpdateOperationsInput | number
 }
@@ -355,6 +370,7 @@ export type FundConstituentUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sector?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assetClass?: Prisma.StringFieldUpdateOperationsInput | string
   weight?: Prisma.FloatFieldUpdateOperationsInput | number
 }
@@ -367,6 +383,7 @@ export type FundConstituentCreateManyInput = {
   name: string
   country?: string | null
   sector?: string | null
+  currency?: string | null
   assetClass: string
   weight: number
 }
@@ -378,6 +395,7 @@ export type FundConstituentUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sector?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assetClass?: Prisma.StringFieldUpdateOperationsInput | string
   weight?: Prisma.FloatFieldUpdateOperationsInput | number
 }
@@ -390,6 +408,7 @@ export type FundConstituentUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sector?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  currency?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   assetClass?: Prisma.StringFieldUpdateOperationsInput | string
   weight?: Prisma.FloatFieldUpdateOperationsInput | number
 }
@@ -402,6 +421,7 @@ export type FundConstituentCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   country?: Prisma.SortOrder
   sector?: Prisma.SortOrder
+  currency?: Prisma.SortOrder
   assetClass?: Prisma.SortOrder
   weight?: Prisma.SortOrder
 }
@@ -419,6 +439,7 @@ export type FundConstituentMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   country?: Prisma.SortOrder
   sector?: Prisma.SortOrder
+  currency?: Prisma.SortOrder
   assetClass?: Prisma.SortOrder
   weight?: Prisma.SortOrder
 }
@@ -431,6 +452,7 @@ export type FundConstituentMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   country?: Prisma.SortOrder
   sector?: Prisma.SortOrder
+  currency?: Prisma.SortOrder
   assetClass?: Prisma.SortOrder
   weight?: Prisma.SortOrder
 }
@@ -450,6 +472,7 @@ export type FundConstituentSelect<ExtArgs extends runtime.Types.Extensions.Inter
   name?: boolean
   country?: boolean
   sector?: boolean
+  currency?: boolean
   assetClass?: boolean
   weight?: boolean
 }, ExtArgs["result"]["fundConstituent"]>
@@ -462,6 +485,7 @@ export type FundConstituentSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   name?: boolean
   country?: boolean
   sector?: boolean
+  currency?: boolean
   assetClass?: boolean
   weight?: boolean
 }, ExtArgs["result"]["fundConstituent"]>
@@ -474,6 +498,7 @@ export type FundConstituentSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   name?: boolean
   country?: boolean
   sector?: boolean
+  currency?: boolean
   assetClass?: boolean
   weight?: boolean
 }, ExtArgs["result"]["fundConstituent"]>
@@ -486,11 +511,12 @@ export type FundConstituentSelectScalar = {
   name?: boolean
   country?: boolean
   sector?: boolean
+  currency?: boolean
   assetClass?: boolean
   weight?: boolean
 }
 
-export type FundConstituentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "symbol" | "ticker" | "isin" | "name" | "country" | "sector" | "assetClass" | "weight", ExtArgs["result"]["fundConstituent"]>
+export type FundConstituentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "symbol" | "ticker" | "isin" | "name" | "country" | "sector" | "currency" | "assetClass" | "weight", ExtArgs["result"]["fundConstituent"]>
 
 export type $FundConstituentPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "FundConstituent"
@@ -503,6 +529,7 @@ export type $FundConstituentPayload<ExtArgs extends runtime.Types.Extensions.Int
     name: string
     country: string | null
     sector: string | null
+    currency: string | null
     assetClass: string
     weight: number
   }, ExtArgs["result"]["fundConstituent"]>
@@ -935,6 +962,7 @@ export interface FundConstituentFieldRefs {
   readonly name: Prisma.FieldRef<"FundConstituent", 'String'>
   readonly country: Prisma.FieldRef<"FundConstituent", 'String'>
   readonly sector: Prisma.FieldRef<"FundConstituent", 'String'>
+  readonly currency: Prisma.FieldRef<"FundConstituent", 'String'>
   readonly assetClass: Prisma.FieldRef<"FundConstituent", 'String'>
   readonly weight: Prisma.FieldRef<"FundConstituent", 'Float'>
 }

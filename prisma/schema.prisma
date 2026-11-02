@@ -47,6 +47,20 @@ model Category {
   type         String        @default("variable")
   transactions Transaction[]
   budget       Budget?
+  rules        CategoryRule[]
+}
+
+// Auto-categorization: a transaction whose counterparty matches `pattern` gets
+// `categoryId` on import (and when rules are re-applied). The longest matching
+// pattern wins, so "Coop Pronto" beats "Coop".
+model CategoryRule {
+  id         Int      @id @default(autoincrement())
+  pattern    String
+  matchType  String   @default("contains") // contains | startsWith | equals
+  direction  String   @default("any")      // any | in (money in) | out (money out)
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 }
 
 // User-editable app settings (projection inputs etc.), stored as key → value.
@@ -94,6 +108,8 @@ model Security {
   priceCurrency String?  // currency the listing is quoted in
   pinned        Boolean  @default(false) // user chose priceSymbol — never auto-rematch
   lastError     String?
+  ter           Float?   // fund's annual fee (TER) as a fraction, 0.0022 = 0.22%
+  targetWeight  Float?   // target share of the securities, 0.6 = 60%
   updatedAt     DateTime @updatedAt
 }
 
@@ -137,6 +153,7 @@ model FundConstituent {
   name       String
   country    String? // ISO 3166 alpha-2
   sector     String? // GICS sector
+  currency   String? // trading currency, when the file says
   assetClass String  // equity | cash | other
   weight     Float   // fraction of the fund
 

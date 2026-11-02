@@ -10,6 +10,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table"
 import { BUDGETABLE_TYPES, CATEGORY_TYPES } from "@/lib/categories"
+import { RulesTab, createRule } from "./rules-tab"
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ export default function DataPage() {
           Database Overview
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Browse every table, re-map transaction categories and manage your categories — without a database browser.
+          Browse every table, re-map transaction categories, manage categories and auto-categorization rules — without a database browser.
         </p>
       </div>
 
@@ -96,6 +97,7 @@ export default function DataPage() {
         <TabsList variant="line">
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="rules">Rules</TabsTrigger>
           <TabsTrigger value="budgets">Budgets</TabsTrigger>
           <TabsTrigger value="snapshots">Snapshots</TabsTrigger>
         </TabsList>
@@ -105,6 +107,9 @@ export default function DataPage() {
         </TabsContent>
         <TabsContent value="categories" className="mt-6">
           <CategoriesTab />
+        </TabsContent>
+        <TabsContent value="rules" className="mt-6">
+          <RulesTab />
         </TabsContent>
         <TabsContent value="budgets" className="mt-6">
           <BudgetsTab />
@@ -134,6 +139,9 @@ function TransactionsTab() {
 
   // per-row save state: id -> "saving" | "saved" | "error"
   const [rowStatus, setRowStatus] = useState<Record<number, string>>({})
+  // after a manual re-map: offer a rule so future imports get it right
+  const [suggestion, setSuggestion] = useState<{ pattern: string; categoryId: number; amount: number } | null>(null)
+  const [reloadKey, setReloadKey]   = useState(0)
 
   // load filter sources once
   useEffect(() => {
@@ -159,7 +167,7 @@ function TransactionsTab() {
         setPagination(d.pagination ?? null)
       })
       .finally(() => setLoading(false))
-  }, [month, category, search, page])
+  }, [month, category, search, page, reloadKey])
 
   async function remap(tx: Transaction, newCategoryId: number | null) {
     const prevTransactions = transactions
@@ -180,6 +188,7 @@ function TransactionsTab() {
       })
       if (!res.ok) throw new Error("save failed")
       setRowStatus(s => ({ ...s, [tx.id]: "saved" }))
+      if (newCategoryId != null) setSuggestion({ pattern: tx.counterparty, categoryId: newCategoryId, amount: tx.amount })
       setTimeout(() => setRowStatus(s => {
         const rest = { ...s }
         delete rest[tx.id]
@@ -227,6 +236,15 @@ function TransactionsTab() {
           </span>
         )}
       </div>
+
+      {suggestion && (
+        <RuleSuggestion
+          key={`${suggestion.pattern}:${suggestion.categoryId}`}
+          suggestion={suggestion}
+          categoryName={categories.find(c => c.id === suggestion.categoryId)?.name ?? "this category"}
+          onDone={changed => { setSuggestion(null); if (changed) setReloadKey(k => k + 1) }}
+        />
+      )}
 
       {loading ? (
         <div className="flex items-center gap-3 text-sm text-muted-foreground py-20 justify-center">
@@ -316,6 +334,46 @@ function TransactionsTab() {
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+// Offered after a manual re-map: turn it into a rule for this counterparty.
+function RuleSuggestion({ suggestion, categoryName, onDone }: {
+  suggestion:   { pattern: string; categoryId: number; amount: number }
+  categoryName: string
+  onDone:       (changed: boolean) => void
+}) {
+  const [pattern, setPattern] = useState(suggestion.pattern)
+  const [busy, setBusy]       = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+
+  async function create(apply: boolean) {
+    setBusy(true)
+    setError(null)
+    try {
+      const { applied } = await createRule({ pattern, categoryId: suggestion.categoryId, apply })
+      onDone(applied > 0)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create rule")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-sm space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span>Always put counterparties containing</span>
+        <Input aria-label="Text to match" value={pattern} onChange={e => setPattern(e.target.value)} className="h-7 w-56" />
+        <span>in <strong>{categoryName}</strong>?</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={busy || pattern.trim().length < 2} onClick={() => create(true)}>Create rule &amp; update past</Button>
+        <Button size="sm" variant="outline" disabled={busy || pattern.trim().length < 2} onClick={() => create(false)}>Only future imports</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDone(false)}>Not now</Button>
+        <span className="text-xs text-muted-foreground">Shorten the text to match more (e.g. just the shop name).</span>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
 }

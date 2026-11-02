@@ -55,6 +55,7 @@ export const ModelName = {
   Snapshot: 'Snapshot',
   Budget: 'Budget',
   Category: 'Category',
+  CategoryRule: 'CategoryRule',
   Setting: 'Setting',
   PortfolioActivity: 'PortfolioActivity',
   Security: 'Security',
@@ -127,6 +128,18 @@ export const CategoryScalarFieldEnum = {
 export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
 
 
+export const CategoryRuleScalarFieldEnum = {
+  id: 'id',
+  pattern: 'pattern',
+  matchType: 'matchType',
+  direction: 'direction',
+  categoryId: 'categoryId',
+  createdAt: 'createdAt'
+} as const
+
+export type CategoryRuleScalarFieldEnum = (typeof CategoryRuleScalarFieldEnum)[keyof typeof CategoryRuleScalarFieldEnum]
+
+
 export const SettingScalarFieldEnum = {
   key: 'key',
   value: 'value'
@@ -167,6 +180,8 @@ export const SecurityScalarFieldEnum = {
   priceCurrency: 'priceCurrency',
   pinned: 'pinned',
   lastError: 'lastError',
+  ter: 'ter',
+  targetWeight: 'targetWeight',
   updatedAt: 'updatedAt'
 } as const
 
@@ -214,6 +229,7 @@ export const FundConstituentScalarFieldEnum = {
   name: 'name',
   country: 'country',
   sector: 'sector',
+  currency: 'currency',
   assetClass: 'assetClass',
   weight: 'weight'
 } as const

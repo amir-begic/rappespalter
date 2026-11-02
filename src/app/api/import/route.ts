@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { parseRaiffeisenXLSX } from "@/lib/parser"
+import { findRule } from "@/lib/rules"
+import { ensureRuleTable } from "@/lib/rules-store"
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,11 +43,17 @@ export async function POST(req: NextRequest) {
       categories.map(c => [c.name, c.id])
     )
 
+    // The user's own rules take precedence over the parser's category mapping.
+    await ensureRuleTable()
+    const rules = await prisma.categoryRule.findMany()
+
     let imported = 0
     let skipped = 0
+    let byRule = 0
 
     for (const tx of parsed) {
-      const categoryId = categoryMap.get(tx.category) ?? null
+      const rule = findRule(rules, tx)
+      const categoryId = rule?.categoryId ?? categoryMap.get(tx.category) ?? null
 
       try {
         await prisma.transaction.create({
@@ -61,6 +69,7 @@ export async function POST(req: NextRequest) {
           },
         })
         imported++
+        if (rule) byRule++
       } catch (e: any) {
         // Unique constraint on sourceHash means this transaction
         // already exists — skip it silently
@@ -76,6 +85,7 @@ export async function POST(req: NextRequest) {
       success: true,
       imported,
       skipped,
+      byRule, // of the imported, how many a rule categorized
       total: parsed.length,
     })
 
