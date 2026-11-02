@@ -344,6 +344,17 @@ export async function loadPortfolio() {
 
 export type PortfolioSummary = Awaited<ReturnType<typeof loadPortfolio>>
 
+// The account's value (securities + cash, CHF) at the end of each month, for
+// filling in the ETF line of net-worth snapshots. The current month uses the
+// latest value. Empty when nothing has been imported.
+export async function loadMonthEndValues() {
+  const { input } = await loadEngineInput()
+  const { series } = computePortfolio(input, { fullSeries: true })
+  const months: Record<string, { date: string; value: number }> = {}
+  for (const p of series) months[p.date.slice(0, 7)] = { date: p.date, value: Math.round(p.value * 100) / 100 }
+  return { months, latest: series.at(-1) ?? null }
+}
+
 export async function loadHoldingDetail(symbol: string) {
   const { input, securities } = await loadEngineInput(symbol)
   const detail = computeHoldingDetail(input, symbol)

@@ -117,7 +117,10 @@ export default function ProjectionsPage() {
   const [settings, setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
 
   // Snapshot form state
-  const [formMonth,    setFormMonth]    = useState("2026-03")
+  const [formMonth,    setFormMonth]    = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  })
   const [formEtf,      setFormEtf]      = useState("")
   const [formSavings,  setFormSavings]  = useState("")
   const [form3a,       setForm3a]       = useState("")
@@ -125,13 +128,17 @@ export default function ProjectionsPage() {
   const [formChecking, setFormChecking] = useState("")
   const [saving, setSaving]             = useState(false)
   const [saved,  setSaved]              = useState(false)
+  // Yuh portfolio value at each month's end, offered for the ETF field.
+  const [tracker, setTracker] = useState<Record<string, { date: string; value: number }>>({})
 
   useEffect(() => {
     Promise.all([
       fetch("/api/snapshots").then(r => r.json()),
       fetch("/api/settings").then(r => r.json()).catch(() => ({})),
+      fetch("/api/portfolio/month-ends").then(r => r.json()).catch(() => ({})),
     ])
-      .then(([snapData, settingsData]) => {
+      .then(([snapData, settingsData, trackerData]) => {
+        setTracker(trackerData.months ?? {})
         const snaps = snapData.snapshots ?? []
         const cfg   = settingsData.settings ?? DEFAULT_SETTINGS
         setSnapshots(snaps)
@@ -368,8 +375,18 @@ export default function ProjectionsPage() {
                   { label: "Checking account", value: formChecking, set: setFormChecking, placeholder: "0"  },
                 ].map(field => (
                   <div key={field.label}>
-                    <label className="text-xs text-muted-foreground mb-1 block">
+                    <label className="text-xs text-muted-foreground mb-1 flex items-center justify-between gap-2">
                       {field.label}
+                      {field.label === "ETF portfolio" && tracker[formMonth] && (
+                        <button
+                          type="button"
+                          className="text-[11px] underline hover:text-foreground"
+                          title={`Your Yuh portfolio on ${tracker[formMonth].date}`}
+                          onClick={() => setFormEtf(String(Math.round(tracker[formMonth].value)))}
+                        >
+                          Use portfolio: Fr. {fmtR(tracker[formMonth].value)}
+                        </button>
+                      )}
                     </label>
                     <input
                       type="number"

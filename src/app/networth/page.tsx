@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts"
@@ -31,24 +32,45 @@ const fmtMonth = (m: string) => {
   return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "short", year: "2-digit" })
 }
 
+// Snapshot months are stored as local midnight on the 1st; read them back in
+// local time (toISOString would give the previous month east of UTC).
+const monthKey = (d: string) => {
+  const date = new Date(d)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
+}
+
+type EtfSource = "tracker" | "snapshots"
+
 export default function NetWorthPage() {
-  const [data, setData]       = useState<Snapshot[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
+  const [snapshots, setSnapshots] = useState<Snapshot[] | null>(null)
+  const [tracker, setTracker]     = useState<Record<string, { date: string; value: number }>>({})
+  const [source, setSource]       = useState<EtfSource>("tracker")
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/snapshots")
-      .then(r => r.json())
-      .then(d => {
+    Promise.all([
+      fetch("/api/snapshots").then(r => r.json()),
+      // The portfolio tracker is optional: without Yuh data the snapshots stand alone.
+      fetch("/api/portfolio/month-ends").then(r => r.json()).catch(() => ({})),
+    ])
+      .then(([d, t]) => {
         if (d.error) setError(d.error)
-        else setData((d.snapshots ?? []).map((s: { month: string } & Snapshot) => ({
-          ...s,
-          month: new Date(s.month).toISOString().slice(0, 7),
-        })))
+        else setSnapshots((d.snapshots ?? []).map((s: { month: string } & Snapshot) => ({ ...s, month: monthKey(s.month) })))
+        setTracker(t.months ?? {})
       })
       .catch(() => setError("Failed to load data"))
       .finally(() => setLoading(false))
   }, [])
+
+  // With the tracker selected, the ETF line uses the Yuh account's month-end
+  // value wherever the tracker covers that month; earlier months keep the snapshot.
+  const covered = snapshots?.filter(s => tracker[s.month]).length ?? 0
+  const data = useMemo(() => snapshots?.map(s => {
+    const t = source === "tracker" ? tracker[s.month] : undefined
+    if (!t) return s
+    return { ...s, etf: t.value, total: s.total - s.etf + t.value }
+  }) ?? null, [snapshots, tracker, source])
 
   const latest = data && data.length > 0 ? data[data.length - 1] : null
   const first  = data && data.length > 0 ? data[0] : null
@@ -84,7 +106,7 @@ export default function NetWorthPage() {
 
       {data && !loading && data.length === 0 && (
         <p className="text-sm text-muted-foreground py-20 text-center">
-          No snapshots recorded yet. Add monthly balances via the snapshots API to build the trend.
+          No snapshots recorded yet. Record your balances on the <a href="/projections" className="underline">Projections</a> page each month to build the trend.
         </p>
       )}
 
@@ -126,12 +148,27 @@ export default function NetWorthPage() {
 
           {/* Stacked area + total line */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Composition over time
               </CardTitle>
+              {covered > 0 && (
+                <Tabs value={source} onValueChange={v => setSource(v as EtfSource)}>
+                  <TabsList>
+                    <TabsTrigger value="tracker">ETF from portfolio</TabsTrigger>
+                    <TabsTrigger value="snapshots">ETF from snapshots</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
             </CardHeader>
             <CardContent>
+              {covered > 0 && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  {source === "tracker"
+                    ? `ETF uses your Yuh portfolio's value at the end of each month (${covered} of ${data.length} months)${covered < data.length ? "; earlier months use the snapshot" : ""}. Other balances come from your snapshots.`
+                    : "ETF uses the balances you entered in your snapshots."}
+                </p>
+              )}
               {data.length === 1 && (
                 <p className="text-xs text-muted-foreground mb-3">
                   Only one snapshot so far — record more monthly balances to see the trend.

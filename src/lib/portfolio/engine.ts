@@ -119,7 +119,7 @@ export function computePortfolio(input: {
   prices:     Series // by Security.symbol
   fx:         Series // by currency, 1 unit → CHF
   today:      string
-}): PortfolioResult {
+}, opts: { fullSeries?: boolean } = {}): PortfolioResult {
   const { securities, prices, fx, today } = input
   const activities = [...input.activities].sort((a, b) => a.date.localeCompare(b.date))
   const warnings = new Set<string>()
@@ -325,7 +325,7 @@ export function computePortfolio(input: {
       irr:            xirr(irrFlows),
     },
     // Long histories are thinned to weekly points (plus the latest) for charting.
-    series: series.length > 800
+    series: series.length > 800 && !opts.fullSeries
       ? series.filter((_, i) => i % 7 === 0 || i === series.length - 1)
       : series,
     holdings,
