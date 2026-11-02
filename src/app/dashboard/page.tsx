@@ -407,11 +407,15 @@ useEffect(() => {
       const m = d.months ?? []
       setMonths(m)        // populate the dropdown
       if (m.length > 0) setMonth(m[0]) // default to most recent
+      else { setError("No transactions found"); setLoading(false) }
     })
+    .catch(() => { setError("Failed to load data"); setLoading(false) })
 }, [])
 
 
   useEffect(() => {
+    if (!month) return     // wait for /api/months to pick one
+    let stale = false      // a slower response for a previous month must not win
     setLoading(true)
     setError(null)
     setSelectedCat(null)   // clear donut drill-down when the month changes
@@ -419,11 +423,13 @@ useEffect(() => {
     fetch(`/api/summary?month=${month}`)
       .then(r => r.json())
       .then(d => {
+        if (stale) return
         if (d.error) setError(d.error)
         else setData(d)
       })
-      .catch(() => setError("Failed to load data"))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!stale) setError("Failed to load data") })
+      .finally(() => { if (!stale) setLoading(false) })
+    return () => { stale = true }
   }, [month])
 
   // Drill-down derived views: the categories present, and the filtered+sorted rows.
