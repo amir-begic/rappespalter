@@ -256,6 +256,12 @@ scripts/         # standalone build assembly
 pnpm dev                                  # dev server (http://localhost:3000)
 pnpm build                                # production web build
 pnpm start                                # serve the production build
+
+---
+
+## License
+
+[MIT](LICENSE)
 pnpm lint                                 # eslint
 
 pnpm exec prisma studio                    # browse the DB at localhost:5555
