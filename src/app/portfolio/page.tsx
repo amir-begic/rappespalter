@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table"
 import type { PortfolioSummary } from "@/lib/portfolio/store"
 import { PriceSources } from "./price-sources"
+import { Allocation } from "./allocation"
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -369,6 +370,8 @@ export default function PortfolioPage() {
               </p>
             </CardContent>
           </Card>
+
+          <Allocation data={data} onSaved={load} />
 
           {/* Dividends */}
           <Card>

@@ -333,6 +333,8 @@ export async function loadPortfolio() {
       pinned:        s.pinned,
       lastError:     s.lastError,
       priceCount:    prices.filter(p => p.symbol === s.symbol).length,
+      ter:           s.ter,
+      targetWeight:  s.targetWeight,
     })),
     activityCount: activities.length,
     lastPriceDate: lastPrice?.date ?? null,

@@ -68,6 +68,7 @@ export interface PortfolioResult {
     dividends:      number // net
     withholdingTax: number
     fees:           number
+    feesTtm:        number // trading & FX fees, last 12 months
     twr:            number | null // time-weighted, cumulative
     twrAnnualized:  number | null // only for periods ≥ 1 year
     irr:            number | null // money-weighted, annualised
@@ -151,7 +152,12 @@ export function computePortfolio(input: {
   const cash = new Map<string, number>()
   const ttmStart = addDays(today, -365)
   const byMonth = new Map<string, { net: number; tax: number }>()
-  let fees = 0, dividends = 0, withholding = 0
+  let fees = 0, feesTtm = 0, dividends = 0, withholding = 0
+  const addFee = (a: EngineActivity) => {
+    const chf = a.fee * fxOn(a.currency, a.date)
+    fees += chf
+    if (a.date > ttmStart) feesTtm += chf
+  }
 
   const priceCursors = new Map(securities.map(s => [s.symbol, cursor(prices.get(s.symbol))]))
 
@@ -175,7 +181,7 @@ export function computePortfolio(input: {
         if (!a.symbol || !a.quantity) break
         units.set(a.symbol, (units.get(a.symbol) ?? 0) + a.quantity)
         cost.set(a.symbol, (cost.get(a.symbol) ?? 0) + Math.abs(chf))
-        fees += a.fee * fxOn(a.currency, a.date)
+        addFee(a)
         if (a.price) lastTrade.set(a.symbol, { date: a.date, price: a.price, currency: a.currency })
         break
       }
@@ -187,7 +193,7 @@ export function computePortfolio(input: {
         units.set(a.symbol, held - a.quantity)
         cost.set(a.symbol, basis - soldCost)
         realized.set(a.symbol, (realized.get(a.symbol) ?? 0) + (chf - soldCost))
-        fees += a.fee * fxOn(a.currency, a.date)
+        addFee(a)
         if (a.price) lastTrade.set(a.symbol, { date: a.date, price: a.price, currency: a.currency })
         break
       }
@@ -208,7 +214,7 @@ export function computePortfolio(input: {
         if (a.counterCurrency && a.counterAmount != null) {
           cash.set(a.counterCurrency, (cash.get(a.counterCurrency) ?? 0) + a.counterAmount)
         }
-        fees += a.fee * fxOn(a.currency, a.date)
+        addFee(a)
         break
       }
       case "deposit":
@@ -313,6 +319,7 @@ export function computePortfolio(input: {
       dividends,
       withholdingTax: withholding,
       fees,
+      feesTtm,
       twr,
       twrAnnualized:  twr != null && years >= 1 ? Math.pow(1 + twr, 1 / years) - 1 : null,
       irr:            xirr(irrFlows),
