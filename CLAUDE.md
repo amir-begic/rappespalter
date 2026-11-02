@@ -318,7 +318,8 @@ starts with / equals, case- and whitespace-insensitive), optionally only money i
 out. When several match, the **longest pattern wins** (no manual ordering). Import
 applies rules before the parser's `CATEGORY_MAP`; existing transactions change only
 via an explicit apply (`POST /api/rules`, `apply: true`, or `/api/rules/apply`), which
-overwrites hand-set categories. Re-mapping a transaction on Data → Transactions offers
+overwrites hand-set categories, except transactions in a transfer-type category
+(they stay transfers unless the rule's own category is a transfer). Re-mapping a transaction on Data → Transactions offers
 a rule for its counterparty. Deleting a category deletes its rules.
 
 ## Spending pace

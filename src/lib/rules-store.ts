@@ -26,17 +26,22 @@ export function resetRuleTable() {
 // category. `onlyRuleId` restricts the result to one rule's transactions.
 export async function planRuleChanges(onlyRuleId?: number) {
   await ensureRuleTable()
-  const [rules, transactions] = await Promise.all([
+  const [rules, transactions, transfers] = await Promise.all([
     prisma.categoryRule.findMany(),
     prisma.transaction.findMany({ select: { id: true, counterparty: true, amount: true, categoryId: true } }),
+    prisma.category.findMany({ where: { type: "transfer" }, select: { id: true } }),
   ])
+  const transferIds = new Set(transfers.map(c => c.id))
   const byRule = new Map<number, { matches: number; changes: number[] }>(rules.map(r => [r.id, { matches: 0, changes: [] }]))
   for (const tx of transactions) {
     const rule = findRule(rules, tx)
     if (!rule || (onlyRuleId != null && rule.id !== onlyRuleId)) continue
     const entry = byRule.get(rule.id)!
     entry.matches++
-    if (tx.categoryId !== rule.categoryId) entry.changes.push(tx.id)
+    // Money moved between own accounts stays a transfer: a rule on a payee such
+    // as "Zeichnung Vorsorge" must not pull those rows into a spending/savings category.
+    const keepsTransfer = tx.categoryId != null && transferIds.has(tx.categoryId) && !transferIds.has(rule.categoryId)
+    if (tx.categoryId !== rule.categoryId && !keepsTransfer) entry.changes.push(tx.id)
   }
   return { rules, byRule }
 }
