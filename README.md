@@ -146,10 +146,10 @@ pnpm install
 cp .env.example .env       # Windows: copy .env.example .env
 
 # 3. Create the SQLite database, apply migrations, and seed default categories
-pnpm dlx prisma migrate dev
+pnpm exec prisma migrate dev
 
 # 4. (re)generate the Prisma client — usually run by step 3, safe to repeat
-pnpm dlx prisma generate
+pnpm exec prisma generate
 
 # 5. Start the dev server
 pnpm dev
@@ -248,10 +248,10 @@ pnpm build                                # production web build
 pnpm start                                # serve the production build
 pnpm lint                                 # eslint
 
-pnpm dlx prisma studio                    # browse the DB at localhost:5555
-pnpm dlx prisma migrate dev --name <name> # create & apply a migration
-pnpm dlx prisma migrate reset             # wipe, re-migrate, re-seed
-pnpm dlx prisma db seed                   # seed default categories
+pnpm exec prisma studio                    # browse the DB at localhost:5555
+pnpm exec prisma migrate dev --name <name> # create & apply a migration
+pnpm exec prisma migrate reset             # wipe, re-migrate, re-seed
+pnpm exec prisma db seed                   # seed default categories
 
 pnpm electron:dev                         # Electron shell (needs pnpm dev running)
 pnpm build:desktop                        # next build + assemble standalone bundle

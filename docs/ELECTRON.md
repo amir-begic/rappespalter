@@ -107,7 +107,7 @@ The template is just a copy of `dev.db` taken during `pnpm build:desktop`. To sh
 a different starting state (e.g. empty, or freshly seeded):
 
 ```bash
-pnpm dlx prisma migrate reset   # wipe + reapply migrations + seed categories
+pnpm exec prisma migrate reset   # wipe + reapply migrations + seed categories
 pnpm build:desktop              # snapshots the new dev.db as template.db
 ```
 

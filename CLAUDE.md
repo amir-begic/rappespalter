@@ -146,11 +146,12 @@ In API routes, always import from the shared singleton:
 import { prisma } from "@/lib/prisma"
 ```
 
-After any schema change run:
+After any schema change run (`pnpm exec` uses the project's Prisma 7; `pnpm dlx`
+would download the latest CLI, which no longer has `generate`):
 
 ```bash
-pnpm dlx prisma migrate dev --name <description>
-pnpm dlx prisma generate
+pnpm exec prisma migrate dev --name <description>
+pnpm exec prisma generate
 ```
 
 ## Category types
@@ -344,11 +345,11 @@ user (imports, snapshots, Settings) — nothing is hard-coded:
 ```bash
 pnpm dev                                       # start dev server
 pnpm build                                     # production build
-pnpm dlx prisma studio                         # open database browser at localhost:5555
-pnpm dlx prisma migrate dev --name <name>      # create and apply migration
-pnpm dlx prisma generate                       # regenerate client after schema change
-pnpm dlx prisma migrate reset                  # wipe db, reapply migrations, run seed
-pnpm dlx prisma db seed                        # run seed script manually
+pnpm exec prisma studio                         # open database browser at localhost:5555
+pnpm exec prisma migrate dev --name <name>      # create and apply migration
+pnpm exec prisma generate                       # regenerate client after schema change
+pnpm exec prisma migrate reset                  # wipe db, reapply migrations, run seed
+pnpm exec prisma db seed                        # run seed script manually
 ```
 
 ## Environment
