@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { SpendingPace } from "./pace"
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -580,6 +581,9 @@ useEffect(() => {
     </CardContent>
   </Card>
 )}
+
+          {/* ── Pace of the month in progress (renders nothing for a complete month) */}
+          <SpendingPace month={month} />
 
           {/* ── Spending by type bar */}
           <Card>
