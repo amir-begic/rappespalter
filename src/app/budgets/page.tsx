@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { BUDGETABLE_TYPES as BUDGETABLE } from "@/lib/categories"
+import { BudgetDrift } from "./drift"
 
 interface Category {
   id:     number
@@ -24,6 +25,7 @@ export default function BudgetsPage() {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [saved, setSaved]     = useState(false)
+  const [version, setVersion] = useState(0) // bumped after saving, so the drift view reloads
 
   function load() {
     setLoading(true)
@@ -73,6 +75,7 @@ export default function BudgetsPage() {
       )
 
       setSaved(true)
+      setVersion(v => v + 1)
       load() // refresh from server so budget/null state is accurate
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed")
@@ -94,7 +97,8 @@ export default function BudgetsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Monthly Budgets</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Set a monthly limit per category. Leave a field blank to remove its budget.
-            The dashboard compares each month&apos;s spending against these.
+            The dashboard compares each month&apos;s spending against these; below you can see
+            how far recent months drifted from the plan.
           </p>
         </div>
         <Button onClick={save} disabled={saving || loading}>
@@ -111,6 +115,10 @@ export default function BudgetsPage() {
 
       {error && <div className="text-sm text-destructive py-4 text-center">{error}</div>}
       {saved && <div className="text-sm text-positive py-2">Budgets saved.</div>}
+
+      <div className="mb-4">
+        <BudgetDrift version={version} onUseAverage={(id, amount) => setLimit(id, String(amount))} />
+      </div>
 
       {cats && !loading && (
         <Card>
