@@ -57,6 +57,9 @@ holdings files on Portfolio → Look-through. Capture at 1440×1000 in the defau
 
 ## Features
 
+### 👋 First-start setup
+A fresh install opens a short guided setup: your birth date, what you save each month (ETF, Säule 3a, 2. Säule), what your accounts hold today (recorded as your first snapshot) and your first bank export. Every step can be skipped and changed later; moving computers, you can restore a backup instead. Existing databases skip it, and Settings can run it again.
+
 ### 📊 Dashboard
 Monthly spending overview with drill-downs.
 - Income / Expenses / Saved / Net stat cards, each clickable to inspect the underlying transactions
@@ -89,6 +92,9 @@ Income, expenses, saved, and savings-rate over time (the in-progress month is ex
 
 ### 🏦 Net Worth
 Net-worth history built from monthly balance snapshots — stacked composition (checking, savings, ETF, pillar 3a, pillar 2) plus a total line, split into liquid vs. locked assets.
+
+### 🚗 Assets & debts
+Everything you own beyond your accounts — gold, crypto, collectibles (one value for a whole collection, e.g. Pokémon cards), a car — plus loans, mortgages and leases. Values are entered by hand or depreciate (cars), loans follow their repayment schedule, and Net Worth adds the assets and subtracts what you owe. A car's page shows what it really costs a month (depreciation, financing, running costs from your categories) and compares leasing with buying. Adding a new kind of asset is documented in [docs/ASSETS.md](docs/ASSETS.md).
 
 ### 📉 Portfolio
 Standalone investment tracker fed by **Yuh** activity CSV exports. Holdings are matched to market listings automatically (by the currency and price of your first trade — no hard-coded tickers) and valued at daily closing prices, converted to CHF.

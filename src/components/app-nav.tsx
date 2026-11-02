@@ -223,6 +223,17 @@ function PageLinks({ section }: { section: Section }) {
 // pages. On narrow screens the sections move to their own scrollable row.
 export function TopNav() {
   const current = useCurrentSection()
+  // The first-start setup (/welcome) gets the bar without navigation.
+  if (usePathname() === "/welcome") {
+    return (
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">
+          <Brand />
+          <div className="ml-auto"><ThemeToggle /></div>
+        </div>
+      </header>
+    )
+  }
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">

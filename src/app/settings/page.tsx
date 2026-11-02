@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ const GROUPS = [
 const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [values, setValues]     = useState<Record<SettingKey, string> | null>(null)
   const [birthDate, setBirthDate] = useState("")
   const [estimated, setEstimated] = useState(false) // birth date guessed from the old age setting
@@ -85,6 +87,14 @@ export default function SettingsPage() {
     }
   }
 
+  // Walk through the first-start setup again (it keeps what's already entered).
+  async function rerunSetup() {
+    await fetch("/api/onboarding", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: "started", step: 0 }),
+    })
+    router.push("/welcome")
+  }
+
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
 
@@ -97,7 +107,8 @@ export default function SettingsPage() {
           Projection inputs
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Values saved here override the defaults from your environment.
+          Values saved here override the defaults from your environment.{" "}
+          <button type="button" onClick={rerunSetup} className="underline hover:text-foreground">Run the setup again</button>
         </p>
       </div>
 

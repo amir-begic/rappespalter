@@ -24,6 +24,8 @@ A local-first personal finance dashboard for tracking monthly spending, savings,
 ```
 src/
   app/
+    page.tsx                 — entry: /welcome until the first-start setup is done, else /dashboard
+    welcome/page.tsx         — first-start setup: birth date, monthly saving, balances, bank import
     dashboard/page.tsx       — monthly spending overview
     import/page.tsx          — xlsx upload page
     projections/page.tsx     — forecast to retirement, calculator, forecast vs. actual
@@ -52,6 +54,7 @@ src/
       goals/route.ts         — goals CRUD, balances + savings pace per asset, PATCH category → asset
       assets/                — assets CRUD (+ values/, month-ends/ for Net Worth, car/ = a vehicle's monthly cost)
       liabilities/route.ts   — loans, mortgages, leases CRUD
+      onboarding/route.ts    — first-start setup state (GET; PUT { state, step })
       settings/route.ts      — user-editable settings (projection inputs)
       appearance/route.ts    — theme + motion preference
       backup/                — GET: database backup download; restore/: POST a backup to replace all data
@@ -72,6 +75,7 @@ src/
                                lease commitments, month-end totals, car cost (assets-store.ts: tables + loading)
     car.ts                   — pure lease-vs-buy comparison + a lease's effective interest rate
     blob.ts                  — blob outlines shared by the page blobs and the goal illustrations
+    onboarding.ts            — first-start setup state + "is this a fresh database?" check
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
     budget-drift.ts          — pure budget-vs-actual analysis (window of complete months)
@@ -259,6 +263,19 @@ importing broker deposits as transactions would double-count savings.
 - **Net worth link**: `/api/portfolio/month-ends` gives the account value at each month
   end (full daily series, not the chart's thinned one). Net Worth can use it for the
   ETF line; the Projections snapshot form offers it for the ETF field.
+
+## First-start setup
+`/welcome` (`src/lib/onboarding.ts`). `/` (where the desktop window opens) redirects
+there while Setting `onboarding.state` is missing or `started`; `done` / `skipped`
+go to the dashboard. With no state saved, a database that already holds anything
+(transactions, snapshots, portfolio activity, saved projection settings) is marked
+`done` silently, so existing users, and restored backups, are never asked. Steps:
+welcome (or restore a backup), birth date, monthly contributions, balances today
+(saved as the `init*` settings and, by default, this month's snapshot incl.
+checking), bank import (`components/import-card.tsx`, shared with Data → Import),
+done. Every step can be skipped; `onboarding.step` resumes where the user left.
+The nav shows only the wordmark and theme toggle there. Settings has "Run the setup
+again".
 
 ## Backup & restore
 Settings → Backup & restore (`src/lib/backup.ts`, `src/components/backup-card.tsx`).
