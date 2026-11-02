@@ -22,6 +22,11 @@ const dayLabel = (d: string) =>
   new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
 
 const regionNames = typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "region" }) : null
+const currencyNames = typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "currency" }) : null
+const currencyName = (code: string) => {
+  if (code === "Unknown") return code
+  try { return `${code} · ${currencyNames?.of(code) ?? code}` } catch { return code }
+}
 const countryName = (code: string) => {
   if (code === "Unknown") return code
   try { return regionNames?.of(code) ?? code } catch { return code }
@@ -31,7 +36,7 @@ const PAGE = 20
 const BARS = 12
 
 type Fund = LookThroughSummary["funds"][number]
-type Breakdown = "countries" | "sectors"
+type Breakdown = "countries" | "sectors" | "currencies"
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
@@ -197,12 +202,13 @@ export default function LookThroughPage() {
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {breakdown === "countries" ? "By country" : "By sector"}
+                {breakdown === "countries" ? "By country" : breakdown === "sectors" ? "By sector" : "By currency"}
               </CardTitle>
               <Tabs value={breakdown} onValueChange={v => setBreakdown(v as Breakdown)}>
                 <TabsList>
                   <TabsTrigger value="countries">Countries</TabsTrigger>
                   <TabsTrigger value="sectors">Sectors</TabsTrigger>
+                  <TabsTrigger value="currencies">Currencies</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -210,7 +216,9 @@ export default function LookThroughPage() {
               <BarList
                 rows={breakdown === "countries"
                   ? data.countries.map(b => ({ ...b, label: countryName(b.key) }))
-                  : data.sectors.map(b => ({ ...b, label: b.key }))}
+                  : breakdown === "sectors"
+                    ? data.sectors.map(b => ({ ...b, label: b.key }))
+                    : data.currencies.map(b => ({ ...b, label: currencyName(b.key) }))}
                 extra={[
                   { label: "Cash & other", value: data.cashOther },
                   ...data.notLookedThrough.map(f => ({ label: `${f.symbol} (no holdings data)`, value: f.value })),
@@ -219,7 +227,11 @@ export default function LookThroughPage() {
               <p className="text-xs text-muted-foreground mt-3">
                 {breakdown === "countries"
                   ? "Country of each company as reported by the fund company (usually where it is listed or incorporated)."
-                  : "Sectors are GICS. Vanguard classifies by ICB and is mapped onto GICS, so a few companies (e.g. Alphabet, Meta) appear under Information Technology rather than Communication Services."}
+                  : breakdown === "sectors"
+                    ? "Sectors are GICS. Vanguard classifies by ICB and is mapped onto GICS, so a few companies (e.g. Alphabet, Meta) appear under Information Technology rather than Communication Services."
+                    : `The currency each holding trades in — what moves its CHF value when exchange rates change, whatever currency the ETF itself is quoted in.${data.currencyEstimatedShare >= 0.005
+                      ? ` ${fmtPct(data.currencyEstimatedShare, 0)} is estimated from the company's country, because the file doesn't list currencies (Vanguard; or files uploaded before currencies were read — upload them again).`
+                      : ""}`}
               </p>
             </CardContent>
           </Card>

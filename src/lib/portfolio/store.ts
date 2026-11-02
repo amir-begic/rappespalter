@@ -246,7 +246,7 @@ export async function loadLookThrough() {
   const held = portfolio.holdings.filter(h => h.units > 0)
   const isFund = (h: (typeof held)[number]) => isFundKind(h.kind) || sourceBySymbol.has(h.symbol)
   const result = computeLookThrough(held.map(h => ({
-    symbol: h.symbol, name: h.name, value: h.value, isFund: isFund(h),
+    symbol: h.symbol, name: h.name, value: h.value, isFund: isFund(h), currency: h.priceCurrency,
     constituents: rowsBySymbol.get(h.symbol)?.map(r => ({ ...r, assetClass: r.assetClass as AssetClass })) ?? null,
   })))
 

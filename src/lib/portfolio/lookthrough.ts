@@ -2,7 +2,7 @@
 // directly held stocks, and add up the CHF exposure per company, country and
 // sector. Pure, like engine.ts. See docs/PORTFOLIO-LOOKTHROUGH.md.
 
-import type { ConstituentRow } from "./constituents"
+import { currencyForCountry, type ConstituentRow } from "./constituents"
 
 export interface LookThroughPosition {
   symbol: string
@@ -11,6 +11,7 @@ export interface LookThroughPosition {
   // Constituents of a fund; null for a stock held directly or a fund without data.
   constituents: ConstituentRow[] | null
   isFund: boolean
+  currency?: string | null // for a stock held directly: its trading currency
 }
 
 export interface Company {
@@ -32,6 +33,10 @@ export interface LookThroughResult {
   companies:      Company[] // largest first
   countries:      Bucket[]
   sectors:        Bucket[]
+  // Trading currency of each holding line (a company can trade in several).
+  // Files without a currency column fall back to the country's currency.
+  currencies:     Bucket[]
+  currencyEstimatedShare: number // of the looked-through value, by country fallback
   top10Share:     number | null // of the companies' total
 }
 
@@ -96,6 +101,8 @@ interface Piece {
   isin:    string | null
   country: string | null
   sector:  string | null
+  currency:  string | null
+  estimated: boolean // currency guessed from the country
 }
 
 export function computeLookThrough(positions: LookThroughPosition[]): LookThroughResult {
@@ -111,6 +118,7 @@ export function computeLookThrough(positions: LookThroughPosition[]): LookThroug
       pieces.push({
         symbol: p.symbol, value: p.value, name: p.name, norm: normalizeName(p.name),
         ticker: p.symbol.toUpperCase(), isin: null, country: null, sector: null,
+        currency: p.currency ?? null, estimated: false,
       })
       continue
     }
@@ -127,6 +135,7 @@ export function computeLookThrough(positions: LookThroughPosition[]): LookThroug
       pieces.push({
         symbol: p.symbol, value: p.value * r.weight, name: r.name, norm: normalizeName(r.name),
         ticker: r.ticker?.toUpperCase() ?? null, isin: r.isin, country: r.country, sector: r.sector,
+        currency: r.currency ?? currencyForCountry(r.country), estimated: !r.currency,
       })
     }
     cashOther += p.value * (1 - equity)
@@ -224,6 +233,17 @@ export function computeLookThrough(positions: LookThroughPosition[]): LookThroug
       .sort((a, b) => b.value - a.value)
   }
 
+  const byCurrency = new Map<string, number>()
+  let estimated = 0
+  for (const p of pieces) {
+    const k = p.currency ?? "Unknown"
+    byCurrency.set(k, (byCurrency.get(k) ?? 0) + p.value)
+    if (p.estimated) estimated += p.value
+  }
+  const currencies = [...byCurrency].map(([key, value]) => ({ key, value, share: total > 0 ? value / total : 0 }))
+    .sort((a, b) => b.value - a.value)
+  const piecesTotal = pieces.reduce((s, p) => s + p.value, 0)
+
   const companiesTotal = companies.reduce((s, c) => s + c.value, 0)
   return {
     total,
@@ -233,6 +253,8 @@ export function computeLookThrough(positions: LookThroughPosition[]): LookThroug
     companies,
     countries: bucket(c => c.country),
     sectors:   bucket(c => c.sector),
+    currencies,
+    currencyEstimatedShare: piecesTotal > 0 ? estimated / piecesTotal : 0,
     top10Share: companiesTotal > 0
       ? companies.slice(0, 10).reduce((s, c) => s + c.value, 0) / companiesTotal
       : null,

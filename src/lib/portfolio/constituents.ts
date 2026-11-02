@@ -14,6 +14,7 @@ export interface ConstituentRow {
   name:       string
   country:    string | null // ISO 3166 alpha-2
   sector:     string | null // GICS sector name
+  currency:   string | null // trading currency, when the file says (Vanguard's doesn't)
   assetClass: AssetClass
   weight:     number        // fraction of the fund, 0.05 = 5%
 }
@@ -117,6 +118,25 @@ export function normalizeSector(value: string): string | null {
   return SECTOR_ALIASES[v.toLowerCase()] ?? v
 }
 
+// Currency a company's shares most likely trade in, for files without a
+// currency column. Chinese companies in global indices are mostly Hong Kong
+// listings, hence HKD. Approximate by design — shown as an estimate.
+const EURO = ["AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK"]
+const COUNTRY_CURRENCY: Record<string, string> = {
+  ...Object.fromEntries(EURO.map(c => [c, "EUR"])),
+  US: "USD", CA: "CAD", GB: "GBP", CH: "CHF", JP: "JPY", AU: "AUD", NZ: "NZD", HK: "HKD", CN: "HKD",
+  TW: "TWD", KR: "KRW", IN: "INR", BR: "BRL", MX: "MXN", ZA: "ZAR", SA: "SAR", AE: "AED", QA: "QAR",
+  KW: "KWD", SG: "SGD", MY: "MYR", TH: "THB", ID: "IDR", PH: "PHP", TR: "TRY", PL: "PLN", CZ: "CZK",
+  HU: "HUF", SE: "SEK", NO: "NOK", DK: "DKK", IL: "ILS", CL: "CLP", CO: "COP", PE: "PEN", EG: "EGP",
+  KZ: "KZT", RU: "RUB", IS: "ISK",
+}
+export const currencyForCountry = (country: string | null) => country ? COUNTRY_CURRENCY[country] ?? null : null
+
+const currency = (v: unknown) => {
+  const s = text(v).toUpperCase()
+  return /^[A-Z]{3}$/.test(s) ? s : null
+}
+
 // Real ISINs only; issuers use placeholders like "_CURRENCYUSD" for cash.
 const isin = (v: unknown) => {
   const s = text(v).toUpperCase()
@@ -138,7 +158,7 @@ function parseIShares(grid: Grid): ConstituentFile {
   const c = {
     ticker: head.col("Ticker"), name: head.col("Name"), sector: head.col("Sector"),
     cls: head.col("Asset Class"), mv: head.col("Market Value"), weight: head.col("Weight (%)"),
-    location: head.col("Location"),
+    location: head.col("Location"), currency: head.col("Market Currency"),
   }
   const raw = grid.slice(head.index + 1)
     .filter(r => text(r[c.name]))
@@ -150,6 +170,7 @@ function parseIShares(grid: Grid): ConstituentFile {
         name:       text(r[c.name]),
         country:    c.location >= 0 ? countryCode(text(r[c.location])) : null,
         sector:     normalizeSector(text(r[c.sector])),
+        currency:   c.currency >= 0 ? currency(r[c.currency]) : null,
         assetClass: (cls === "equity" ? "equity" : cls.startsWith("cash") || cls.includes("money market") ? "cash" : "other") as AssetClass,
         mv:         num(r[c.mv]) ?? 0,
         pct:        num(r[c.weight]) ?? 0,
@@ -188,6 +209,7 @@ function parseVanguard(grid: Grid): ConstituentFile {
       name,
       country:    c.region >= 0 ? countryCode(text(r[c.region])) : null,
       sector:     c.sector >= 0 ? normalizeSector(text(r[c.sector])) : null,
+      currency:   null,
       assetClass: "equity",
       weight:     pct / 100,
     })
@@ -211,6 +233,7 @@ function parseXtrackers(grid: Grid, sheetName: string, fileName: string): Consti
   const c = {
     name: head.col("Name"), isin: head.col("ISIN"), country: head.col("Country"),
     type: head.col("Type of Security"), sector: head.col("Industry Classification"), weight: head.col("Weighting"),
+    currency: head.col("Currency"),
   }
   const rows: ConstituentRow[] = []
   for (const r of grid.slice(head.index + 1)) {
@@ -224,6 +247,7 @@ function parseXtrackers(grid: Grid, sheetName: string, fileName: string): Consti
       name,
       country:    c.country >= 0 ? countryCode(text(r[c.country])) : null,
       sector:     c.sector >= 0 ? normalizeSector(text(r[c.sector])) : null,
+      currency:   c.currency >= 0 ? currency(r[c.currency]) : null,
       assetClass: XTRACKERS_EQUITY.has(type) ? "equity" : type === "cash" ? "cash" : "other",
       weight,
     })
