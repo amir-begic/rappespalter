@@ -145,34 +145,31 @@ The parser (src/lib/parser.ts) handles the Raiffeisen Finanzassistent export for
 - Maps German category names (Gastronomie, Lebensmittel etc.) to app categories
 - Generates a sourceHash per transaction for deduplication on re-import
 
-### Credit-card settlements: double-count avoidance (FIXED)
-The export contains **two accounts**: a `VISA •••• XXXX` card (individual credit-card
-purchases) and `Mitglieder-Privatkonto` (checking). The monthly credit-card bill
-is paid from checking as a single lump sum booked under counterparty
+### Credit-card settlements: double-count avoidance
+A Finanzassistent export can include a credit-card account (`VISA •••• XXXX`,
+individual card purchases) alongside checking (`Mitglieder-Privatkonto`). The
+monthly card bill is paid from checking as one lump sum booked under counterparty
 **"Viseca Card Services"**.
 
 That settlement is an internal transfer (checking → card), not new spending — the
-individual purchases are already imported from the VISA account. Counting the lump
-sum too double-counted card spending (the lump-sum settlement rows roughly matched
-the total of the individual VISA purchases already imported), and was temporally
-misaligned (the bill is paid ~1 month late; some months carried two billing cycles,
-others none).
+individual purchases are already imported from the card account. Counting the lump
+sum too would double-count card spending, and misalign it in time (the bill is paid
+~1 month late, so some months carry two billing cycles and others none).
 
-**Fix applied (two parts):**
-- **Parser** — `/viseca card services/i` added to `INTERNAL_TRANSFER_PATTERNS`, so
-  future imports skip the settlement row entirely (same handling as `Übertrag`).
-- **Existing data** — the 60 already-imported settlement rows were recategorized
-  to the `Internal Transfer` (transfer-type) category, which `summary`/`income`
-  exclude from totals. They remain in the DB for audit but no longer count as
-  spending.
+**Handling:**
+- **Parser** — `/viseca card services/i` is in `INTERNAL_TRANSFER_PATTERNS`, so the
+  settlement row is skipped on import (same handling as `Übertrag`).
+- **Older databases** — settlement rows imported before this pattern existed should
+  be recategorized to a transfer-type category (e.g. `Internal Transfer`), which
+  `summary`/`income` exclude from totals.
 
 The annual card fee ("Gebühr / Jahresgebühr Kreditkarte") does **not** match the
 filter and correctly stays as a real expense.
 
 ## Portfolio tracker
-Standalone: it never touches Transaction/Snapshot. Deposits into Yuh are already
-recorded on the Raiffeisen side (as *ETF Investment*), so importing them as
-transactions would double-count savings.
+Standalone: it never touches Transaction/Snapshot. Money moved into a broker account
+already shows up in the bank export (typically categorized as *ETF Investment*), so
+importing broker deposits as transactions would double-count savings.
 
 - **Import** (`yuh.ts`): Yuh "Activities" CSV — `;`-separated, UTF-8 BOM, DD/MM/YYYY,
   text wrapped in extra quotes. Order amounts include fees; dividend credits are net
@@ -211,15 +208,15 @@ compare **to the day** against the same days a year earlier, so a month in
 progress isn't compared with a complete one. A stream's partial first year is
 not used as a comparison base.
 
-## Financial context
-The dashboard models a Swiss personal-finance setup with these inputs (all values
-are user-specific and configurable — the numbers below are illustrative placeholders):
-- Monthly net salary
-- Recurring ETF contributions (a portfolio split across a few funds)
+## Modelled finances
+The app models a typical Swiss personal-finance setup. All values are entered by the
+user (imports, snapshots, Settings) — nothing is hard-coded:
+- Monthly net salary and other income
+- Recurring ETF contributions
 - Säule 3a (pillar 3a) monthly contribution
-- A static savings-account balance
+- A savings-account balance
 - 2. Säule (pillar 2) balance
-- Goal: Swiss real estate purchase in 5–10 years
+- An optional savings goal, e.g. a property down payment (Goal page)
 
 ## Projection assumptions (defaults)
 - ETF: 6% annual return, monthly compounding
