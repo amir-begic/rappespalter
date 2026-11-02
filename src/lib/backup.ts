@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma"
 import { resetSettingTable } from "@/lib/setting-table"
 import { resetRuleTable } from "@/lib/rules-store"
 import { resetPortfolioSchema } from "@/lib/portfolio/schema"
+import { resetMarkTable } from "@/lib/marks"
 
 const BEFORE_RESTORE_KEEP = 5
 // Tables every Rappespalter database has; the on-demand ones are created later.
@@ -93,4 +94,5 @@ function swapIn(source: string, db: string) {
   resetSettingTable()
   resetRuleTable()
   resetPortfolioSchema()
+  resetMarkTable()
 }

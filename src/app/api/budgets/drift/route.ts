@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
 import { BUDGETABLE_TYPES } from "@/lib/categories"
 import { analyseBudgetDrift, type SpendEntry } from "@/lib/budget-drift"
 
@@ -8,15 +9,17 @@ const dayKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
 // Budget vs. actual over the last N complete months: GET /api/budgets/drift?months=6
-// (1–24, default 6). Spending uses the same rule as /api/summary.
+// (1–24, default 6). Spending uses the same rule as /api/summary, minus
+// transactions marked one-off (a budget can't plan for those).
 export async function GET(req: NextRequest) {
   try {
     const param = Number(new URL(req.url).searchParams.get("months") ?? 6)
     const months = Number.isInteger(param) && param >= 1 && param <= 24 ? param : 6
 
+    await ensureMarkTable()
     const [rows, categories, latest] = await Promise.all([
       prisma.transaction.findMany({
-        where:   { amount: { lt: 0 } },
+        where:   { amount: { lt: 0 }, ...NOT_ONE_OFF },
         select:  { date: true, amount: true, categoryId: true, category: { select: { type: true } } },
       }),
       prisma.category.findMany({ include: { budget: true } }),

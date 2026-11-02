@@ -19,6 +19,18 @@ model Transaction {
   bookingText  String?
   sourceHash   String    @unique
   importedAt   DateTime  @default(now())
+  mark         TransactionMark?
+}
+
+// Per-transaction flags, kept out of Transaction so older databases (which the
+// desktop app never migrates) keep working: the table is created on demand
+// (src/lib/marks.ts). A transaction without a row has no flags.
+model TransactionMark {
+  transactionId  Int         @id
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  oneOff         Boolean     @default(false) // left out of trends, averages and budget comparisons
+  categorySource String?     // how the category was set: rule | bank | override | fallback | manual
+  reviewedAt     DateTime?   // confirmed in the review inbox (or re-mapped by hand)
 }
 
 model Snapshot {

@@ -9,6 +9,7 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/Transaction'
+export type * from './models/TransactionMark'
 export type * from './models/Snapshot'
 export type * from './models/Budget'
 export type * from './models/Category'

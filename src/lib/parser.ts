@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx"
+import { resolveCounterparty } from "./counterparty"
 
 export interface ParsedTransaction {
   date: Date
@@ -7,6 +8,9 @@ export interface ParsedTransaction {
   currency: string
   account: string
   category: string
+  // How `category` was chosen: a counterparty override, the bank's own category
+  // (CATEGORY_MAP), or FALLBACK_CATEGORY because the bank's wasn't recognised.
+  categorySource: "override" | "bank" | "fallback"
   bookingText: string
   sourceHash: string
 }
@@ -59,38 +63,24 @@ const COUNTERPARTY_OVERRIDES: { pattern: RegExp; category: string }[] = [
   { pattern: /\bsalt\b/i,  category: "Mobile" },
 ]
 
-// Raiffeisen exports some payments with only the payment type as counterparty
-// ("Dauerauftrag") and the payee on the second line of the booking text:
-//   Dauerauftrag\nMuster AG\nMusterstrasse 1\n9000 St. Gallen\nCH\n…
-// The same standing order shows up in other months as "Dauerauftrag Muster
-// AG", so these labels get the payee appended to match that form.
-const GENERIC_COUNTERPARTIES = new Set([
-  "dauerauftrag",
-  "sammelzahlung",
-  "zahlung",
-  "instant-zahlung",
-  "gutschrift",
-])
-
-function resolveCounterparty(counterparty: string, bookingText: string): string {
-  if (!GENERIC_COUNTERPARTIES.has(counterparty.toLowerCase())) return counterparty
-  const [first, payee] = bookingText.split(/\r?\n/).map(line => line.trim())
-  if (first !== counterparty || !payee) return counterparty
-  return `${counterparty} ${payee}`
-}
-
 function isInternalTransfer(counterparty: string): boolean {
   return INTERNAL_TRANSFER_PATTERNS.some(pattern =>
     pattern.test(counterparty)
   )
 }
 
-function mapCategory(counterparty: string, rawCategory: string): string {
-  const override = COUNTERPARTY_OVERRIDES.find(o => o.pattern.test(counterparty))
-  if (override) return override.category
+// Used when the bank's category isn't in CATEGORY_MAP. Such transactions go to
+// the review inbox, since "Personal" is only a guess for them.
+export const FALLBACK_CATEGORY = "Personal"
 
-  const key = rawCategory.toLowerCase().trim()
-  return CATEGORY_MAP[key] ?? "Personal"
+function mapCategory(counterparty: string, rawCategory: string): Pick<ParsedTransaction, "category" | "categorySource"> {
+  const override = COUNTERPARTY_OVERRIDES.find(o => o.pattern.test(counterparty))
+  if (override) return { category: override.category, categorySource: "override" }
+
+  const mapped = CATEGORY_MAP[rawCategory.toLowerCase().trim()]
+  return mapped
+    ? { category: mapped, categorySource: "bank" }
+    : { category: FALLBACK_CATEGORY, categorySource: "fallback" }
 }
 
 function generateHash(date: Date, counterparty: string, amount: number): string {
@@ -150,7 +140,7 @@ export function parseRaiffeisenXLSX(buffer: Buffer): ParsedTransaction[] {
       amount,
       currency,
       account,
-      category: mapCategory(counterparty, rawCategory),
+      ...mapCategory(counterparty, rawCategory),
       bookingText,
       sourceHash,
     })

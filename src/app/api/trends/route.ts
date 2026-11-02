@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
 
 // Per-month income / expenses / savings trend across all recorded months.
 // Mirrors the single-month logic in /api/summary, grouped by YYYY-MM:
@@ -8,14 +9,17 @@ import { prisma } from "@/lib/prisma"
 //   expenses = amount < 0, excluding savings and transfers
 // `liquidSaved` is the slice of savings that lands in *accessible* assets
 // (everything savings-type except the locked Säule 3a) — used by the
-// down-payment goal projection.
+// down-payment goal projection. Transactions marked one-off are left out, so a
+// single big payment doesn't distort the trend or the averages built on it.
 const LOCKED_SAVINGS = new Set(["Säule 3a"])
 
 const round = (n: number) => Math.round(n * 100) / 100
 
 export async function GET() {
   try {
+    await ensureMarkTable()
     const transactions = await prisma.transaction.findMany({
+      where:   NOT_ONE_OFF,
       include: { category: true },
     })
 

@@ -47,6 +47,11 @@ export { Prisma }
  */
 export type Transaction = Prisma.TransactionModel
 /**
+ * Model TransactionMark
+ * 
+ */
+export type TransactionMark = Prisma.TransactionMarkModel
+/**
  * Model Snapshot
  * 
  */

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Moon, Sun } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -18,6 +19,7 @@ const SECTIONS: { title: string; color: string; items: NavItem[] }[] = [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/trends",    label: "Trends" },
       { href: "/income",    label: "Income" },
+      { href: "/recurring", label: "Recurring" },
     ],
   },
   {
@@ -29,6 +31,7 @@ const SECTIONS: { title: string; color: string; items: NavItem[] }[] = [
       { href: "/networth",    label: "Net Worth" },
       { href: "/portfolio",   label: "Portfolio" },
       { href: "/projections", label: "Projections" },
+      { href: "/tax",         label: "Tax" },
     ],
   },
   {
@@ -36,6 +39,7 @@ const SECTIONS: { title: string; color: string; items: NavItem[] }[] = [
     color: "bg-pop-red",
     items: [
       { href: "/import",   label: "Import" },
+      { href: "/review",   label: "Review" },
       { href: "/data",     label: "Data" },
       { href: "/settings", label: "Settings" },
     ],
@@ -51,6 +55,30 @@ function useIsActive() {
 function useBadges() {
   const { state } = useUpdates()
   return (href: string) => href === "/settings" && Boolean(state?.available)
+}
+
+// How many recent transactions wait in the review inbox; re-checked on every
+// navigation, so it follows imports and reviews.
+function useReviewCount() {
+  const pathname = usePathname()
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let stale = false
+    fetch("/api/review?count=1")
+      .then(r => r.json())
+      .then(d => { if (!stale && typeof d.recent === "number") setCount(d.recent) })
+      .catch(() => {})
+    return () => { stale = true }
+  }, [pathname])
+  return count
+}
+
+function ReviewCount({ count }: { count: number }) {
+  return (
+    <span className="min-w-4 rounded-full bg-pop-red px-1 text-center text-[0.625rem] leading-4 text-white" aria-label={`${count} to review`}>
+      {count > 99 ? "99+" : count}
+    </span>
+  )
 }
 
 function UpdateDot() {
@@ -100,6 +128,7 @@ function ThemeToggle() {
 function NavLinks({ className }: { className?: string }) {
   const isActive = useIsActive()
   const hasBadge = useBadges()
+  const toReview = useReviewCount()
   return (
     <nav className={className}>
       {SECTIONS.map(section => (
@@ -118,6 +147,7 @@ function NavLinks({ className }: { className?: string }) {
             >
               {label}
               {hasBadge(href) && <UpdateDot />}
+              {href === "/review" && toReview > 0 && !isActive(href) && <ReviewCount count={toReview} />}
             </Link>
           ))}
         </div>

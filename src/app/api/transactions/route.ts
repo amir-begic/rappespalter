@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { ensureMarkTable, setMark, type MarkPatch } from "@/lib/marks"
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,11 +67,12 @@ export async function GET(req: NextRequest) {
     }
 
     // Run count and data fetch in parallel
+    await ensureMarkTable()
     const [total, transactions] = await Promise.all([
       prisma.transaction.count({ where }),
       prisma.transaction.findMany({
         where,
-        include: { category: true },
+        include: { category: true, mark: true },
         orderBy: { date: "desc" },
         skip:  (page - 1) * limit,
         take:  limit,
@@ -96,33 +98,40 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Re-map a single transaction's category (used by the Data tab).
-// Body: { id: number, categoryId: number | null }
+// Update a single transaction (Data tab, review inbox):
+// { id, categoryId?: number | null, oneOff?: boolean, reviewed?: boolean }.
+// Setting the category by hand also counts as reviewing it.
 export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { id, categoryId } = body
+    const { id, categoryId, oneOff, reviewed } = await req.json()
 
     if (typeof id !== "number") {
-      return NextResponse.json(
-        { error: "id is required (number)" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "id is required (number)" }, { status: 400 })
+    }
+    if (categoryId !== undefined && categoryId !== null && typeof categoryId !== "number") {
+      return NextResponse.json({ error: "categoryId must be a number or null" }, { status: 400 })
+    }
+    if (oneOff !== undefined && typeof oneOff !== "boolean") {
+      return NextResponse.json({ error: "oneOff must be a boolean" }, { status: 400 })
+    }
+    if (reviewed !== undefined && typeof reviewed !== "boolean") {
+      return NextResponse.json({ error: "reviewed must be a boolean" }, { status: 400 })
     }
 
-    if (categoryId !== null && typeof categoryId !== "number") {
-      return NextResponse.json(
-        { error: "categoryId must be a number or null" },
-        { status: 400 }
-      )
-    }
+    const patch: MarkPatch = {}
+    if (oneOff !== undefined) patch.oneOff = oneOff
+    if (reviewed !== undefined) patch.reviewedAt = reviewed ? new Date() : null
+    if (categoryId !== undefined) { patch.categorySource = "manual"; patch.reviewedAt = new Date() }
 
-    const transaction = await prisma.transaction.update({
-      where: { id },
-      data:  { categoryId },
-      include: { category: true },
+    if (categoryId !== undefined) {
+      await prisma.transaction.update({ where: { id }, data: { categoryId } })
+    }
+    if (Object.keys(patch).length) await setMark(id, patch)
+
+    const transaction = await prisma.transaction.findUnique({
+      where:   { id },
+      include: { category: true, mark: true },
     })
-
     return NextResponse.json({ transaction })
 
   } catch (error) {

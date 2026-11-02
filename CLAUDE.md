@@ -29,6 +29,9 @@ src/
     projections/page.tsx     — 15-year wealth forecast
     portfolio/page.tsx       — standalone investment tracker (Yuh CSV + market prices)
     portfolio/look-through/  — ETFs broken down into companies / countries / sectors
+    recurring/page.tsx       — recurring payments: coming up, changes, yearly cost
+    review/page.tsx          — review inbox (uncategorized + guessed categories)
+    tax/page.tsx             — figures for one year's tax return
     api/
       import/route.ts        — parses and imports Raiffeisen XLSX
       transactions/route.ts  — CRUD + filtering
@@ -39,6 +42,9 @@ src/
       budgets/drift/route.ts — budget vs. actual over the last N complete months
       budgets/pace/route.ts  — projection for the month in progress
       rules/route.ts         — auto-categorization rules (+ rules/apply)
+      review/route.ts        — review inbox: list / counts, mark reviewed, re-map a group
+      recurring/route.ts     — recurring series + upcoming payments
+      tax/route.ts           — one year's 3a, balances, securities, dividends, income
       settings/route.ts      — user-editable settings (projection inputs)
       appearance/route.ts    — theme + motion preference
       backup/                — GET: database backup download; restore/: POST a backup to replace all data
@@ -49,6 +55,10 @@ src/
   lib/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
+    counterparty.ts          — pure payee handling (bare "Dauerauftrag" → payee, payment-type prefix)
+    marks.ts                 — TransactionMark table (one-off, category source, reviewed) + NOT_ONE_OFF
+    recurring.ts             — pure recurring-payment detection
+    tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
     budget-drift.ts          — pure budget-vs-actual analysis (window of complete months)
@@ -108,6 +118,11 @@ Tables:
   because the desktop app doesn't migrate existing userData databases.
 - **CategoryRule** — auto-categorization rules (counterparty pattern → category);
   created on demand by `ensureRuleTable()` (src/lib/rules-store.ts).
+- **TransactionMark** — per-transaction flags keyed by transactionId: `oneOff`,
+  `categorySource` (rule | bank | override | fallback | manual), `reviewedAt`. A
+  separate table, not Transaction columns, so older databases keep working; created
+  on demand by `ensureMarkTable()` (src/lib/marks.ts) — call it before any query that
+  touches `mark`.
 - **PortfolioActivity / Security / SecurityPrice / FxRate / FundSource / FundConstituent** —
   portfolio tracker and ETF look-through (see below); `Security.ter` / `targetWeight`
   hold fund fees and allocation targets;
@@ -255,13 +270,13 @@ Dashboard *Month pace* (`src/lib/pace.ts`, pure) projects the month in progress 
 budgeted category: fixed = max(spent, usual), variable = spent + usual × share of the
 month left, where usual = mean of the last 3 complete months (linear without history).
 "Today" is the latest import date if earlier — data after the last import isn't in.
-Renders nothing for a complete month.
+One-offs count in the month itself but not in "usual". Renders nothing for a complete month.
 
 ## Budget drift
 The Budgets page's *Plan vs. actual* card (`src/lib/budget-drift.ts`, pure) compares
 spending with today's budgets over the last 3/6/12 months. Spending uses the
-`/api/summary` rule (outgoing, excluding savings/transfer types), so budgeted +
-unbudgeted equals the dashboard's expenses for every month. The window holds only
+`/api/summary` rule (outgoing, excluding savings/transfer types) minus one-offs, so
+budgeted + unbudgeted equals the dashboard's expenses less one-offs. The window holds only
 **complete** months: it ends before the month of the latest `importedAt` (a month
 imported while in progress isn't counted) and never extends past the data. Budgets
 aren't versioned, so all months are compared with the current limit.
@@ -273,7 +288,40 @@ transfer-type categories (same rule as `/api/income`). Monthly series are
 zero-filled with a trailing 12-month average; "this year" and "last 12 months"
 compare **to the day** against the same days a year earlier, so a month in
 progress isn't compared with a complete one. A stream's partial first year is
-not used as a comparison base.
+not used as a comparison base. One-offs are left out.
+
+## One-off transactions
+`TransactionMark.oneOff`, toggled on Data → Transactions (hover a row) and in the
+review inbox. One-offs (an inheritance, a car) stay in totals — dashboard summary,
+Income page, tax summary — but are left out of trends and averages: `/api/trends`
+(and so the Goal page), income streams, budget drift, pace's "usual", and recurring
+detection. Filter with `NOT_ONE_OFF` from src/lib/marks.ts.
+
+## Review inbox
+Data → Review lists transactions whose category nobody confirmed: uncategorized ones,
+and ones the parser gave `FALLBACK_CATEGORY` ("Personal") because the bank's category
+wasn't in `CATEGORY_MAP` (`categorySource = "fallback"`, while still in that
+category). Import records `categorySource` for new rows and, for existing rows that
+lack one, when an old export is re-imported. Re-mapping (here or on Data) or "Looks
+right" sets `reviewedAt`. Grouped by counterparty; the last 90 days before the latest
+import are shown first and counted on the nav badge.
+
+## Recurring payments
+`src/lib/recurring.ts` (pure): transactions grouped by payee (`payeeName` strips the
+payment type, so "Dauerauftrag X" = "Instant-Zahlung X") and direction; a group that
+isn't regular is split by amount (±25%). A series needs ≥3 payments in a monthly,
+quarterly, half-yearly or yearly rhythm (long rhythms: every gap fits, near-constant
+amount). It reports the next date, "missing" when overdue past a grace period (then
+dropped as stopped), and a changed fixed amount for three payments. Judged as of the
+latest import. One-offs are left out.
+
+## Tax summary
+Planning → Tax (`/api/tax`, `src/lib/tax.ts`) collects one year's figures; it applies
+no tax rules. Säule 3a = payments in the savings category named like "3a"
+(selectable); balances from the snapshot nearest 31 Dec (Jan next year, else Dec);
+securities valued with `computePortfolio` as of 31 Dec (or today); dividends per
+security, gross = net + withholding, CHF at each payment day's ECB rate; income by
+category excluding transfers. One-offs count.
 
 ## Modelled finances
 The app models a typical Swiss personal-finance setup. All values are entered by the

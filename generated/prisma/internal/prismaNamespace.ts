@@ -385,6 +385,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   Transaction: 'Transaction',
+  TransactionMark: 'TransactionMark',
   Snapshot: 'Snapshot',
   Budget: 'Budget',
   Category: 'Category',
@@ -411,7 +412,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "transaction" | "snapshot" | "budget" | "category" | "categoryRule" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent"
+    modelProps: "transaction" | "transactionMark" | "snapshot" | "budget" | "category" | "categoryRule" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -486,6 +487,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.TransactionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.TransactionCountAggregateOutputType> | number
+        }
+      }
+    }
+    TransactionMark: {
+      payload: Prisma.$TransactionMarkPayload<ExtArgs>
+      fields: Prisma.TransactionMarkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.TransactionMarkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.TransactionMarkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>
+        }
+        findFirst: {
+          args: Prisma.TransactionMarkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.TransactionMarkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>
+        }
+        findMany: {
+          args: Prisma.TransactionMarkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>[]
+        }
+        create: {
+          args: Prisma.TransactionMarkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>
+        }
+        createMany: {
+          args: Prisma.TransactionMarkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.TransactionMarkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>[]
+        }
+        delete: {
+          args: Prisma.TransactionMarkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>
+        }
+        update: {
+          args: Prisma.TransactionMarkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>
+        }
+        deleteMany: {
+          args: Prisma.TransactionMarkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.TransactionMarkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.TransactionMarkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>[]
+        }
+        upsert: {
+          args: Prisma.TransactionMarkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$TransactionMarkPayload>
+        }
+        aggregate: {
+          args: Prisma.TransactionMarkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTransactionMark>
+        }
+        groupBy: {
+          args: Prisma.TransactionMarkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TransactionMarkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.TransactionMarkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TransactionMarkCountAggregateOutputType> | number
         }
       }
     }
@@ -1355,6 +1430,16 @@ export const TransactionScalarFieldEnum = {
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
 
 
+export const TransactionMarkScalarFieldEnum = {
+  transactionId: 'transactionId',
+  oneOff: 'oneOff',
+  categorySource: 'categorySource',
+  reviewedAt: 'reviewedAt'
+} as const
+
+export type TransactionMarkScalarFieldEnum = (typeof TransactionMarkScalarFieldEnum)[keyof typeof TransactionMarkScalarFieldEnum]
+
+
 export const SnapshotScalarFieldEnum = {
   id: 'id',
   month: 'month',
@@ -1650,6 +1735,7 @@ export type PrismaClientOptions = ({
 }
 export type GlobalOmitConfig = {
   transaction?: Prisma.TransactionOmit
+  transactionMark?: Prisma.TransactionMarkOmit
   snapshot?: Prisma.SnapshotOmit
   budget?: Prisma.BudgetOmit
   category?: Prisma.CategoryOmit

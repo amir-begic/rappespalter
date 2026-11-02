@@ -23,6 +23,11 @@ export * from './enums';
  */
 export type Transaction = Prisma.TransactionModel
 /**
+ * Model TransactionMark
+ * 
+ */
+export type TransactionMark = Prisma.TransactionMarkModel
+/**
  * Model Snapshot
  * 
  */

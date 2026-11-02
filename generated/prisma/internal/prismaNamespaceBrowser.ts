@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Transaction: 'Transaction',
+  TransactionMark: 'TransactionMark',
   Snapshot: 'Snapshot',
   Budget: 'Budget',
   Category: 'Category',
@@ -92,6 +93,16 @@ export const TransactionScalarFieldEnum = {
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const TransactionMarkScalarFieldEnum = {
+  transactionId: 'transactionId',
+  oneOff: 'oneOff',
+  categorySource: 'categorySource',
+  reviewedAt: 'reviewedAt'
+} as const
+
+export type TransactionMarkScalarFieldEnum = (typeof TransactionMarkScalarFieldEnum)[keyof typeof TransactionMarkScalarFieldEnum]
 
 
 export const SnapshotScalarFieldEnum = {

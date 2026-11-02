@@ -8,6 +8,7 @@ import { computeHoldingDetail, computePortfolio, type Series } from "./engine"
 import { parseConstituentFile, providerLabel, type AssetClass, type ConstituentFile } from "./constituents"
 import { computeLookThrough } from "./lookthrough"
 import type { ParseResult } from "./yuh"
+import { dividendsForYear } from "@/lib/tax"
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const today = () => iso(new Date())
@@ -353,6 +354,31 @@ export async function loadMonthEndValues() {
   const months: Record<string, { date: string; value: number }> = {}
   for (const p of series) months[p.date.slice(0, 7)] = { date: p.date, value: Math.round(p.value * 100) / 100 }
   return { months, latest: series.at(-1) ?? null }
+}
+
+// The account on 31 December of `year` (or today, for the current year) and the
+// year's dividends — for the Tax page's securities list.
+export async function loadYearEnd(year: number) {
+  const { input } = await loadEngineInput()
+  const end = `${year}-12-31`
+  const asOf = end < input.today ? end : input.today
+  const activities = input.activities.filter(a => a.date <= asOf)
+  const result = computePortfolio({ ...input, activities, today: asOf })
+  return {
+    asOf,
+    holdings: result.holdings
+      .filter(h => Math.abs(h.units) > 1e-9)
+      .map(h => ({
+        symbol: h.symbol, name: h.name, units: h.units,
+        price: h.price, priceCurrency: h.priceCurrency, priceDate: h.priceDate, priceIsTrade: h.priceIsTrade,
+        value: Math.round(h.value * 100) / 100,
+      })),
+    cash:      Math.round(result.totals.cash * 100) / 100,
+    value:     Math.round(result.totals.value * 100) / 100,
+    dividends: dividendsForYear(input.activities, input.securities, input.fx, year),
+    warnings:  result.warnings,
+    hasData:   activities.length > 0,
+  }
 }
 
 export async function loadHoldingDetail(symbol: string) {

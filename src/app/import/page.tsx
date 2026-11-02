@@ -48,9 +48,10 @@ const SOURCES: Source[] = [
         "Upload the downloaded file here",
       ],
     },
-    afterImport: async data => Number(data.byRule)
-      ? [`${data.byRule} categorized by your rules (Data → Rules)`]
-      : [],
+    afterImport: async data => [
+      ...(Number(data.byRule) ? [`${data.byRule} categorized by your rules (Data → Rules)`] : []),
+      ...(Number(data.toReview) ? [`${data.toReview} got a guessed category — check them on Data → Review`] : []),
+    ],
   },
   {
     id:          "yuh",
