@@ -50,22 +50,8 @@ DATABASE_URL="file:./demo.db" NEXT_PUBLIC_MONTHLY_ETF=1000 NEXT_PUBLIC_MONTHLY_3
 
 Override every `NEXT_PUBLIC_*` variable as above, or your own values from `.env`
 show up as defaults on Settings. For the look-through, upload the funds' public
-holdings files on Portfolio → Look-through. Capture at 1440×1000 in light mode.
-
---- | --- |
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Projections](docs/screenshots/projections.png) |
-
-| Net Worth | Trends |
-| --- | --- |
-| ![Net Worth](docs/screenshots/networth.png) | ![Trends](docs/screenshots/trends.png) |
-
-<!--
-To add screenshots:
-  1. Run the app (pnpm dev) and capture each page.
-  2. Save PNGs as docs/screenshots/{dashboard,projections,networth,trends}.png
-  3. Commit them — the images above will display automatically.
-Add more rows for import / budgets / income / goal / data as desired.
--->
+holdings files on Portfolio → Look-through. Capture at 1440×1000 in the default
+(light) theme, with the Next.js dev badge hidden (`nextjs-portal { display: none }`).
 
 ---
 

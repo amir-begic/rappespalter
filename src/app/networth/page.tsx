@@ -82,10 +82,10 @@ export default function NetWorthPage() {
     <div className="max-w-4xl mx-auto py-10 px-4">
 
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="text-xs uppercase text-muted-foreground mb-2">
           Net Worth
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1>
           Net Worth Over Time
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
@@ -117,14 +117,14 @@ export default function NetWorthPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Net worth</p>
-                <p className="text-2xl font-semibold">Fr. {fmtR(latest!.total)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Net worth</p>
+                <p className="font-display text-3xl">Fr. {fmtR(latest!.total)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Change</p>
-                <p className={`text-2xl font-semibold ${change >= 0 ? "text-positive" : "text-negative"}`}>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Change</p>
+                <p className={`font-display text-3xl ${change >= 0 ? "text-positive" : "text-negative"}`}>
                   {change >= 0 ? "+" : "−"}Fr. {fmtR(Math.abs(change))}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">since {fmtMonth(first!.month)}</p>
@@ -132,15 +132,15 @@ export default function NetWorthPage() {
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Liquid</p>
-                <p className="text-2xl font-semibold text-positive">Fr. {fmtR(liquid)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Liquid</p>
+                <p className="font-display text-3xl text-positive">Fr. {fmtR(liquid)}</p>
                 <p className="text-xs text-muted-foreground mt-1">ETF + savings + checking</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Locked</p>
-                <p className="text-2xl font-semibold text-highlight">Fr. {fmtR(locked)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Locked</p>
+                <p className="font-display text-3xl text-highlight">Fr. {fmtR(locked)}</p>
                 <p className="text-xs text-muted-foreground mt-1">3a + 2. Säule</p>
               </CardContent>
             </Card>
@@ -149,7 +149,7 @@ export default function NetWorthPage() {
           {/* Stacked area + total line */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Composition over time
               </CardTitle>
               {covered > 0 && (

@@ -18,7 +18,7 @@ export function PriceSources({ securities, onChanged }: {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Price sources</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">Price sources</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground mb-4">
@@ -70,7 +70,7 @@ function SecurityRow({ sec, onChanged }: {
   return (
     <div className="py-3 first:pt-0 last:pb-0 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-sm font-medium">{sec.symbol}</span>
+        <span className="font-mono text-sm">{sec.symbol}</span>
         <span className="text-sm text-muted-foreground truncate">{sec.name}</span>
         {manual ? (
           <Badge variant="secondary">Manual prices</Badge>

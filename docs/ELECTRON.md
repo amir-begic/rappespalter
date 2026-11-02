@@ -26,9 +26,12 @@ runtime executes the server.
 
 Starting the server is most of the startup time, so it begins before Electron's
 `ready` event, and the window opens straight away on a loading page
-([electron/loading.html](../electron/loading.html)) that is replaced once the server
-answers. Only one copy runs at a time (`app.requestSingleInstanceLock()`): launching
-it again, e.g. a second click while it's starting, focuses the existing window.
+([electron/loading.html](../electron/loading.html)), where the name is written
+out in one ink line, until the server answers. Its letterforms are the public-domain
+Hershey "Script 1-stroke" font, smoothed into curves; each stroke is a `<path>` with
+its own start and duration, so the pen moves at a steady speed. Only one copy runs
+at a time (`app.requestSingleInstanceLock()`): launching it again, e.g. a second
+click while it's starting, focuses the existing window.
 
 ### App icon
 
@@ -68,6 +71,10 @@ On first launch this is seeded from `template.db` (a personal build snapshots yo
 to reset to the shipped template.
 
 ### Importing a database from the app
+
+For backups, use **Settings → Backup & restore**: *Back up…* saves a copy of all
+data wherever you choose (native Save dialog), *Restore…* replaces the data with a
+backup after saving a safety copy to `backups/before-restore/` in the data folder.
 
 Use **File → Import Database…** to load an existing `.db` (e.g. your `dev.db`)
 without touching the filesystem. It validates the file is SQLite, stops the

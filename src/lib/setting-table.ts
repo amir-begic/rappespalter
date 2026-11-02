@@ -9,3 +9,8 @@ export function ensureSettingTable() {
   ).catch(err => { tableReady = null; throw err })
   return tableReady
 }
+
+// After the database file is swapped (restore), check again on next use.
+export function resetSettingTable() {
+  tableReady = null
+}

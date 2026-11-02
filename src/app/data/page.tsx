@@ -82,10 +82,10 @@ export default function DataPage() {
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="text-xs uppercase text-muted-foreground mb-2">
           Data
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1>
           Database Overview
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
@@ -207,7 +207,7 @@ function TransactionsTab() {
         <select
           value={month}
           onChange={e => setMonth(e.target.value)}
-          className="text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+          className="text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
         >
           <option value="">All months</option>
           {months.map(m => <option key={m} value={m}>{m}</option>)}
@@ -216,7 +216,7 @@ function TransactionsTab() {
         <select
           value={category}
           onChange={e => setCategory(e.target.value)}
-          className="text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+          className="text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
         >
           <option value="">All categories</option>
           <option value="__uncategorized__">— Uncategorized —</option>
@@ -289,7 +289,7 @@ function TransactionsTab() {
                         <select
                           value={tx.categoryId ?? ""}
                           onChange={e => remap(tx, e.target.value === "" ? null : Number(e.target.value))}
-                          className="text-sm border border-border rounded-md px-2 py-1 bg-background text-foreground flex-1 min-w-0"
+                          className="text-sm rounded-xl border border-input px-2 py-1 bg-card text-foreground flex-1 min-w-0"
                         >
                           <option value="">— Uncategorized —</option>
                           {categories.map(c => (
@@ -380,7 +380,7 @@ function RuleSuggestion({ suggestion, categoryName, onDone }: {
 
 // ── Categories tab (manage) ────────────────────────────────────────
 
-const selectClass = "text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+const selectClass = "text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
 
 // Native <select> of category types, grouped Expense / Income / Other.
 function TypeSelect({ value, onChange, id, className = "" }: {
@@ -587,7 +587,7 @@ function EditCategoryRow({ category, onSaved, onCancel }: {
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="color" aria-label="Color" value={color} onChange={e => setColor(e.target.value)}
-            className="h-8 w-8 cursor-pointer rounded border border-border bg-background p-0.5"
+            className="h-8 w-8 cursor-pointer rounded-lg border border-input bg-card p-0.5"
           />
           <Input
             aria-label="Name" value={name} maxLength={40} onChange={e => setName(e.target.value)}
@@ -694,7 +694,7 @@ function SnapshotsTab() {
                 <TableCell className="text-right font-mono text-muted-foreground">{fmt(s.pillar3a)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">{fmt(s.pillar2)}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">{fmt(s.checking)}</TableCell>
-                <TableCell className="text-right font-mono font-semibold">Fr. {fmt(s.total)}</TableCell>
+                <TableCell className="text-right font-mono">Fr. {fmt(s.total)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

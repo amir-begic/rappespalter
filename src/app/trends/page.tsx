@@ -53,10 +53,10 @@ export default function TrendsPage() {
     <div className="max-w-4xl mx-auto py-10 px-4">
 
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="text-xs uppercase text-muted-foreground mb-2">
           Trends
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1>
           Income, Spending &amp; Savings Rate
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
@@ -84,29 +84,29 @@ export default function TrendsPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Avg savings rate</p>
-                <p className="text-2xl font-semibold text-info">{avgRate}%</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Avg savings rate</p>
+                <p className="font-display text-3xl text-info">{avgRate}%</p>
                 <p className="text-xs text-muted-foreground mt-1">last {recent.length} mo</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Avg saved</p>
-                <p className="text-2xl font-semibold text-info">Fr. {fmtR(avgSaved)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Avg saved</p>
+                <p className="font-display text-3xl text-info">Fr. {fmtR(avgSaved)}</p>
                 <p className="text-xs text-muted-foreground mt-1">per month</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Avg income</p>
-                <p className="text-2xl font-semibold text-positive">Fr. {fmtR(avgIncome)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Avg income</p>
+                <p className="font-display text-3xl text-positive">Fr. {fmtR(avgIncome)}</p>
                 <p className="text-xs text-muted-foreground mt-1">per month</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Avg expenses</p>
-                <p className="text-2xl font-semibold text-negative">Fr. {fmtR(avgExpense)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Avg expenses</p>
+                <p className="font-display text-3xl text-negative">Fr. {fmtR(avgExpense)}</p>
                 <p className="text-xs text-muted-foreground mt-1">per month</p>
               </CardContent>
             </Card>
@@ -115,7 +115,7 @@ export default function TrendsPage() {
           {/* Cash flow + savings-rate line */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Monthly cash flow &amp; savings rate
               </CardTitle>
             </CardHeader>

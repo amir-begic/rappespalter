@@ -40,6 +40,8 @@ src/
       budgets/pace/route.ts  — projection for the month in progress
       rules/route.ts         — auto-categorization rules (+ rules/apply)
       settings/route.ts      — user-editable settings (projection inputs)
+      appearance/route.ts    — theme + motion preference
+      backup/                — GET: database backup download; restore/: POST a backup to replace all data
       portfolio/             — summary + delete, import, refresh, securities (overrides/manual prices),
                                lookthrough (ETF constituent upload + aggregated exposure),
                                targets (target weights + TERs), month-ends (value per month end)
@@ -226,6 +228,19 @@ importing broker deposits as transactions would double-count savings.
   end (full daily series, not the chart's thinned one). Net Worth can use it for the
   ETF line; the Projections snapshot form offers it for the ETF field.
 
+## Backup & restore
+Settings → Backup & restore (`src/lib/backup.ts`, `src/components/backup-card.tsx`).
+Backups are manual only and always ask where to save: `GET /api/backup` returns a
+consistent copy of the database (`VACUUM INTO`) as a download; the desktop app shows
+its native Save dialog (main.js sets no download save path, keep it that way), a
+browser uses the "Save as" picker where available. Restore uploads a file to
+`POST /api/backup/restore`, which checks it (SQLite, `quick_check`, has Transaction +
+Category), saves a safety copy to `backups/before-restore/` next to the database
+(newest 5 kept), closes Prisma's connection, swaps the file in and resets the
+on-demand table caches (`reset*` in setting-table / rules-store / portfolio/schema);
+if the swapped-in file can't be opened, the safety copy is put back. The page then
+reloads. Add any new on-demand table helper's reset to `swapIn` in backup.ts.
+
 ## Auto-categorization rules
 Data → Rules (`src/lib/rules.ts`, pure). A rule matches the counterparty (contains /
 starts with / equals, case- and whitespace-insensitive), optionally only money in or
@@ -300,7 +315,29 @@ DATABASE_URL="file:./prisma/dev.db"
 - Month parameters use YYYY-MM format throughout the API
 - API routes always return NextResponse.json({}) — never empty responses
 - shadcn components imported from @/components/ui/
-- Colors come from theme tokens in globals.css (light/dark follows the OS). For
+- Design is Nordic and playful: oat-paper background, flat white rounded cards
+  (`rounded-3xl`, no borders, shadows or gradients), saturated collection colours
+  (`pop-blue/green/red/yellow/pink`), pills for buttons, tabs, badges and nav, and
+  ink blobs drifting at the page edges (`components/blobs.tsx`). Page titles are a
+  bare `<h1>` (Bricolage Grotesque, styled in globals.css); key figures use
+  `font-display text-3xl`. Everything else is Space Grotesk, with labels in small
+  tracked capitals (`uppercase` is tracked globally). Shares only Space Grotesk and
+  uppercase labels with the user's other apps (e.g. Aperture) — don't copy their look.
+- Tiles: a Card whose CardContent leads with a `.font-display` figure becomes a solid
+  block in the figure's meaning colour (`text-positive` green, `text-negative` red,
+  `text-info` blue, `text-highlight` pink, none yellow); override with an inline
+  `--tile` (Income uses the category colour). See "Tiles" in globals.css.
+- Nav: each section has a colour (`SECTIONS[].color` in app-nav.tsx); its current
+  page is a pill in it.
+- Appearance (`src/lib/appearance.ts`): theme (light default / dark) and motion
+  (system default / reduce / full), set on Settings → Appearance and the nav's theme
+  toggle, saved in the Setting table as `appearance.theme` / `appearance.motion` —
+  not localStorage, because the desktop app's origin (random port) changes every
+  launch. The root layout reads them per request (`connection()`) and renders
+  `data-theme` / `data-motion` on `<html>`. `dark:` variants follow `data-theme`.
+  Reduced motion stills all CSS animations/transitions (globals.css); the blobs'
+  SVG `<animate>` morph is paused in blobs.tsx.
+- Colors come from theme tokens in globals.css. For
   amounts use `text-positive` / `text-negative` / `text-info` / `text-highlight`,
   not raw Tailwind hues; in Recharts use `var(--border)` etc. (tokens are oklch,
   so never wrap them in `hsl()`)

@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { UpdatesCard } from "@/components/updates-card"
+import { AppearanceCard } from "@/components/appearance-card"
+import { BackupCard } from "@/components/backup-card"
 import { SETTING_FIELDS, type SettingKey, type Settings } from "@/lib/settings"
 
 const GROUPS = [
@@ -78,10 +80,10 @@ export default function SettingsPage() {
 
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="text-xs uppercase text-muted-foreground mb-2">
           Settings
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1>
           Projection inputs
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
@@ -103,7 +105,7 @@ export default function SettingsPage() {
           {GROUPS.map(group => (
             <Card key={group.id}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm text-muted-foreground">
                   {group.title}
                 </CardTitle>
               </CardHeader>
@@ -145,7 +147,9 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="mt-10">
+      <div className="mt-10 space-y-4">
+        <AppearanceCard />
+        <BackupCard />
         <UpdatesCard />
       </div>
     </div>

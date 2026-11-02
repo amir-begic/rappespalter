@@ -1,46 +1,46 @@
 "use client"
 
 import Link from "next/link"
+import { Moon, Sun } from "lucide-react"
 import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard, ChartLine, Wallet, PiggyBank, Target, Landmark,
-  ChartArea, ChartCandlestick, Upload, Database, Settings, type LucideIcon,
-} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useUpdates } from "@/lib/updates"
+import { saveAppearance } from "@/lib/appearance"
 
-type NavItem = { href: string; label: string; icon: LucideIcon }
+type NavItem = { href: string; label: string }
 
-const SECTIONS: { title: string; items: NavItem[] }[] = [
+// Each section has a colour from the palette; its current page is a pill in it.
+const SECTIONS: { title: string; color: string; items: NavItem[] }[] = [
   {
     title: "Overview",
+    color: "bg-pop-blue",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/trends",    label: "Trends",    icon: ChartLine },
-      { href: "/income",    label: "Income",    icon: Wallet },
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/trends",    label: "Trends" },
+      { href: "/income",    label: "Income" },
     ],
   },
   {
     title: "Planning",
+    color: "bg-pop-green",
     items: [
-      { href: "/budgets",     label: "Budgets",     icon: PiggyBank },
-      { href: "/goal",        label: "Goal",        icon: Target },
-      { href: "/networth",    label: "Net Worth",   icon: Landmark },
-      { href: "/portfolio",   label: "Portfolio",   icon: ChartCandlestick },
-      { href: "/projections", label: "Projections", icon: ChartArea },
+      { href: "/budgets",     label: "Budgets" },
+      { href: "/goal",        label: "Goal" },
+      { href: "/networth",    label: "Net Worth" },
+      { href: "/portfolio",   label: "Portfolio" },
+      { href: "/projections", label: "Projections" },
     ],
   },
   {
     title: "Data",
+    color: "bg-pop-red",
     items: [
-      { href: "/import",   label: "Import",   icon: Upload },
-      { href: "/data",     label: "Data",     icon: Database },
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/import",   label: "Import" },
+      { href: "/data",     label: "Data" },
+      { href: "/settings", label: "Settings" },
     ],
   },
 ]
-
-const ALL_ITEMS = SECTIONS.flatMap(s => s.items)
 
 function useIsActive() {
   const pathname = usePathname()
@@ -54,89 +54,89 @@ function useBadges() {
 }
 
 function UpdateDot() {
-  return <span className="ml-auto size-1.5 rounded-full bg-info" aria-label="Update available" />
+  return <span className="size-1.5 rounded-full bg-pop-yellow" aria-label="Update available" />
+}
+
+// The mark from the app icon: a coin split in two, the halves knocked slightly apart.
+function Mark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
+      <path d="M14.5 4a12 12 0 0 0 0 24z" className="fill-pop-blue" />
+      <path d="M17.5 6.5a12 12 0 0 1 0 24z" className="fill-pop-yellow" />
+    </svg>
+  )
 }
 
 function Brand() {
   return (
-    <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/icon.svg" alt="" width={26} height={26} className="rounded-md" />
-      <span className="font-semibold tracking-tight">Rappespalter</span>
+    <Link href="/dashboard" className="group flex shrink-0 items-center gap-2">
+      <Mark className="size-7 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-[20deg]" />
+      <span className="font-display text-xl tracking-tight">Rappespalter</span>
     </Link>
   )
 }
 
-// Fixed left sidebar on md+ screens.
-export function Sidebar() {
-  const isActive = useIsActive()
-  const hasBadge = useBadges()
+// Light (the default) or dark, saved with the other appearance settings (Settings →
+// Appearance); the page switches at once. The theme lives on <html>, so CSS picks the icon.
+function ThemeToggle() {
+  const toggle = () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark"
+    saveAppearance({ theme: next }).catch(err => console.error(err))
+  }
   return (
-    <aside className="hidden md:flex fixed inset-y-0 left-0 w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="h-14 flex items-center px-3">
-        <Brand />
-      </div>
-      <nav className="flex-1 overflow-y-auto px-3 pb-6 space-y-6 pt-2">
-        {SECTIONS.map(section => (
-          <div key={section.title}>
-            <p className="px-2 mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              {section.title}
-            </p>
-            <ul className="space-y-0.5">
-              {section.items.map(({ href, label, icon: Icon }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    aria-current={isActive(href) ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
-                      isActive(href)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                        : "hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" strokeWidth={isActive(href) ? 2.25 : 1.75} />
-                    {label}
-                    {hasBadge(href) && <UpdateDot />}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
-    </aside>
+    <button
+      type="button"
+      onClick={toggle}
+      className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      aria-label="Switch between dark and light theme"
+      title="Dark / light"
+    >
+      <Sun className="size-4 hidden dark:block" strokeWidth={1.5} />
+      <Moon className="size-4 dark:hidden" strokeWidth={1.5} />
+    </button>
   )
 }
 
-// Compact top bar with a scrollable tab strip on small screens.
-export function MobileNav() {
+function NavLinks({ className }: { className?: string }) {
   const isActive = useIsActive()
   const hasBadge = useBadges()
   return (
-    <header className="md:hidden sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur">
-      <div className="h-12 flex items-center px-3">
+    <nav className={className}>
+      {SECTIONS.map(section => (
+        <div key={section.title} className="flex shrink-0 items-center gap-0.5">
+          {section.items.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              aria-current={isActive(href) ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 pt-1.5 pb-[0.3rem] text-[0.6875rem] uppercase transition-colors duration-200",
+                isActive(href)
+                  ? `${section.color} text-white`
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+            >
+              {label}
+              {hasBadge(href) && <UpdateDot />}
+            </Link>
+          ))}
+        </div>
+      ))}
+    </nav>
+  )
+}
+
+// One bar across the top: wordmark, the pages grouped by section, theme toggle.
+// Below xl the pages move to a scrollable second row.
+export function TopNav() {
+  return (
+    <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">
         <Brand />
+        <NavLinks className="hidden xl:flex items-center gap-4" />
+        <ThemeToggle />
       </div>
-      <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
-        {ALL_ITEMS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            aria-current={isActive(href) ? "page" : undefined}
-            className={cn(
-              "flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-xs transition-colors",
-              isActive(href)
-                ? "bg-accent text-accent-foreground font-medium"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <Icon className="size-3.5" />
-            {label}
-            {hasBadge(href) && <UpdateDot />}
-          </Link>
-        ))}
-      </nav>
+      <NavLinks className="xl:hidden flex items-center gap-4 overflow-x-auto px-3 pb-2 [scrollbar-width:none]" />
     </header>
   )
 }

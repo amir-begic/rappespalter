@@ -101,3 +101,8 @@ export function ensurePortfolioSchema(): Promise<void> {
   })().catch(err => { ready = null; throw err })
   return ready
 }
+
+// After the database file is swapped (restore), check again on next use.
+export function resetPortfolioSchema() {
+  ready = null
+}

@@ -22,7 +22,7 @@ interface RuleRow {
   pending:    number
 }
 
-const selectClass = "text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+const selectClass = "text-sm rounded-xl border border-input px-2 py-1.5 bg-card text-foreground"
 const label = (list: readonly { value: string; label: string }[], v: string) => list.find(x => x.value === v)?.label ?? v
 
 export async function createRule(body: {
@@ -189,7 +189,7 @@ export function RulesTab() {
                   <TableRow key={r.id}>
                     <TableCell>
                       <span className="text-muted-foreground text-xs">{label(MATCH_TYPES, r.matchType)} </span>
-                      <span className="font-medium">“{r.pattern}”</span>
+                      <span >“{r.pattern}”</span>
                       {r.direction !== "any" && <span className="text-muted-foreground text-xs"> · {label(DIRECTIONS, r.direction)}</span>}
                     </TableCell>
                     <TableCell>

@@ -163,8 +163,8 @@ export default function PortfolioPage() {
       {/* Header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">Portfolio</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Investments</h1>
+          <p className="text-xs uppercase text-muted-foreground mb-2">Portfolio</p>
+          <h1>Investments</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Performance, dividends and holdings from your Yuh exports, valued at daily market prices.
             {data?.lastPriceDate && <> Prices as of {dayLabel(data.lastPriceDate)}</>}
@@ -215,7 +215,7 @@ export default function PortfolioPage() {
       ) : data.activityCount === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-3">
-            <p className="font-medium">No investments imported yet</p>
+            <p >No investments imported yet</p>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Export your activities from Yuh as a CSV file and import it here. Holdings are matched to
               market prices automatically. Import newer exports any time — activities already imported are skipped.
@@ -237,25 +237,25 @@ export default function PortfolioPage() {
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Value">
-              <p className="text-2xl font-semibold">Fr. {fmtR(t.value)}</p>
+              <p className="font-display text-3xl">Fr. {fmtR(t.value)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Securities {fmtR(t.securities)} · Cash {fmtR(t.cash)}
               </p>
             </Stat>
             <Stat label="Gain vs. deposits">
-              <p className={`text-2xl font-semibold ${tone(t.gain)}`}>{fmtSigned(t.gain)}</p>
+              <p className={`font-display text-3xl ${tone(t.gain)}`}>{fmtSigned(t.gain)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 <span className={tone(t.gainPct)}>{fmtPct(t.gainPct)}</span> on Fr. {fmtR(t.netDeposits)} deposited
               </p>
             </Stat>
             <Stat label="Dividends received">
-              <p className="text-2xl font-semibold text-info">Fr. {fmt2(t.dividends)}</p>
+              <p className="font-display text-3xl text-info">Fr. {fmt2(t.dividends)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 net · Fr. {fmt2(t.withholdingTax)} withholding tax
               </p>
             </Stat>
             <Stat label="Return">
-              <p className={`text-2xl font-semibold ${tone(t.twr)}`}>{fmtPct(t.twrAnnualized ?? t.twr)}</p>
+              <p className={`font-display text-3xl ${tone(t.twr)}`}>{fmtPct(t.twrAnnualized ?? t.twr)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 time-weighted{t.twrAnnualized != null ? " p.a." : ` since ${data.start ? dayLabel(data.start) : "start"}`}
                 {" · "}money-weighted <span className={tone(t.irr)}>{fmtPct(t.irr)}</span> p.a.
@@ -266,7 +266,7 @@ export default function PortfolioPage() {
           {/* Value over time */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Value over time</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Value over time</CardTitle>
               <Tabs value={range} onValueChange={v => setRange(v as Range)}>
                 <TabsList>
                   {(Object.keys(RANGES) as Range[]).map(r => <TabsTrigger key={r} value={r}>{r}</TabsTrigger>)}
@@ -310,7 +310,7 @@ export default function PortfolioPage() {
           {/* Holdings */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Holdings</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Holdings</CardTitle>
               {hasStocks && (
                 <Tabs value={kind} onValueChange={v => setKind(v as KindFilter)}>
                   <TabsList>
@@ -340,7 +340,7 @@ export default function PortfolioPage() {
                     <TableRow key={h.symbol} className="cursor-pointer" onClick={() => router.push(holdingHref(h.symbol))}>
                       <TableCell className="max-w-64">
                         <div className="flex items-center gap-2">
-                          <Link href={holdingHref(h.symbol)} className="font-mono text-xs font-medium hover:underline" onClick={e => e.stopPropagation()}>
+                          <Link href={holdingHref(h.symbol)} className="font-mono text-xs hover:underline" onClick={e => e.stopPropagation()}>
                             {h.symbol}
                           </Link>
                           {h.kind && <Badge variant="outline" className="text-[10px]">{isEtf(h.kind) ? "ETF" : "Stock"}</Badge>}
@@ -376,7 +376,7 @@ export default function PortfolioPage() {
           {/* Dividends */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Dividends</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Dividends</CardTitle>
             </CardHeader>
             <CardContent>
               {data.dividends.length === 0 ? (
@@ -410,7 +410,7 @@ export default function PortfolioPage() {
                     <TableBody>
                       {data.holdings.filter(h => h.dividends > 0).sort((a, b) => b.dividends - a.dividends).map(h => (
                         <TableRow key={h.symbol}>
-                          <TableCell className="font-mono text-xs font-medium">
+                          <TableCell className="font-mono text-xs">
                             <Link href={holdingHref(h.symbol)} className="hover:underline">{h.symbol}</Link>
                           </TableCell>
                           <TableCell className="text-right font-mono">{fmt2(h.dividends)}</TableCell>
@@ -451,7 +451,7 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
+        <p className="text-xs uppercase text-muted-foreground mb-2">{label}</p>
         {children}
       </CardContent>
     </Card>

@@ -34,7 +34,7 @@ export function UpdatesCard() {
   return (
     <Card id="updates">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Updates</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">Updates</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {!supported ? (
@@ -86,7 +86,7 @@ export function UpdatesCard() {
                   </div>
                 ) : state.available ? (
                   <div className="rounded-md border border-border p-3 space-y-2">
-                    <p className="font-medium">Rappespalter {state.available.version} is available</p>
+                    <p >Rappespalter {state.available.version} is available</p>
                     {state.available.notes && (
                       <p className="text-xs text-muted-foreground whitespace-pre-line">{state.available.notes}</p>
                     )}

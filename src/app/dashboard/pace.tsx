@@ -31,7 +31,7 @@ export function SpendingPace({ month }: { month: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Month pace</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">Month pace</CardTitle>
           <span className="text-xs text-muted-foreground">
             through {dayLabel(d.asOf)} · day {d.day} of {d.daysInMonth}
           </span>

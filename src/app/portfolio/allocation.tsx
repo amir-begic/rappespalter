@@ -88,7 +88,7 @@ export function Allocation({ data, onSaved }: { data: PortfolioSummary; onSaved:
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Allocation &amp; costs</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">Allocation &amp; costs</CardTitle>
         <div className="flex items-center gap-2">
           {dirty && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEdit(initial())}>Reset</Button>}
           <Button size="sm" disabled={busy || !dirty || invalid} onClick={save}>{busy ? "Saving…" : "Save"}</Button>
@@ -130,7 +130,7 @@ export function Allocation({ data, onSaved }: { data: PortfolioSummary; onSaved:
                 return (
                   <TableRow key={p.symbol}>
                     <TableCell className="max-w-48">
-                      <span className="font-mono text-xs font-medium">{p.symbol}</span>
+                      <span className="font-mono text-xs">{p.symbol}</span>
                       <p className="text-xs text-muted-foreground truncate">{p.name}</p>
                     </TableCell>
                     <TableCell className="text-right font-mono">{fmtR(p.value)}</TableCell>

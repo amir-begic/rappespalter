@@ -91,10 +91,10 @@ export default function ImportPage() {
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="text-xs uppercase text-muted-foreground mb-2">
           Import
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1>
           Upload your data
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
@@ -212,7 +212,7 @@ function ImportCard({ source }: { source: Source }) {
             `}
           >
             <div className="text-3xl mb-3">📂</div>
-            <p className="text-sm font-medium break-all">
+            <p className="text-sm break-all">
               {fileName ?? `Drop your ${source.extension} file here`}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -255,26 +255,26 @@ function ImportCard({ source }: { source: Source }) {
           <CardContent>
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+                <p className="text-xs uppercase text-muted-foreground mb-1">
                   Imported
                 </p>
-                <p className="text-2xl font-semibold text-positive">
+                <p className="font-display text-3xl text-positive">
                   {result.imported}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+                <p className="text-xs uppercase text-muted-foreground mb-1">
                   Skipped
                 </p>
-                <p className="text-2xl font-semibold text-muted-foreground">
+                <p className="font-display text-3xl text-muted-foreground">
                   {result.skipped}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+                <p className="text-xs uppercase text-muted-foreground mb-1">
                   Total
                 </p>
-                <p className="text-2xl font-semibold">
+                <p className="font-display text-3xl">
                   {result.total}
                 </p>
               </div>

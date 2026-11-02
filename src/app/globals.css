@@ -2,26 +2,28 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Theme and motion are chosen in the app (Settings → Appearance, and the nav's theme
+   toggle), saved in the database and rendered onto <html> as data-theme and
+   data-motion (layout.tsx, lib/appearance.ts). Light is the default. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-space-grotesk);
+  --font-heading: var(--font-space-grotesk);
+  --font-display: var(--font-bricolage);
+  --color-rule: var(--rule);
+  --color-pop-blue: var(--pop-blue);
+  --color-pop-green: var(--pop-green);
+  --color-pop-red: var(--pop-red);
+  --color-pop-yellow: var(--pop-yellow);
+  --color-pop-pink: var(--pop-pink);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-info: var(--info);
   --color-highlight: var(--highlight);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -52,101 +54,201 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Palette: cool neutrals with a deep teal brand accent. Dark mode follows the
-   OS setting. Semantic tokens (positive/negative/info/highlight) replace raw
-   Tailwind hues so amounts stay legible in both themes. */
-:root {
-  --background: oklch(0.985 0.002 247);
-  --foreground: oklch(0.21 0.012 257);
+/* Nordic and playful: an oat-paper room, white rounded surfaces, flat saturated
+   colour (cobalt, kelly green, tomato red, sun yellow, ink-blot pink) and no
+   gradients or shadows. Bricolage Grotesque, chunky and wide, for titles and key
+   figures; Space Grotesk for everything else, labels in small tracked capitals.
+   Headline tiles are solid blocks in their figure's colour (see "Tiles" below),
+   pills for anything you press, and ink blobs drifting at the page edges.
+
+   --border divides (table rows, chart grids); --rule outlines inputs and buttons. */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --background: oklch(0.962 0.01 85);
+  --foreground: oklch(0.2 0.012 280);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.012 257);
+  --card-foreground: oklch(0.2 0.012 280);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.012 257);
-  --primary: oklch(0.51 0.09 185);
-  --primary-foreground: oklch(0.985 0.01 180);
-  --secondary: oklch(0.96 0.004 247);
-  --secondary-foreground: oklch(0.27 0.012 257);
-  --muted: oklch(0.96 0.004 247);
-  --muted-foreground: oklch(0.52 0.014 257);
-  --accent: oklch(0.95 0.025 185);
-  --accent-foreground: oklch(0.35 0.07 185);
-  --destructive: oklch(0.577 0.215 27);
-  --border: oklch(0.92 0.005 247);
-  --input: oklch(0.9 0.006 247);
-  --ring: oklch(0.51 0.09 185);
-  --positive: oklch(0.55 0.13 155);
-  --negative: oklch(0.58 0.19 27);
-  --info: oklch(0.55 0.14 250);
-  --highlight: oklch(0.66 0.15 70);
-  --chart-1: oklch(0.6 0.1 185);
-  --chart-2: oklch(0.65 0.12 250);
-  --chart-3: oklch(0.72 0.13 75);
-  --chart-4: oklch(0.62 0.13 330);
-  --chart-5: oklch(0.6 0.13 145);
-  --radius: 0.75rem;
-  --sidebar: oklch(0.97 0.004 247);
-  --sidebar-foreground: oklch(0.3 0.012 257);
-  --sidebar-primary: oklch(0.51 0.09 185);
-  --sidebar-primary-foreground: oklch(0.985 0.01 180);
-  --sidebar-accent: oklch(0.93 0.02 185);
-  --sidebar-accent-foreground: oklch(0.3 0.07 185);
-  --sidebar-border: oklch(0.92 0.005 247);
-  --sidebar-ring: oklch(0.51 0.09 185);
+  --popover-foreground: oklch(0.2 0.012 280);
+  --primary: oklch(0.5 0.22 266);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.2 0.012 280 / 6%);
+  --secondary-foreground: oklch(0.2 0.012 280);
+  --muted: oklch(0.2 0.012 280 / 6%);
+  --muted-foreground: oklch(0.5 0.012 280);
+  --accent: oklch(0.2 0.012 280 / 6%);
+  --accent-foreground: oklch(0.2 0.012 280);
+  --destructive: oklch(0.58 0.2 30);
+  --border: oklch(0.2 0.012 280 / 9%);
+  --rule: oklch(0.2 0.012 280 / 16%);
+  --input: oklch(0.2 0.012 280 / 16%);
+  --ring: oklch(0.5 0.22 266);
+  /* The collection colours, for blocks and decoration. */
+  --pop-blue: oklch(0.5 0.22 266);
+  --pop-green: oklch(0.58 0.15 152);
+  --pop-red: oklch(0.62 0.2 32);
+  --pop-yellow: oklch(0.86 0.16 88);
+  --pop-pink: oklch(0.83 0.08 350);
+  --pop-ink: oklch(0.2 0.012 280);
+  /* Meaning colours for amounts on white. */
+  --positive: oklch(0.53 0.14 152);
+  --negative: oklch(0.57 0.2 30);
+  --info: oklch(0.5 0.22 266);
+  --highlight: oklch(0.45 0.15 10);
+  --chart-1: oklch(0.5 0.22 266);
+  --chart-2: oklch(0.86 0.16 88);
+  --chart-3: oklch(0.58 0.15 152);
+  --chart-4: oklch(0.62 0.2 32);
+  --chart-5: oklch(0.83 0.08 350);
+  --radius: 1rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.16 0.008 257);
-    --foreground: oklch(0.95 0.004 247);
-    --card: oklch(0.205 0.01 257);
-    --card-foreground: oklch(0.95 0.004 247);
-    --popover: oklch(0.22 0.01 257);
-    --popover-foreground: oklch(0.95 0.004 247);
-    --primary: oklch(0.74 0.11 182);
-    --primary-foreground: oklch(0.2 0.03 185);
-    --secondary: oklch(0.26 0.01 257);
-    --secondary-foreground: oklch(0.95 0.004 247);
-    --muted: oklch(0.25 0.01 257);
-    --muted-foreground: oklch(0.7 0.012 257);
-    --accent: oklch(0.3 0.04 185);
-    --accent-foreground: oklch(0.9 0.05 182);
-    --destructive: oklch(0.7 0.18 22);
-    --border: oklch(1 0 0 / 9%);
-    --input: oklch(1 0 0 / 14%);
-    --ring: oklch(0.74 0.11 182);
-    --positive: oklch(0.76 0.15 155);
-    --negative: oklch(0.72 0.16 22);
-    --info: oklch(0.74 0.12 250);
-    --highlight: oklch(0.82 0.14 80);
-    --chart-1: oklch(0.74 0.11 182);
-    --chart-2: oklch(0.72 0.12 250);
-    --chart-3: oklch(0.8 0.13 80);
-    --chart-4: oklch(0.72 0.13 330);
-    --chart-5: oklch(0.74 0.14 150);
-    --sidebar: oklch(0.185 0.009 257);
-    --sidebar-foreground: oklch(0.85 0.008 247);
-    --sidebar-primary: oklch(0.74 0.11 182);
-    --sidebar-primary-foreground: oklch(0.2 0.03 185);
-    --sidebar-accent: oklch(0.27 0.03 185);
-    --sidebar-accent-foreground: oklch(0.92 0.05 182);
-    --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: oklch(0.74 0.11 182);
-  }
+/* Night: deep ink-blue, the same colours turned up a little. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.19 0.02 270);
+  --foreground: oklch(0.96 0.01 85);
+  --card: oklch(0.24 0.025 270);
+  --card-foreground: oklch(0.96 0.01 85);
+  --popover: oklch(0.26 0.025 270);
+  --popover-foreground: oklch(0.96 0.01 85);
+  --primary: oklch(0.66 0.18 266);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.01 85 / 8%);
+  --secondary-foreground: oklch(0.96 0.01 85);
+  --muted: oklch(0.96 0.01 85 / 7%);
+  --muted-foreground: oklch(0.72 0.015 270);
+  --accent: oklch(0.96 0.01 85 / 8%);
+  --accent-foreground: oklch(0.96 0.01 85);
+  --destructive: oklch(0.7 0.17 30);
+  --border: oklch(0.96 0.01 85 / 9%);
+  --rule: oklch(0.96 0.01 85 / 18%);
+  --input: oklch(0.96 0.01 85 / 18%);
+  --ring: oklch(0.66 0.18 266);
+  --pop-blue: oklch(0.58 0.2 266);
+  --pop-green: oklch(0.62 0.15 152);
+  --pop-red: oklch(0.65 0.19 32);
+  --pop-yellow: oklch(0.86 0.16 88);
+  --pop-pink: oklch(0.8 0.08 350);
+  --pop-ink: oklch(0.12 0.02 270);
+  --positive: oklch(0.76 0.15 152);
+  --negative: oklch(0.72 0.17 30);
+  --info: oklch(0.74 0.14 266);
+  --highlight: oklch(0.78 0.11 350);
+  --chart-1: oklch(0.66 0.18 266);
+  --chart-2: oklch(0.86 0.16 88);
+  --chart-3: oklch(0.66 0.15 152);
+  --chart-4: oklch(0.68 0.19 32);
+  --chart-5: oklch(0.8 0.08 350);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans;
+  }
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
-    color-scheme: light dark;
+  ::selection {
+    background: var(--pop-yellow);
+    color: oklch(0.2 0.012 280);
+  }
+  /* Page titles: big, chunky, tight. */
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw, 4.25rem);
+    font-weight: 750;
+    line-height: 0.95;
+    letter-spacing: -0.035em;
+  }
+  /* Small capitals are tracked out (explicit tracking-* wins). */
+  :where(.uppercase) {
+    letter-spacing: 0.08em;
   }
   /* Tabular figures keep columns of CHF amounts aligned. */
   .font-mono, td, [data-slot="card-content"] {
     font-variant-numeric: tabular-nums;
+  }
+  .font-display {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+}
+
+/* Tiles: a card whose content leads with a key figure (.font-display) becomes a solid
+   block in that figure's colour; uncoloured figures get yellow. Inside, the colour
+   tokens are redefined, so the figure and its notes read on the block. */
+[data-slot="card"]:has(> [data-slot="card-content"] > .font-display) {
+  --tile: var(--pop-yellow);
+  --tile-ink: oklch(0.2 0.012 280);
+  background: var(--tile);
+  color: var(--tile-ink);
+  --foreground: var(--tile-ink);
+  --card-foreground: var(--tile-ink);
+  --muted-foreground: color-mix(in oklch, var(--tile-ink) 72%, transparent);
+  --positive: var(--tile-ink);
+  --negative: var(--tile-ink);
+  --info: var(--tile-ink);
+  --highlight: var(--tile-ink);
+  --accent: color-mix(in oklch, var(--tile-ink) 8%, transparent);
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-slot="card"]:has(> [data-slot="card-content"] > .font-display.text-positive) {
+  --tile: var(--pop-green);
+  --tile-ink: oklch(1 0 0);
+}
+[data-slot="card"]:has(> [data-slot="card-content"] > .font-display.text-negative) {
+  --tile: var(--pop-red);
+  --tile-ink: oklch(1 0 0);
+}
+[data-slot="card"]:has(> [data-slot="card-content"] > .font-display.text-info) {
+  --tile: var(--pop-blue);
+  --tile-ink: oklch(1 0 0);
+}
+[data-slot="card"]:has(> [data-slot="card-content"] > .font-display.text-highlight) {
+  --tile: var(--pop-pink);
+}
+/* A little wobble for clickable tiles. */
+[data-slot="card"][role="button"]:has(> [data-slot="card-content"] > .font-display):hover {
+  transform: rotate(-1deg) scale(1.02);
+}
+
+/* Ink blobs at the page edges (components/blobs.tsx): they change shape there, and
+   drift and turn slowly here. Never in front of content. */
+.blob {
+  animation: blob-drift 22s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+.blob:nth-child(2) { animation-duration: 27s; animation-delay: -9s; }
+.blob:nth-child(3) { animation-duration: 18s; animation-delay: -4s; }
+@keyframes blob-drift {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(1.75rem, -2.5rem, 0) rotate(10deg) scale(1.04); }
+  100% { transform: translate3d(-1.25rem, 1.5rem, 0) rotate(-8deg) scale(0.97); }
+}
+
+/* Reduced motion: chosen in Settings, or the OS's preference when that is "System".
+   Animations stop and transitions become instant (the blobs' shape-changing is SVG
+   <animate>, paused in blobs.tsx). */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-motion="system"] *,
+  html[data-motion="system"] *::before,
+  html[data-motion="system"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

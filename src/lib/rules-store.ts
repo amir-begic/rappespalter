@@ -17,6 +17,11 @@ export function ensureRuleTable() {
   return tableReady
 }
 
+// After the database file is swapped (restore), check again on next use.
+export function resetRuleTable() {
+  tableReady = null
+}
+
 // For each transaction, which rule decides it and whether that changes its
 // category. `onlyRuleId` restricts the result to one rule's transactions.
 export async function planRuleChanges(onlyRuleId?: number) {

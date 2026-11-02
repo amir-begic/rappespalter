@@ -50,7 +50,7 @@ export function BudgetDrift({ version, onUseAverage }: {
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm text-muted-foreground">
           Plan vs. actual{d?.months.length ? ` · ${monthLabel(d.months[0])} – ${monthLabel(d.months.at(-1)!)}` : ""}
         </CardTitle>
         <Tabs value={String(months)} onValueChange={v => setMonths(Number(v))}>
@@ -154,8 +154,8 @@ export function BudgetDrift({ version, onUseAverage }: {
 function Figure({ label, value, sub, valueClass = "" }: { label: string; value: string; sub: string; valueClass?: string }) {
   return (
     <div className="rounded-lg border border-border px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold mt-0.5 ${valueClass}`}>{value}</p>
+      <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
+      <p className={`text-lg mt-0.5 ${valueClass}`}>{value}</p>
       <p className="text-xs text-muted-foreground truncate">{sub}</p>
     </div>
   )

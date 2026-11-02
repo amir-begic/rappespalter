@@ -83,14 +83,14 @@ export default function HoldingPage() {
           {/* Header */}
           <div className="mb-4">
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="font-mono text-xs tracking-widest uppercase text-muted-foreground">{data.symbol}</span>
+              <span className="font-mono text-xs uppercase text-muted-foreground">{data.symbol}</span>
               {data.kind && <Badge variant="outline">{data.kind === "ETF" || data.kind === "MUTUALFUND" ? "ETF" : "Stock"}</Badge>}
               {data.source?.priceSource === "manual"
                 ? <Badge variant="secondary">Manual prices</Badge>
                 : data.source?.priceSymbol && <Badge variant="outline">Priced from {data.source.priceSymbol}</Badge>}
               {s.units === 0 && <Badge variant="secondary">Position closed</Badge>}
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight">{data.name}</h1>
+            <h1>{data.name}</h1>
             {s.price != null && (
               <p className="text-sm text-muted-foreground mt-2">
                 <span className="font-mono text-foreground">{fmt2(s.price)} {ccy}</span>
@@ -111,23 +111,23 @@ export default function HoldingPage() {
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Position">
-              <p className="text-2xl font-semibold">Fr. {fmtR(s.value)}</p>
+              <p className="font-display text-3xl">Fr. {fmtR(s.value)}</p>
               <p className="text-xs text-muted-foreground mt-1">{fmtQty(s.units)} units</p>
             </Stat>
             <Stat label="Average cost">
-              <p className="text-2xl font-semibold">{s.avgCost != null ? `${fmt2(s.avgCost)} ${ccy}` : "—"}</p>
+              <p className="font-display text-3xl">{s.avgCost != null ? `${fmt2(s.avgCost)} ${ccy}` : "—"}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 per unit, fees included{s.avgCostChf != null && ccy !== "CHF" ? ` · Fr. ${fmt2(s.avgCostChf)}` : ""}
               </p>
             </Stat>
             <Stat label="Unrealised gain">
-              <p className={`text-2xl font-semibold ${tone(s.unrealized)}`}>{fmtSigned(s.unrealized)}</p>
+              <p className={`font-display text-3xl ${tone(s.unrealized)}`}>{fmtSigned(s.unrealized)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 <span className={tone(s.unrealizedPct)}>{fmtPct(s.unrealizedPct)}</span> on Fr. {fmtR(s.costBasis)} cost
               </p>
             </Stat>
             <Stat label="Total return">
-              <p className={`text-2xl font-semibold ${tone(s.totalReturn)}`}>{fmtSigned(s.totalReturn)}</p>
+              <p className={`font-display text-3xl ${tone(s.totalReturn)}`}>{fmtSigned(s.totalReturn)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 <span className={tone(s.totalReturnPct)}>{fmtPct(s.totalReturnPct)}</span> of Fr. {fmtR(s.totalBought)} bought
               </p>
@@ -217,7 +217,7 @@ export default function HoldingPage() {
           {/* Trades */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Trades</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Trades</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
@@ -265,7 +265,7 @@ export default function HoldingPage() {
           {data.dividends.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Dividends</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">Dividends</CardTitle>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 <Table>
@@ -304,7 +304,7 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
+        <p className="text-xs uppercase text-muted-foreground mb-2">{label}</p>
         {children}
       </CardContent>
     </Card>

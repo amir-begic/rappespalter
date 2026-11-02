@@ -60,7 +60,7 @@ export const StreamTrends = forwardRef<HTMLDivElement, {
     <Card ref={ref} className="scroll-mt-20">
       <CardHeader className="pb-2 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">How each source develops</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">How each source develops</CardTitle>
           <Tabs value={view} onValueChange={v => setView(v as View)}>
             <TabsList>
               <TabsTrigger value="monthly">Monthly</TabsTrigger>
@@ -79,7 +79,7 @@ export const StreamTrends = forwardRef<HTMLDivElement, {
                 aria-checked={active}
                 onClick={() => onSelect(s.name)}
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors ${
-                  active ? "border-foreground/30 bg-accent text-accent-foreground font-medium" : "border-border text-muted-foreground hover:bg-muted"
+                  active ? "border-foreground/30 bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
                 <span className="size-2 rounded-full" style={{ background: s.color }} />
@@ -94,26 +94,26 @@ export const StreamTrends = forwardRef<HTMLDivElement, {
         {/* Headline comparisons */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Last 12 months">
-            <p className="text-lg font-semibold">Fr. {fmtR(st.last12)}</p>
+            <p className="text-lg">Fr. {fmtR(st.last12)}</p>
             <p className="text-xs text-muted-foreground">
               <span className={tone(st.last12Change)}>{fmtPct(st.last12Change)}</span> vs Fr. {fmtR(st.prev12)} the year before
             </p>
           </Stat>
           <Stat label={`${thisYear?.year ?? "This year"} so far`}>
-            <p className="text-lg font-semibold">Fr. {fmtR(st.ytd)}</p>
+            <p className="text-lg">Fr. {fmtR(st.ytd)}</p>
             <p className="text-xs text-muted-foreground">
               <span className={tone(st.ytdChange)}>{fmtPct(st.ytdChange)}</span> vs Fr. {fmtR(st.ytdPrev)} same days last year
             </p>
           </Stat>
           <Stat label="Per month">
-            <p className="text-lg font-semibold">Fr. {fmtR(st.avgPerMonth)}</p>
+            <p className="text-lg">Fr. {fmtR(st.avgPerMonth)}</p>
             <p className="text-xs text-muted-foreground">
               average since {monthLabel(stream.firstMonth)}
               {stream.activeMonths < stream.spanMonths && <> · Fr. {fmtR(st.avgPerActiveMonth)} in months with income ({stream.activeMonths} of {stream.spanMonths})</>}
             </p>
           </Stat>
           <Stat label="Payments">
-            <p className="text-lg font-semibold">{stream.count}</p>
+            <p className="text-lg">{stream.count}</p>
             <p className="text-xs text-muted-foreground">
               Fr. {fmtR(st.avgPayment)} on average
               {st.bestMonth && <> · best month {monthLabel(st.bestMonth.month)} (Fr. {fmtR(st.bestMonth.amount)})</>}
@@ -219,7 +219,7 @@ export function StreamsByYear({ streams, selected, onSelect }: {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Sources by year</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">Sources by year</CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <Table>
@@ -237,7 +237,7 @@ export function StreamsByYear({ streams, selected, onSelect }: {
                 key={s.name}
                 onClick={() => onSelect(s.name)}
                 aria-selected={s.name === selected}
-                className={`cursor-pointer ${s.name === ALL_STREAM ? "font-medium border-t-2" : ""} ${s.name === selected ? "bg-accent/60" : ""}`}
+                className={`cursor-pointer ${s.name === ALL_STREAM ? " border-t-2" : ""} ${s.name === selected ? "bg-accent/60" : ""}`}
               >
                 <TableCell className="whitespace-nowrap">
                   <span className="flex items-center gap-2">
@@ -271,7 +271,7 @@ export function StreamsByYear({ streams, selected, onSelect }: {
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border px-3 py-2.5">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+      <p className="text-[11px] uppercase text-muted-foreground mb-1">{label}</p>
       {children}
     </div>
   )

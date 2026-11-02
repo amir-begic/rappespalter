@@ -183,10 +183,10 @@ export default function ProjectionsPage() {
 
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+        <p className="text-xs uppercase text-muted-foreground mb-2">
           Projections
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1>
           15-Year Wealth Forecast
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
@@ -209,18 +209,18 @@ export default function ProjectionsPage() {
           {milestone && (
             <div className="rounded-lg border border-positive/25 bg-positive/10 px-5 py-4 flex justify-between items-center flex-wrap gap-4">
               <div>
-                <p className="text-xs uppercase tracking-widest text-positive/80 mb-1">
+                <p className="text-xs uppercase text-positive/80 mb-1">
                   Millionaire milestone
                 </p>
-                <p className="text-xl font-semibold text-positive">
+                <p className="text-xl text-positive">
                   Age {milestone.age} · Year {milestone.age - settings.startAge}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-positive/80 mb-1 uppercase tracking-widest">
+                <p className="text-xs text-positive/80 mb-1 uppercase">
                   15Y total
                 </p>
-                <p className="text-2xl font-mono text-highlight">
+                <p className="font-display text-3xl text-highlight">
                   {latest ? fmtM(latest.total) : "—"}
                 </p>
               </div>
@@ -232,13 +232,13 @@ export default function ProjectionsPage() {
             {projection.map(p => (
               <Card key={p.label} className="text-center">
                 <CardContent className="pt-4 pb-3">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
+                  <p className="text-xs uppercase text-muted-foreground mb-1">
                     {p.label}
                   </p>
                   <p className="text-xs text-muted-foreground mb-2">
                     Age {p.age}
                   </p>
-                  <p className={`text-base font-semibold font-mono ${
+                  <p className={`text-base font-mono ${
                     p.total >= 1_000_000 ? "text-highlight" : "text-positive"
                   }`}>
                     {fmtM(p.total)}
@@ -251,7 +251,7 @@ export default function ProjectionsPage() {
           {/* Area chart */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Total assets over 15 years
               </CardTitle>
             </CardHeader>
@@ -312,7 +312,7 @@ export default function ProjectionsPage() {
           {/* Forecast vs. actual */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Forecast vs. actual
               </CardTitle>
               {comparison && (
@@ -321,7 +321,7 @@ export default function ProjectionsPage() {
                   <select
                     value={base}
                     onChange={e => setBaseMonth(e.target.value)}
-                    className="text-xs border border-border rounded-md px-2 py-1 bg-background text-foreground"
+                    className="text-xs rounded-xl border border-input px-2 py-1 bg-card text-foreground"
                   >
                     {baseOptions.map(m => (
                       <option key={m} value={m}>{fmtMonth(m)}</option>
@@ -433,7 +433,7 @@ export default function ProjectionsPage() {
                             </tr>
                           )
                         })}
-                        <tr className="font-semibold">
+                        <tr >
                           <td className="pt-2">Total</td>
                           <td className="pt-2 text-right font-mono">Fr. {fmtR(totalOf(comparison.today.actual))}</td>
                           <td className="pt-2 text-right font-mono">Fr. {fmtR(totalOf(comparison.today.plan))}</td>
@@ -458,7 +458,7 @@ export default function ProjectionsPage() {
           {latest && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm text-muted-foreground">
                   Year 15 breakdown
                 </CardTitle>
               </CardHeader>
@@ -482,7 +482,7 @@ export default function ProjectionsPage() {
                     </span>
                   </div>
                 ))}
-                <div className="flex justify-between items-center pt-3 text-sm font-semibold">
+                <div className="flex justify-between items-center pt-3 text-sm">
                   <span>Total</span>
                   <span className="font-mono text-highlight">
                     Fr. {fmtR(latest.total)}
@@ -495,7 +495,7 @@ export default function ProjectionsPage() {
           {/* Record snapshot */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Record this month's balances
               </CardTitle>
             </CardHeader>
@@ -510,7 +510,7 @@ export default function ProjectionsPage() {
                     type="month"
                     value={formMonth}
                     onChange={e => setFormMonth(e.target.value)}
-                    className="w-full text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+                    className="w-full text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
                   />
                 </div>
                 {[
@@ -539,7 +539,7 @@ export default function ProjectionsPage() {
                       value={field.value}
                       onChange={e => field.set(e.target.value)}
                       placeholder={field.placeholder}
-                      className="w-full text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+                      className="w-full text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
                     />
                   </div>
                 ))}
@@ -565,7 +565,7 @@ export default function ProjectionsPage() {
           {snapshots.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm text-muted-foreground">
                   Snapshot history
                 </CardTitle>
               </CardHeader>
@@ -579,7 +579,7 @@ export default function ProjectionsPage() {
                         <th className="text-right pb-2 font-normal">Savings</th>
                         <th className="text-right pb-2 font-normal">3a</th>
                         <th className="text-right pb-2 font-normal">2. Säule</th>
-                        <th className="text-right pb-2 font-normal font-semibold">Total</th>
+                        <th className="text-right pb-2 font-normal">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -594,7 +594,7 @@ export default function ProjectionsPage() {
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.savings)}</td>
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.pillar3a)}</td>
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.pillar2)}</td>
-                          <td className="py-2 text-right font-mono text-highlight font-semibold">
+                          <td className="py-2 text-right font-mono text-highlight">
                             Fr. {fmtR(s.total)}
                           </td>
                         </tr>

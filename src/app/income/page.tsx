@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
@@ -139,10 +139,10 @@ export default function IncomePage() {
       {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+          <p className="text-xs uppercase text-muted-foreground mb-2">
             Income
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1>
             Income by Source
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
@@ -199,10 +199,10 @@ export default function IncomePage() {
               className="cursor-pointer transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+                <p className="text-xs uppercase text-muted-foreground mb-2">
                   Total income
                 </p>
-                <p className="text-2xl font-semibold text-positive">
+                <p className="font-display text-3xl text-positive">
                   Fr. {fmtR(data.total)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -218,12 +218,14 @@ export default function IncomePage() {
                 onClick={() => openTransactions(c.categoryName)}
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openTransactions(c.categoryName) } }}
                 className="cursor-pointer transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                // The tile is a block in the source's own colour (globals.css "Tiles").
+                style={{ "--tile": c.color } as CSSProperties}
               >
                 <CardContent className="pt-6">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2 truncate">
+                  <p className="text-xs uppercase text-muted-foreground mb-2 truncate">
                     {c.categoryName}
                   </p>
-                  <p className="text-2xl font-semibold" style={{ color: c.color }}>
+                  <p className="font-display text-3xl">
                     Fr. {fmtR(c.total)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -251,7 +253,7 @@ export default function IncomePage() {
           {/* Breakdown by source */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 By source
               </CardTitle>
             </CardHeader>
@@ -289,7 +291,7 @@ export default function IncomePage() {
           {data.byMonth.length > 1 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm text-muted-foreground">
                   All sources per month
                 </CardTitle>
               </CardHeader>

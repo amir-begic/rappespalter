@@ -71,8 +71,8 @@ export default function GoalPage() {
     <div className="max-w-4xl mx-auto py-10 px-4">
 
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">Goal</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Down-Payment Tracker</h1>
+        <p className="text-xs uppercase text-muted-foreground mb-2">Goal</p>
+        <h1>Down-Payment Tracker</h1>
         <p className="text-sm text-muted-foreground mt-2">
           How close your liquid assets are to the deposit on a Swiss property, and when you&apos;ll get there at your current pace.
         </p>
@@ -93,12 +93,12 @@ export default function GoalPage() {
           {/* Inputs */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Target</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Target</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="block">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">Property price (Fr.)</span>
+                  <span className="text-xs uppercase text-muted-foreground">Property price (Fr.)</span>
                   <Input
                     type="number" min={0} step={10000} value={inputs.price}
                     onChange={e => update({ price: parseFloat(e.target.value) || 0 })}
@@ -106,7 +106,7 @@ export default function GoalPage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">Down payment (%)</span>
+                  <span className="text-xs uppercase text-muted-foreground">Down payment (%)</span>
                   <Input
                     type="number" min={0} max={100} step={1} value={inputs.depositPct}
                     onChange={e => update({ depositPct: parseFloat(e.target.value) || 0 })}
@@ -114,7 +114,7 @@ export default function GoalPage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">Extra costs (%)</span>
+                  <span className="text-xs uppercase text-muted-foreground">Extra costs (%)</span>
                   <Input
                     type="number" min={0} max={100} step={1} value={inputs.costsPct}
                     onChange={e => update({ costsPct: parseFloat(e.target.value) || 0 })}
@@ -129,29 +129,29 @@ export default function GoalPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Deposit needed</p>
-                <p className="text-2xl font-semibold">Fr. {fmtR(needed)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Deposit needed</p>
+                <p className="font-display text-3xl">Fr. {fmtR(needed)}</p>
                 <p className="text-xs text-muted-foreground mt-1">{inputs.depositPct}% + {inputs.costsPct}% costs</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Liquid assets</p>
-                <p className="text-2xl font-semibold text-positive">Fr. {fmtR(current)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Liquid assets</p>
+                <p className="font-display text-3xl text-positive">Fr. {fmtR(current)}</p>
                 <p className="text-xs text-muted-foreground mt-1">ETF + savings + checking</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Still needed</p>
-                <p className="text-2xl font-semibold text-highlight">Fr. {fmtR(remaining)}</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">Still needed</p>
+                <p className="font-display text-3xl text-highlight">Fr. {fmtR(remaining)}</p>
                 <p className="text-xs text-muted-foreground mt-1">at Fr. {fmtR(avgSaved)}/mo</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">On track for</p>
-                <p className="text-2xl font-semibold text-info">
+                <p className="text-xs uppercase text-muted-foreground mb-2">On track for</p>
+                <p className="font-display text-3xl text-info">
                   {reached ? "Now 🎉" : projected ?? "—"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -164,7 +164,7 @@ export default function GoalPage() {
           {/* Progress */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Progress — {progress.toFixed(0)}% of deposit
               </CardTitle>
             </CardHeader>

@@ -12,7 +12,7 @@
 // downloads + verifies the installer; installUpdate() below copies the database and
 // runs the installer silently, which restarts the app.
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require("electron")
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
@@ -196,8 +196,8 @@ function createWindow(url) {
     height: 900,
     title: "Rappespalter",
     icon: ICON,
-    // Match the page background (globals.css) so there is no flash on load.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#121419" : "#f9fafb",
+    // The app's default (light) background and the loading page's, so there is no flash.
+    backgroundColor: "#f4f1ea",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

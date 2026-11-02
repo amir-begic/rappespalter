@@ -465,17 +465,17 @@ useEffect(() => {
       {/* Header */}
       <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
         <div>
-          <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">
+          <p className="text-xs uppercase text-muted-foreground mb-2">
             Dashboard
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1>
             Monthly Overview
           </h1>
         </div>
         <select
             value={month}
             onChange={e => setMonth(e.target.value)}
-            className="text-sm border border-border rounded-md px-3 py-2 bg-background text-foreground"
+            className="text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
             >
             {months.map(m => (
                 <option key={m} value={m}>{m}</option>
@@ -506,26 +506,26 @@ useEffect(() => {
           {/* Stat cards — click to drill into the underlying transactions */}
 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
   <StatCard onClick={() => openDrill("income")}>
-    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+    <p className="text-xs uppercase text-muted-foreground mb-2">
       Income
     </p>
-    <p className="text-2xl font-semibold text-positive">
+    <p className="font-display text-3xl text-positive">
       Fr. {fmtR(data.summary.income)}
     </p>
   </StatCard>
   <StatCard onClick={() => openDrill("expenses")}>
-    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+    <p className="text-xs uppercase text-muted-foreground mb-2">
       Expenses
     </p>
-    <p className="text-2xl font-semibold text-negative">
+    <p className="font-display text-3xl text-negative">
       Fr. {fmtR(data.summary.expenses)}
     </p>
   </StatCard>
   <StatCard onClick={() => openDrill("saved")}>
-    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+    <p className="text-xs uppercase text-muted-foreground mb-2">
       Saved
     </p>
-    <p className="text-2xl font-semibold text-info">
+    <p className="font-display text-3xl text-info">
       Fr. {fmtR(data.summary.saved)}
     </p>
     <p className="text-xs text-muted-foreground mt-1">
@@ -533,10 +533,10 @@ useEffect(() => {
     </p>
   </StatCard>
   <StatCard onClick={() => openDrill("net")}>
-    <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+    <p className="text-xs uppercase text-muted-foreground mb-2">
       Net
     </p>
-    <p className={`text-2xl font-semibold ${
+    <p className={`font-display text-3xl ${
       data.summary.net >= 0 ? "text-positive" : "text-negative"
     }`}>
       Fr. {fmtR(data.summary.net)}
@@ -548,7 +548,7 @@ useEffect(() => {
 {/* Money flow */}
 <Card>
   <CardHeader className="pb-2">
-    <CardTitle className="text-sm font-medium text-muted-foreground">
+    <CardTitle className="text-sm text-muted-foreground">
       Money flow
     </CardTitle>
   </CardHeader>
@@ -566,7 +566,7 @@ useEffect(() => {
 {data.bySavings.length > 0 && (
   <Card>
     <CardHeader className="pb-2">
-      <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardTitle className="text-sm text-muted-foreground">
         Savings & investments
       </CardTitle>
     </CardHeader>
@@ -586,7 +586,7 @@ useEffect(() => {
             </span>
           </div>
         ))}
-        <div className="flex justify-between items-center pt-2 border-t border-border text-sm font-semibold">
+        <div className="flex justify-between items-center pt-2 border-t border-border text-sm">
           <span>Total saved</span>
           <span className="font-mono text-info">
             Fr. {fmtR(data.summary.saved)}
@@ -603,7 +603,7 @@ useEffect(() => {
           {/* ── Spending by type bar */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 Spending allocation
               </CardTitle>
             </CardHeader>
@@ -648,7 +648,7 @@ useEffect(() => {
             {/* Pie chart */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm text-muted-foreground">
                   By category
                 </CardTitle>
               </CardHeader>
@@ -712,7 +712,7 @@ useEffect(() => {
                         >
                           <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c.color }} />
-                            <span className={active ? "text-foreground font-medium" : "text-muted-foreground"}>
+                            <span className={active ? "text-foreground" : "text-muted-foreground"}>
                               {c.categoryName}
                             </span>
                           </div>
@@ -729,7 +729,7 @@ useEffect(() => {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                  <CardTitle className="text-sm text-muted-foreground">
                     Budget vs actual
                   </CardTitle>
                   <a href="/budgets" className="text-xs text-muted-foreground underline hover:text-foreground">
@@ -817,7 +817,7 @@ useEffect(() => {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm text-muted-foreground">
                   Largest outflows{selectedCat ? <span className="text-foreground"> · {selectedCat}</span> : null}
                 </CardTitle>
                 {selectedCat && (
@@ -886,7 +886,7 @@ useEffect(() => {
 {data.savingsTransactions.length > 0 && (
   <Card>
     <CardHeader className="pb-2">
-      <CardTitle className="text-sm font-medium text-muted-foreground">
+      <CardTitle className="text-sm text-muted-foreground">
         Savings & investments
       </CardTitle>
     </CardHeader>
@@ -919,7 +919,7 @@ useEffect(() => {
             </span>
           </div>
         ))}
-        <div className="flex justify-between items-center pt-3 border-t border-border text-sm font-semibold">
+        <div className="flex justify-between items-center pt-3 border-t border-border text-sm">
           <span className="text-muted-foreground">Total saved</span>
           <span className="font-mono text-info">
             Fr. {fmt(data.summary.saved)}

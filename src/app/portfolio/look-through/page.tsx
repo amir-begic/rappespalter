@@ -75,8 +75,8 @@ export default function LookThroughPage() {
       </Link>
 
       <div className="mb-8">
-        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-2">Portfolio</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Look-through</h1>
+        <p className="text-xs uppercase text-muted-foreground mb-2">Portfolio</p>
+        <h1>Look-through</h1>
         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
           The companies inside your ETFs, combined with the stocks you hold directly, valued at today&apos;s
           prices. Weights come from the holdings files the fund companies publish.
@@ -101,7 +101,7 @@ export default function LookThroughPage() {
       ) : data.total === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-2">
-            <p className="font-medium">No investments yet</p>
+            <p >No investments yet</p>
             <p className="text-sm text-muted-foreground">
               Import your Yuh activities on the <Link href="/portfolio" className="underline">Portfolio</Link> page first.
             </p>
@@ -112,11 +112,11 @@ export default function LookThroughPage() {
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Securities">
-              <p className="text-2xl font-semibold">Fr. {fmtR(data.total)}</p>
+              <p className="font-display text-3xl">Fr. {fmtR(data.total)}</p>
               <p className="text-xs text-muted-foreground mt-1">ETFs and stocks, excluding cash</p>
             </Stat>
             <Stat label="Looked through">
-              <p className="text-2xl font-semibold">{fmtPct(coverage, 0)}</p>
+              <p className="font-display text-3xl">{fmtPct(coverage, 0)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 {data.notLookedThrough.length
                   ? `No holdings data yet: ${data.notLookedThrough.map(f => f.symbol).join(", ")}`
@@ -124,11 +124,11 @@ export default function LookThroughPage() {
               </p>
             </Stat>
             <Stat label="Companies">
-              <p className="text-2xl font-semibold">{data.companies.length.toLocaleString("de-CH")}</p>
+              <p className="font-display text-3xl">{data.companies.length.toLocaleString("de-CH")}</p>
               <p className="text-xs text-muted-foreground mt-1">in {data.countries.length} countries</p>
             </Stat>
             <Stat label="Top 10 companies">
-              <p className="text-2xl font-semibold">{fmtPct(data.top10Share, 1)}</p>
+              <p className="font-display text-3xl">{fmtPct(data.top10Share, 1)}</p>
               <p className="text-xs text-muted-foreground mt-1">of your company exposure</p>
             </Stat>
           </div>
@@ -136,7 +136,7 @@ export default function LookThroughPage() {
           {/* Companies */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Companies</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">Companies</CardTitle>
               <Input
                 aria-label="Filter companies"
                 placeholder="Find a company…"
@@ -166,7 +166,7 @@ export default function LookThroughPage() {
                       <TableRow key={`${c.rank}`}>
                         <TableCell className="text-right font-mono text-xs text-muted-foreground">{c.rank}</TableCell>
                         <TableCell className="max-w-72">
-                          <p className="truncate font-medium">{c.name}</p>
+                          <p className="truncate">{c.name}</p>
                           <p className="text-xs text-muted-foreground truncate">
                             {[c.country && countryName(c.country), c.sector].filter(Boolean).join(" · ") || "—"}
                           </p>
@@ -176,7 +176,7 @@ export default function LookThroughPage() {
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {c.via.map(v => (
                             <span key={v.symbol} className="mr-2" title={`Fr. ${fmt2(v.value)}`}>
-                              <span className="font-mono font-medium text-foreground">{v.symbol}</span>
+                              <span className="font-mono text-foreground">{v.symbol}</span>
                               {c.via.length > 1 && ` ${Math.round(v.value / c.value * 100)}%`}
                             </span>
                           ))}
@@ -201,7 +201,7 @@ export default function LookThroughPage() {
           {/* Countries / sectors */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 {breakdown === "countries" ? "By country" : breakdown === "sectors" ? "By sector" : "By currency"}
               </CardTitle>
               <Tabs value={breakdown} onValueChange={v => setBreakdown(v as Breakdown)}>
@@ -297,7 +297,7 @@ function Sources({ funds, onChanged }: {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">ETF holdings data</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">ETF holdings data</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground mb-4">
@@ -362,7 +362,7 @@ function FundRow({ fund, onChanged }: {
   return (
     <div className="py-3 first:pt-0 last:pb-0 space-y-1.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-sm font-medium">{fund.symbol}</span>
+        <span className="font-mono text-sm">{fund.symbol}</span>
         <span className="text-sm text-muted-foreground truncate">{fund.name}</span>
         <span className="text-xs text-muted-foreground">Fr. {fmtR(fund.value)}</span>
         {s ? (
@@ -400,7 +400,7 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{label}</p>
+        <p className="text-xs uppercase text-muted-foreground mb-2">{label}</p>
         {children}
       </CardContent>
     </Card>
