@@ -59,7 +59,9 @@ export const ModelName = {
   PortfolioActivity: 'PortfolioActivity',
   Security: 'Security',
   SecurityPrice: 'SecurityPrice',
-  FxRate: 'FxRate'
+  FxRate: 'FxRate',
+  FundSource: 'FundSource',
+  FundConstituent: 'FundConstituent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -188,6 +190,35 @@ export const FxRateScalarFieldEnum = {
 } as const
 
 export type FxRateScalarFieldEnum = (typeof FxRateScalarFieldEnum)[keyof typeof FxRateScalarFieldEnum]
+
+
+export const FundSourceScalarFieldEnum = {
+  symbol: 'symbol',
+  provider: 'provider',
+  asOf: 'asOf',
+  fileName: 'fileName',
+  fundName: 'fundName',
+  sourceUrl: 'sourceUrl',
+  lastError: 'lastError',
+  importedAt: 'importedAt'
+} as const
+
+export type FundSourceScalarFieldEnum = (typeof FundSourceScalarFieldEnum)[keyof typeof FundSourceScalarFieldEnum]
+
+
+export const FundConstituentScalarFieldEnum = {
+  id: 'id',
+  symbol: 'symbol',
+  ticker: 'ticker',
+  isin: 'isin',
+  name: 'name',
+  country: 'country',
+  sector: 'sector',
+  assetClass: 'assetClass',
+  weight: 'weight'
+} as const
+
+export type FundConstituentScalarFieldEnum = (typeof FundConstituentScalarFieldEnum)[keyof typeof FundConstituentScalarFieldEnum]
 
 
 export const SortOrder = {

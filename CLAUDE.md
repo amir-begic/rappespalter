@@ -28,6 +28,7 @@ src/
     import/page.tsx          — xlsx upload page
     projections/page.tsx     — 15-year wealth forecast
     portfolio/page.tsx       — standalone investment tracker (Yuh CSV + market prices)
+    portfolio/look-through/  — ETFs broken down into companies / countries / sectors
     api/
       import/route.ts        — parses and imports Raiffeisen XLSX
       transactions/route.ts  — CRUD + filtering
@@ -36,15 +37,17 @@ src/
       months/route.ts        — distinct months in the database
       income/streams/route.ts — per-source income trends over the full history
       settings/route.ts      — user-editable settings (projection inputs)
-      portfolio/             — summary + delete, import, refresh, securities (overrides/manual prices)
+      portfolio/             — summary + delete, import, refresh, securities (overrides/manual prices),
+                               lookthrough (ETF constituent upload + aggregated exposure)
     settings/page.tsx        — edit projection inputs (overrides env defaults)
   lib/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
-    portfolio/               — yuh.ts (CSV parser), market.ts (Yahoo/ECB), engine.ts (pure maths),
-                               store.ts (DB + refresh), schema.ts (create tables if missing)
+    portfolio/               — yuh.ts (CSV parser), market.ts (Yahoo/ECB/Xtrackers), engine.ts (pure maths),
+                               store.ts (DB + refresh), schema.ts (create tables if missing),
+                               constituents.ts (ETF holdings file parsers), lookthrough.ts (pure matching)
 generated/
   prisma/
     client.ts                — generated Prisma client (do not edit)
@@ -90,7 +93,8 @@ Tables:
 - **Setting** — key/value user settings edited on /settings; missing keys fall back
   to the `NEXT_PUBLIC_*` env defaults. `/api/settings` creates the table if absent
   because the desktop app doesn't migrate existing userData databases.
-- **PortfolioActivity / Security / SecurityPrice / FxRate** — portfolio tracker (see below);
+- **PortfolioActivity / Security / SecurityPrice / FxRate / FundSource / FundConstituent** —
+  portfolio tracker and ETF look-through (see below);
   created on demand by `ensurePortfolioSchema()` for the same reason.
 
 ## Prisma setup (important)
@@ -188,6 +192,15 @@ transactions would double-count savings.
 - **Maths** (`engine.ts`, pure): account = securities + cash; deposits/withdrawals are
   the only external flows. Cost basis in CHF at the trade-date ECB rate; average-cost
   realised gains; daily TWR and XIRR.
+
+- **Look-through** (`constituents.ts`, `lookthrough.ts`, full design in
+  [docs/PORTFOLIO-LOOKTHROUGH.md](docs/PORTFOLIO-LOOKTHROUGH.md)): ETF constituent files
+  (iShares CSV, Vanguard XLSX, Xtrackers XLSX) are uploaded per ETF and replace its
+  previous rows; exposure = today's position value × file weight. Only Xtrackers has
+  ISINs, so companies are matched by ISIN, ticker+country and normalised name
+  (cross-country only when legal forms agree, so "Siemens AG" ≠ "Siemens Ltd").
+  Xtrackers files re-fetch during refresh once a week old; the others are manual.
+  In this code a *holding* is the user's position, a *constituent* is a company inside an ETF.
 
 ## Income streams
 The Income page's trend view (`src/lib/income.ts`, pure) analyses each income

@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma"
 import { ensurePortfolioSchema } from "./schema"
 import { ensureSettingTable } from "@/lib/setting-table"
-import { BASE_CURRENCY, fetchFxRates, fetchListing, matchListing } from "./market"
+import {
+  BASE_CURRENCY, fetchFxRates, fetchListing, fetchConstituentFile, matchListing, xtrackersConstituentsUrl,
+} from "./market"
 import { computeHoldingDetail, computePortfolio, type Series } from "./engine"
+import { parseConstituentFile, providerLabel, type AssetClass, type ConstituentFile } from "./constituents"
+import { computeLookThrough } from "./lookthrough"
 import type { ParseResult } from "./yuh"
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
@@ -65,13 +69,14 @@ export interface RefreshResult {
   failed:   { symbol: string; error: string }[]
   prices:   number
   fxRates:  number
+  constituents: string[] // funds whose constituent file was fetched anew
 }
 
 export async function refreshMarketData(opts: { auto?: boolean } = {}): Promise<RefreshResult> {
   await ensurePortfolioSchema()
   const last = await getLastRefresh()
   if (opts.auto && last && Date.now() - Date.parse(last) < AUTO_REFRESH_HOURS * 3_600_000) {
-    return { skipped: true, lastRefreshAt: last, matched: [], failed: [], prices: 0, fxRates: 0 }
+    return { skipped: true, lastRefreshAt: last, matched: [], failed: [], prices: 0, fxRates: 0, constituents: [] }
   }
 
   const startedAt = new Date().toISOString()
@@ -80,7 +85,7 @@ export async function refreshMarketData(opts: { auto?: boolean } = {}): Promise<
     update: { value: startedAt },
     create: { key: LAST_REFRESH_KEY, value: startedAt },
   })
-  const result: RefreshResult = { lastRefreshAt: startedAt, matched: [], failed: [], prices: 0, fxRates: 0 }
+  const result: RefreshResult = { lastRefreshAt: startedAt, matched: [], failed: [], prices: 0, fxRates: 0, constituents: [] }
   const end = today()
 
   const first = await prisma.portfolioActivity.findFirst({ orderBy: { date: "asc" }, select: { date: true } })
@@ -172,8 +177,105 @@ export async function refreshMarketData(opts: { auto?: boolean } = {}): Promise<
     }
   }
 
+  // 4. Constituent files that can be fetched automatically, once they're a week old.
+  const due = minusDays(end, CONSTITUENTS_REFETCH_DAYS)
+  for (const src of await prisma.fundSource.findMany({ where: { sourceUrl: { not: null }, asOf: { lte: due } } })) {
+    try {
+      // The original file name carries the fund ISIN, which keeps the auto-fetch URL.
+      const file = parseConstituentFile(await fetchConstituentFile(src.sourceUrl!), src.fileName)
+      await saveConstituents(src.symbol, file, src.fileName)
+      result.constituents.push(src.symbol)
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e)
+      await prisma.fundSource.update({ where: { symbol: src.symbol }, data: { lastError: error } })
+      result.failed.push({ symbol: src.symbol, error: `Fund holdings: ${error}` })
+    }
+  }
+
   return result
 }
+
+// ── Look-through (ETF constituents) ─────────────────────────────────────────
+
+const CONSTITUENTS_REFETCH_DAYS = 7
+// Weights drift slowly, but a file older than this is worth replacing.
+export const CONSTITUENTS_STALE_DAYS = 100
+
+const isFundKind = (kind: string | null) => kind === "ETF" || kind === "MUTUALFUND"
+
+// Replace a fund's constituents with a newly parsed file.
+async function saveConstituents(symbol: string, file: ConstituentFile, fileName: string) {
+  const sourceUrl = file.provider === "xtrackers" && file.fundIsin ? xtrackersConstituentsUrl(file.fundIsin) : null
+  const source = {
+    provider: file.provider, asOf: file.asOf, fileName, fundName: file.fundName,
+    sourceUrl, lastError: null, importedAt: new Date(),
+  }
+  await prisma.$transaction([
+    prisma.fundConstituent.deleteMany({ where: { symbol } }),
+    prisma.fundConstituent.createMany({ data: file.rows.map(r => ({ symbol, ...r })) }),
+    prisma.fundSource.upsert({ where: { symbol }, update: source, create: { symbol, ...source } }),
+  ])
+}
+
+export async function importConstituents(symbol: string, file: ConstituentFile, fileName: string) {
+  await ensurePortfolioSchema()
+  const sec = await prisma.security.findUnique({ where: { symbol } })
+  if (!sec) throw new Error(`Unknown security "${symbol}"`)
+  await saveConstituents(symbol, file, fileName)
+}
+
+export async function deleteConstituents(symbol: string) {
+  await ensurePortfolioSchema()
+  await prisma.$transaction([
+    prisma.fundConstituent.deleteMany({ where: { symbol } }),
+    prisma.fundSource.deleteMany({ where: { symbol } }),
+  ])
+}
+
+export async function loadLookThrough() {
+  const [{ input }, sources, rows] = await Promise.all([
+    loadEngineInput(),
+    ensurePortfolioSchema().then(() => prisma.fundSource.findMany()),
+    ensurePortfolioSchema().then(() => prisma.fundConstituent.findMany()),
+  ])
+  const portfolio = computePortfolio(input)
+  const sourceBySymbol = new Map(sources.map(s => [s.symbol, s]))
+  const rowsBySymbol = new Map<string, typeof rows>()
+  rows.forEach(r => rowsBySymbol.set(r.symbol, [...(rowsBySymbol.get(r.symbol) ?? []), r]))
+
+  const held = portfolio.holdings.filter(h => h.units > 0)
+  const isFund = (h: (typeof held)[number]) => isFundKind(h.kind) || sourceBySymbol.has(h.symbol)
+  const result = computeLookThrough(held.map(h => ({
+    symbol: h.symbol, name: h.name, value: h.value, isFund: isFund(h),
+    constituents: rowsBySymbol.get(h.symbol)?.map(r => ({ ...r, assetClass: r.assetClass as AssetClass })) ?? null,
+  })))
+
+  const ageDays = (date: string) => Math.floor((Date.parse(input.today) - Date.parse(date)) / 86_400_000)
+  // ~4'000 companies: rounding keeps the response a manageable size.
+  const cents = (n: number) => Math.round(n * 100) / 100
+  return {
+    asOf: portfolio.asOf,
+    ...result,
+    companies: result.companies.map(c => ({
+      ...c, value: cents(c.value), share: Math.round(c.share * 1e6) / 1e6,
+      via: c.via.map(v => ({ symbol: v.symbol, value: cents(v.value) })),
+    })),
+    funds: held.filter(isFund).map(h => {
+      const s = sourceBySymbol.get(h.symbol)
+      return {
+        symbol: h.symbol, name: h.name, value: h.value,
+        source: s ? {
+          provider: providerLabel(s.provider), asOf: s.asOf, fileName: s.fileName, fundName: s.fundName,
+          importedAt: s.importedAt.toISOString(), auto: s.sourceUrl != null, lastError: s.lastError,
+          rows: rowsBySymbol.get(h.symbol)?.length ?? 0,
+          ageDays: ageDays(s.asOf), stale: ageDays(s.asOf) > CONSTITUENTS_STALE_DAYS,
+        } : null,
+      }
+    }),
+  }
+}
+
+export type LookThroughSummary = Awaited<ReturnType<typeof loadLookThrough>>
 
 // ── Summary ─────────────────────────────────────────────────────────────────
 

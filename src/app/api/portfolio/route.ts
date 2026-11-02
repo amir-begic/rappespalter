@@ -12,8 +12,8 @@ export async function GET() {
   }
 }
 
-// Wipe all portfolio data (activities, securities, cached prices and rates).
-// Bank transactions, snapshots and settings are untouched.
+// Wipe all portfolio data (activities, securities, cached prices and rates,
+// ETF constituents). Bank transactions, snapshots and settings are untouched.
 export async function DELETE() {
   try {
     await ensurePortfolioSchema()
@@ -22,6 +22,8 @@ export async function DELETE() {
       prisma.securityPrice.deleteMany(),
       prisma.fxRate.deleteMany(),
       prisma.security.deleteMany(),
+      prisma.fundConstituent.deleteMany(),
+      prisma.fundSource.deleteMany(),
     ])
     return NextResponse.json({ ok: true })
   } catch (error) {

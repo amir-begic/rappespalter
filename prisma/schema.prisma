@@ -115,3 +115,30 @@ model FxRate {
 
   @@id([currency, date])
 }
+
+// ETF look-through (docs/PORTFOLIO-LOOKTHROUGH.md): the latest constituent file
+// per fund. Uploading a new file replaces the fund's previous rows.
+model FundSource {
+  symbol     String   @id // Security.symbol of the ETF
+  provider   String   // ishares | vanguard | xtrackers
+  asOf       String   // YYYY-MM-DD the file's data refers to
+  fileName   String
+  fundName   String?  // as printed in the file
+  sourceUrl  String?  // fetched automatically on refresh (Xtrackers)
+  lastError  String?  // last automatic fetch failure
+  importedAt DateTime @default(now())
+}
+
+model FundConstituent {
+  id         Int     @id @default(autoincrement())
+  symbol     String  // FundSource.symbol
+  ticker     String?
+  isin       String?
+  name       String
+  country    String? // ISO 3166 alpha-2
+  sector     String? // GICS sector
+  assetClass String  // equity | cash | other
+  weight     Float   // fraction of the fund
+
+  @@index([symbol])
+}

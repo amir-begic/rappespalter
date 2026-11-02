@@ -1,6 +1,7 @@
 // Market data: daily prices from Yahoo Finance's public (unofficial) chart API
-// and exchange rates from the ECB via Frankfurter. Only ticker symbols, currency
-// codes and date ranges are sent — never holdings or amounts. Keep all provider
+// and exchange rates from the ECB via Frankfurter, plus ETF constituent files
+// from Xtrackers. Only ticker symbols, fund ISINs, currency codes and date
+// ranges are sent — never holdings or amounts. Keep all provider
 // specifics in this file so a source can be swapped without touching the rest.
 
 export const BASE_CURRENCY = "CHF"
@@ -53,7 +54,7 @@ function retryAfterMs(res: Response): number | null {
   return Number.isFinite(ms) && ms >= 0 ? Math.min(ms, HTTP_POLICY.maxWaitMs) : null
 }
 
-async function attempt(url: string, host: string): Promise<unknown> {
+async function attempt<T>(url: string, host: string, read: (res: Response) => Promise<T>): Promise<T> {
   for (let i = 0; ; i++) {
     const wait = (lastSent.get(host) ?? 0) + HTTP_POLICY.minGapMs - Date.now()
     if (wait > 0) await sleep(wait)
@@ -66,7 +67,7 @@ async function attempt(url: string, host: string): Promise<unknown> {
     } catch (e) {
       networkError = e
     }
-    if (res?.ok) return res.json()
+    if (res?.ok) return read(res)
 
     const retryable = networkError != null || res!.status === 429 || res!.status >= 500
     if (!retryable || i >= HTTP_POLICY.retryDelays.length) {
@@ -85,7 +86,7 @@ async function attempt(url: string, host: string): Promise<unknown> {
 
 // Requests to one host run one at a time, so pacing and back-off apply across
 // concurrent refreshes too.
-export function getJson(url: string): Promise<unknown> {
+function request<T>(url: string, read: (res: Response) => Promise<T>): Promise<T> {
   const host = new URL(url).host
   const until = coolDown.get(host) ?? 0
   if (Date.now() < until) return Promise.reject(new RateLimitedError(host, until))
@@ -95,11 +96,15 @@ export function getJson(url: string): Promise<unknown> {
     .then(() => {
       const blocked = coolDown.get(host) ?? 0
       if (Date.now() < blocked) throw new RateLimitedError(host, blocked)
-      return attempt(url, host)
+      return attempt(url, host, read)
     })
   queues.set(host, run)
   return run
 }
+
+export const getJson  = (url: string): Promise<unknown> => request(url, res => res.json())
+export const getBytes = (url: string): Promise<Buffer> =>
+  request(url, async res => Buffer.from(await res.arrayBuffer()))
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10)
 const toEpoch = (date: string) => Math.floor(Date.parse(date + "T00:00:00Z") / 1000)
@@ -195,3 +200,15 @@ export async function fetchFxRates(currency: string, from: string, to: string): 
     .map(([date, r]) => ({ date, close: r[BASE_CURRENCY] }))
     .filter(p => Number.isFinite(p.close))
 }
+
+// ── ETF constituents ────────────────────────────────────────────────────────
+// Xtrackers (DWS) publishes each fund's full constituent list as a daily XLSX
+// at a stable URL keyed by the fund's ISIN. iShares blocks scripted downloads
+// and Vanguard has no stable file URL, so those are uploaded by hand.
+
+const DWS = "https://etf.dws.com"
+
+export const xtrackersConstituentsUrl = (isin: string) =>
+  `${DWS}/etfdata/export/CHE/ENG/excel/product/constituent/${encodeURIComponent(isin)}/`
+
+export const fetchConstituentFile = (url: string) => getBytes(url)

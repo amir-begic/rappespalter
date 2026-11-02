@@ -62,3 +62,13 @@ export type SecurityPrice = Prisma.SecurityPriceModel
  * 
  */
 export type FxRate = Prisma.FxRateModel
+/**
+ * Model FundSource
+ * 
+ */
+export type FundSource = Prisma.FundSourceModel
+/**
+ * Model FundConstituent
+ * 
+ */
+export type FundConstituent = Prisma.FundConstituentModel

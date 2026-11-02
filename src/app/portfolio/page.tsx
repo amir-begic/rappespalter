@@ -7,7 +7,7 @@ import {
   ComposedChart, Area, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from "recharts"
-import { ChevronRight, RefreshCw, Upload } from "lucide-react"
+import { ChevronRight, Layers, RefreshCw, Upload } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -176,6 +176,11 @@ export default function PortfolioPage() {
             ref={fileInput} type="file" accept=".csv,text/csv" className="hidden"
             onChange={e => e.target.files?.[0] && importFile(e.target.files[0])}
           />
+          {!!data?.activityCount && (
+            <Button variant="outline" asChild>
+              <Link href="/portfolio/look-through"><Layers /> Look-through</Link>
+            </Button>
+          )}
           {!!data?.activityCount && (
             <Button variant="outline" onClick={() => refresh()} disabled={!!busy}>
               <RefreshCw className={busy === "Updating prices…" ? "animate-spin" : ""} />

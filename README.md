@@ -62,6 +62,7 @@ Standalone investment tracker fed by **Yuh** activity CSV exports. Holdings are 
 - Holdings: units, average cost, price, gain, weight — filterable by ETFs / stocks
 - Dividends per month and per holding, withholding tax, yield on cost; trading & FX fees
 - Per-holding price source: auto-matched listing, a listing you choose, or manual prices
+- **Look-through**: upload each ETF's holdings file (iShares, Vanguard, Xtrackers) to see the companies, countries and sectors you actually own, combined across ETFs and directly held stocks ([details](docs/PORTFOLIO-LOOKTHROUGH.md))
 - Independent of the rest of the app: nothing here feeds spending, savings or net worth
 
 ### 💵 Income
@@ -174,6 +175,7 @@ SQLite via Prisma ([`prisma/schema.prisma`](prisma/schema.prisma)):
 - **Snapshot** — monthly asset balances: `etf`, `savings`, `pillar3a`, `pillar2`, `checking`
 - **Setting** — key/value user settings (projection inputs)
 - **PortfolioActivity** / **Security** / **SecurityPrice** / **FxRate** — the standalone portfolio tracker: imported broker activities, how each holding is priced, and cached daily prices and CHF exchange rates
+- **FundSource** / **FundConstituent** — the latest holdings file per ETF, for the look-through
 
 **Category types** drive the math: `savings`/`transfer` are excluded from expense totals; `income` is positive cash flow; `fixed`/`variable` are spending.
 
@@ -224,4 +226,4 @@ pnpm dist                                 # build a desktop installer for this O
 
 Local-first by design: your statements, transactions, balances, and projections live only in your local SQLite database and `.env`. Nothing is uploaded, and both are gitignored so they can't be committed accidentally.
 
-The **Portfolio** page is the one feature that goes online: it fetches public market prices (Yahoo Finance) and exchange rates (European Central Bank via Frankfurter). Only ticker symbols, currency codes and date ranges are sent — never your holdings or amounts. Prices are cached, so the page keeps working offline.
+The **Portfolio** page is the one feature that goes online: it fetches public market prices (Yahoo Finance) and exchange rates (European Central Bank via Frankfurter), and refreshes Xtrackers ETF holdings files from DWS. Only ticker symbols, fund ISINs, currency codes and date ranges are sent — never your holdings or amounts. Prices are cached, so the page keeps working offline.

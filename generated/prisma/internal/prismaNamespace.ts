@@ -392,7 +392,9 @@ export const ModelName = {
   PortfolioActivity: 'PortfolioActivity',
   Security: 'Security',
   SecurityPrice: 'SecurityPrice',
-  FxRate: 'FxRate'
+  FxRate: 'FxRate',
+  FundSource: 'FundSource',
+  FundConstituent: 'FundConstituent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -408,7 +410,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "transaction" | "snapshot" | "budget" | "category" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate"
+    modelProps: "transaction" | "snapshot" | "budget" | "category" | "setting" | "portfolioActivity" | "security" | "securityPrice" | "fxRate" | "fundSource" | "fundConstituent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1078,6 +1080,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    FundSource: {
+      payload: Prisma.$FundSourcePayload<ExtArgs>
+      fields: Prisma.FundSourceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FundSourceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FundSourceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>
+        }
+        findFirst: {
+          args: Prisma.FundSourceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FundSourceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>
+        }
+        findMany: {
+          args: Prisma.FundSourceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>[]
+        }
+        create: {
+          args: Prisma.FundSourceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>
+        }
+        createMany: {
+          args: Prisma.FundSourceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FundSourceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>[]
+        }
+        delete: {
+          args: Prisma.FundSourceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>
+        }
+        update: {
+          args: Prisma.FundSourceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>
+        }
+        deleteMany: {
+          args: Prisma.FundSourceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FundSourceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FundSourceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>[]
+        }
+        upsert: {
+          args: Prisma.FundSourceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundSourcePayload>
+        }
+        aggregate: {
+          args: Prisma.FundSourceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFundSource>
+        }
+        groupBy: {
+          args: Prisma.FundSourceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FundSourceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FundSourceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FundSourceCountAggregateOutputType> | number
+        }
+      }
+    }
+    FundConstituent: {
+      payload: Prisma.$FundConstituentPayload<ExtArgs>
+      fields: Prisma.FundConstituentFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FundConstituentFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FundConstituentFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>
+        }
+        findFirst: {
+          args: Prisma.FundConstituentFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FundConstituentFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>
+        }
+        findMany: {
+          args: Prisma.FundConstituentFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>[]
+        }
+        create: {
+          args: Prisma.FundConstituentCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>
+        }
+        createMany: {
+          args: Prisma.FundConstituentCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FundConstituentCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>[]
+        }
+        delete: {
+          args: Prisma.FundConstituentDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>
+        }
+        update: {
+          args: Prisma.FundConstituentUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>
+        }
+        deleteMany: {
+          args: Prisma.FundConstituentDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FundConstituentUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FundConstituentUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>[]
+        }
+        upsert: {
+          args: Prisma.FundConstituentUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FundConstituentPayload>
+        }
+        aggregate: {
+          args: Prisma.FundConstituentAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFundConstituent>
+        }
+        groupBy: {
+          args: Prisma.FundConstituentGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FundConstituentGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FundConstituentCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FundConstituentCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1227,6 +1377,35 @@ export const FxRateScalarFieldEnum = {
 } as const
 
 export type FxRateScalarFieldEnum = (typeof FxRateScalarFieldEnum)[keyof typeof FxRateScalarFieldEnum]
+
+
+export const FundSourceScalarFieldEnum = {
+  symbol: 'symbol',
+  provider: 'provider',
+  asOf: 'asOf',
+  fileName: 'fileName',
+  fundName: 'fundName',
+  sourceUrl: 'sourceUrl',
+  lastError: 'lastError',
+  importedAt: 'importedAt'
+} as const
+
+export type FundSourceScalarFieldEnum = (typeof FundSourceScalarFieldEnum)[keyof typeof FundSourceScalarFieldEnum]
+
+
+export const FundConstituentScalarFieldEnum = {
+  id: 'id',
+  symbol: 'symbol',
+  ticker: 'ticker',
+  isin: 'isin',
+  name: 'name',
+  country: 'country',
+  sector: 'sector',
+  assetClass: 'assetClass',
+  weight: 'weight'
+} as const
+
+export type FundConstituentScalarFieldEnum = (typeof FundConstituentScalarFieldEnum)[keyof typeof FundConstituentScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1389,6 +1568,8 @@ export type GlobalOmitConfig = {
   security?: Prisma.SecurityOmit
   securityPrice?: Prisma.SecurityPriceOmit
   fxRate?: Prisma.FxRateOmit
+  fundSource?: Prisma.FundSourceOmit
+  fundConstituent?: Prisma.FundConstituentOmit
 }
 
 /* Types for Logging */
