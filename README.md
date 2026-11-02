@@ -8,10 +8,51 @@ Built for a Swiss context (CHF, pillar 2 / pillar 3a, Raiffeisen exports), but t
 
 ## Screenshots
 
-> 📸 _Placeholders — drop your images into `docs/screenshots/` with these names and they'll render here._
+_All figures are made-up demo data (see [Regenerating](#regenerating-the-screenshots))._
 
-| Dashboard | Projections |
+| Dashboard | Trends |
 | --- | --- |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Trends](docs/screenshots/trends.png) |
+
+| Income | Budgets |
+| --- | --- |
+| ![Income](docs/screenshots/income.png) | ![Budgets](docs/screenshots/budgets.png) |
+
+| Net Worth | Goal |
+| --- | --- |
+| ![Net Worth](docs/screenshots/networth.png) | ![Goal](docs/screenshots/goal.png) |
+
+| Portfolio | Look-through |
+| --- | --- |
+| ![Portfolio](docs/screenshots/portfolio.png) | ![Look-through](docs/screenshots/portfolio-look-through.png) |
+
+| Projections | Import |
+| --- | --- |
+| ![Projections](docs/screenshots/projections.png) | ![Import](docs/screenshots/import.png) |
+
+| Data | Settings |
+| --- | --- |
+| ![Data](docs/screenshots/data.png) | ![Settings](docs/screenshots/settings.png) |
+
+### Regenerating the screenshots
+
+Never screenshot your real database. `scripts/demo-db.mjs` builds a separate one
+with fictional transactions, balances and trades (market prices and exchange
+rates are real, fetched once from Yahoo and the ECB):
+
+```bash
+node scripts/demo-db.mjs demo.db
+DATABASE_URL="file:./demo.db" NEXT_PUBLIC_MONTHLY_ETF=1000 NEXT_PUBLIC_MONTHLY_3A=500 \
+  NEXT_PUBLIC_MONTHLY_PILLAR2=650 NEXT_PUBLIC_START_AGE=32 NEXT_PUBLIC_INIT_ETF=40000 \
+  NEXT_PUBLIC_INIT_SAVINGS=15000 NEXT_PUBLIC_INIT_PILLAR3A=36000 NEXT_PUBLIC_INIT_PILLAR2=80000 \
+  pnpm dev
+```
+
+Override every `NEXT_PUBLIC_*` variable as above, or your own values from `.env`
+show up as defaults on Settings. For the look-through, upload the funds' public
+holdings files on Portfolio → Look-through. Capture at 1440×1000 in light mode.
+
+--- | --- |
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Projections](docs/screenshots/projections.png) |
 
 | Net Worth | Trends |
