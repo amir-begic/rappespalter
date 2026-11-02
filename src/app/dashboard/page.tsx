@@ -192,87 +192,114 @@ function StatCard({ onClick, children }: { onClick: () => void; children: ReactN
   )
 }
 
+// Money flow: income on the left, every outflow on the right.
+// The two sides always balance — "Remaining" is income minus everything that
+// flows out (expenses *and* savings), and a month that spends more than it earns
+// gets a second source, "Beyond income" (paid from reserves), instead of overflowing. Each
+// right-hand node gets a slot tall enough for its label, and the height of the
+// diagram grows with the number of nodes, so nothing is clipped or overlaps.
+const SANKEY_MAX_EXPENSE_NODES = 12 // beyond this the smallest merge into "Other"
+
 function BudgetSankey({
   income,
+  expenses: expenseTotal,
   byCategory,
   bySavings,
-  net,
 }: {
-  income: number
+  income:     number
+  expenses:   number // the summary's total, which includes uncategorized spending
   byCategory: Summary["byCategory"]
   bySavings:  Summary["bySavings"]
-  net:        number
 }) {
-  if (income <= 0) return null
+  type Node = { name: string; value: number; color: string }
+  const toNode = (c: { categoryName: string; actual: number; color: string }): Node =>
+    ({ name: c.categoryName, value: c.actual, color: c.color })
 
-  const rightNodes = [
-    ...byCategory.filter(c => c.type === "fixed").sort((a, b) => b.actual - a.actual),
-    ...byCategory.filter(c => c.type === "variable").sort((a, b) => b.actual - a.actual),
-    ...bySavings.sort((a, b) => b.actual - a.actual),
-    ...(net > 0 ? [{ categoryName: "Remaining", actual: net, color: "#9999aa" }] : []),
-  ].map(c => ({ name: c.categoryName, value: c.actual, color: c.color }))
+  const fixed    = byCategory.filter(c => c.type === "fixed").map(toNode).sort((a, b) => b.value - a.value)
+  // Everything else the summary counts as spending (variable, and other
+  // non-savings types such as refunds booked negative in an income category).
+  const variable = byCategory.filter(c => c.type !== "fixed").map(toNode).sort((a, b) => b.value - a.value)
+  // byCategory leaves out uncategorized payments; the summary's total doesn't.
+  const uncategorized = expenseTotal - byCategory.reduce((s, c) => s + c.actual, 0)
+  let expenses = [...fixed, ...variable, ...(uncategorized > 0.5 ? [{ name: "Uncategorized", value: uncategorized, color: "#888888" }] : [])]
+  if (expenses.length > SANKEY_MAX_EXPENSE_NODES) {
+    const keep = new Set([...expenses].sort((a, b) => b.value - a.value).slice(0, SANKEY_MAX_EXPENSE_NODES - 1))
+    const rest = expenses.filter(n => !keep.has(n))
+    expenses = [
+      ...expenses.filter(n => keep.has(n)),
+      { name: `Other (${rest.length})`, value: rest.reduce((s, n) => s + n.value, 0), color: "#b0b0b8" },
+    ]
+  }
+  const savings  = [...bySavings].map(toNode).sort((a, b) => b.value - a.value)
+  const outflows = [...expenses, ...savings].filter(n => n.value > 0)
+  const totalOut = outflows.reduce((s, n) => s + n.value, 0)
+  const balance  = income - totalOut
 
-  if (rightNodes.length === 0) return null
+  const rightNodes: Node[] = [...outflows, ...(balance > 0.5 ? [{ name: "Remaining", value: balance, color: "#9999aa" }] : [])]
+  const leftNodes:  Node[] = [
+    ...(income > 0 ? [{ name: "Income", value: income, color: "#6aaa7a" }] : []),
+    ...(balance < -0.5 ? [{ name: "Beyond income", value: -balance, color: "#d4857a" }] : []),
+  ]
+  if (rightNodes.length === 0 || leftNodes.length === 0) return null
 
   const VW = 660
-  const leftLabelW = 98, nodeW = 14, rightLabelW = 158
+  const leftLabelW = 112, nodeW = 14, rightLabelW = 158
   const pTop = 10, pBottom = 10, gap = 5
+  const SLOT = 26  // minimum room per right-hand node: name + amount
+  const srcH = 280 // height of the left column for the larger side's total
 
   const leftNodeX  = leftLabelW
   const rightNodeX = VW - rightLabelW - nodeW
+  const scale = srcH / Math.max(income, totalOut)
 
-  // srcH is fixed — income bar always fills this height.
-  // VH grows to give the right column room for inter-node gaps.
-  const srcH = 280
-  const VH   = srcH + pTop + pBottom + (rightNodes.length - 1) * gap
+  // Right column: each node centred in a slot of at least SLOT.
+  const heights = rightNodes.map(n => n.value * scale)
+  const slots   = heights.map(h => Math.max(h, SLOT))
+  const rightH  = slots.reduce((s, x) => s + x, 0) + gap * (rightNodes.length - 1)
+  const leftH   = leftNodes.reduce((s, n) => s + n.value * scale, 0)
+  const contentH = Math.max(rightH, leftH)
+  const VH = pTop + contentH + pBottom
 
-  // Link heights: strictly proportional to value/income — no minimum clamping
-  // so the source links always sum exactly to srcH.
-  const linkHeights = rightNodes.map(n => (n.value / income) * srcH)
-
-  // Source side: stacked flush, no gaps — sums to srcH
-  let sy = pTop
-  const srcPos = rightNodes.map((_, i) => {
-    const h   = linkHeights[i]
-    const pos = { y1: sy, y2: sy + h }
-    sy += h
+  let cursor = pTop
+  const dest = heights.map((h, i) => {
+    const pos = { y: cursor + (slots[i] - h) / 2, h }
+    cursor += slots[i] + gap
     return pos
   })
 
-  // Destination side: same heights, separated by gaps — starts at pTop
-  let dy = pTop
-  const destPos = rightNodes.map((_, i) => {
-    const h   = linkHeights[i]
-    const pos = { y: dy, h }
-    dy += h + gap
-    return pos
-  })
+  // Left column: centred against the right; links leave it stacked top to bottom.
+  const leftTop = pTop + (contentH - leftH) / 2
+  let sy = leftTop
+  const src = heights.map(h => { const pos = { y1: sy, y2: sy + h }; sy += h; return pos })
+  let ly = leftTop
+  const leftPos = leftNodes.map(n => { const h = n.value * scale; const pos = { y: ly, h }; ly += h; return pos })
 
   const midX     = (leftNodeX + nodeW + rightNodeX) / 2
   const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n - 1) + "…" : s
 
   return (
-    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }}>
-      {/* Income node — always spans full srcH */}
-      <rect x={leftNodeX} y={pTop} width={nodeW} height={srcH} fill="#6aaa7a" rx={2} />
-      <text
-        x={leftNodeX - 7} y={pTop + srcH / 2 - 7}
-        textAnchor="end" dominantBaseline="middle"
-        fontSize={11} fill="currentColor" opacity={0.8}
-      >
-        Income
-      </text>
-      <text
-        x={leftNodeX - 7} y={pTop + srcH / 2 + 7}
-        textAnchor="end" dominantBaseline="middle"
-        fontSize={9} fill="currentColor" opacity={0.5}
-      >
-        Fr. {fmtR(income)}
-      </text>
+    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }} role="img"
+      aria-label={`Money flow: income Fr. ${fmtR(income)} to ${rightNodes.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ")}`}>
+      {leftNodes.map((n, i) => {
+        const { y, h } = leftPos[i]
+        // Labels sit beside the node's middle; a short shortfall block gets them below the income label.
+        const labelY = Math.max(y + h / 2, i > 0 ? leftPos[i - 1].y + leftPos[i - 1].h / 2 + 28 : 0)
+        return (
+          <g key={n.name}>
+            <rect x={leftNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={n.color} rx={2} />
+            <text x={leftNodeX - 7} y={labelY - 7} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="currentColor" opacity={0.8}>
+              {truncate(n.name, 15)}
+            </text>
+            <text x={leftNodeX - 7} y={labelY + 7} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
+              Fr. {fmtR(n.value)}
+            </text>
+          </g>
+        )
+      })}
 
       {rightNodes.map((node, i) => {
-        const { y1, y2 }  = srcPos[i]
-        const { y, h }    = destPos[i]
+        const { y1, y2 } = src[i]
+        const { y, h }   = dest[i]
         const path = [
           `M ${leftNodeX + nodeW} ${y1}`,
           `C ${midX} ${y1} ${midX} ${y} ${rightNodeX} ${y}`,
@@ -286,25 +313,13 @@ function BudgetSankey({
         return (
           <g key={node.name}>
             <path d={path} fill={node.color} opacity={0.2} />
-            <rect x={rightNodeX} y={y} width={nodeW} height={h} fill={node.color} rx={2} />
-            {h >= 8 && (
-              <text
-                x={labelX} y={midY - (h >= 18 ? 6 : 0)}
-                dominantBaseline="middle" fontSize={10}
-                fill="currentColor" opacity={0.75}
-              >
-                {truncate(node.name, 17)}
-              </text>
-            )}
-            {h >= 18 && (
-              <text
-                x={labelX} y={midY + 8}
-                dominantBaseline="middle" fontSize={9}
-                fill="currentColor" opacity={0.5}
-              >
-                Fr. {fmtR(node.value)}
-              </text>
-            )}
+            <rect x={rightNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={node.color} rx={2} />
+            <text x={labelX} y={midY - 6} dominantBaseline="middle" fontSize={10} fill="currentColor" opacity={0.75}>
+              {truncate(node.name, 22)}
+            </text>
+            <text x={labelX} y={midY + 7} dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
+              Fr. {fmtR(node.value)}
+            </text>
           </g>
         )
       })}
@@ -540,9 +555,9 @@ useEffect(() => {
   <CardContent className="pt-0 pb-3">
     <BudgetSankey
       income={data.summary.income}
+      expenses={data.summary.expenses}
       byCategory={data.byCategory}
       bySavings={data.bySavings}
-      net={data.summary.net}
     />
   </CardContent>
 </Card>
