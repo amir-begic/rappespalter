@@ -23,7 +23,10 @@ export function resetMarkTable() {
 
 // How a transaction got its category. "fallback" means the parser couldn't map
 // the bank's category and used FALLBACK_CATEGORY — those go to the review inbox.
-export type CategorySource = "rule" | "bank" | "override" | "fallback" | "manual"
+// "transfer" means a movement between own accounts (a known name or a pair of
+// opposite amounts, src/lib/transfers.ts). "override" is only on rows from older
+// imports (built-in merchant overrides, now rules).
+export type CategorySource = "rule" | "bank" | "override" | "fallback" | "transfer" | "manual"
 
 // Where clause for "not marked one-off". One-offs (an inheritance, a car) stay in
 // totals but are left out of trends, averages and budget comparisons.

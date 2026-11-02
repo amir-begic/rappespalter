@@ -217,6 +217,7 @@ export const enCH = {
   "import.tryAgain": "Try again",
   "import.byRule": "{count} categorized by your rules (Data → Rules)",
   "import.toReview": "{count} got a guessed category — check them on Data → Review",
+  "import.transfers": "{count} moved between your own accounts — left out of totals",
   "import.rejected#one": "{count} rejected order ignored",
   "import.rejected#other": "{count} rejected orders ignored",
   "import.unknownTypes": "Unrecognised activity types: {types}",

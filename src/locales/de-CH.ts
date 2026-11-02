@@ -216,6 +216,7 @@ export const deCH: Dict = {
   "import.tryAgain": "Erneut versuchen",
   "import.byRule": "{count} nach deinen Regeln kategorisiert (Daten → Regeln)",
   "import.toReview": "{count} haben eine geschätzte Kategorie – prüfe sie unter Daten → Prüfen",
+  "import.transfers": "{count} zwischen deinen eigenen Konten verschoben – aus den Summen ausgenommen",
   "import.rejected#one": "{count} abgelehnter Auftrag ignoriert",
   "import.rejected#other": "{count} abgelehnte Aufträge ignoriert",
   "import.unknownTypes": "Unbekannte Aktivitätsarten: {types}",

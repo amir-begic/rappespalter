@@ -7,10 +7,14 @@ export interface ParsedTransaction {
   amount: number
   currency: string
   account: string
-  category: string
-  // How `category` was chosen: a counterparty override, the bank's own category
-  // (CATEGORY_MAP), or FALLBACK_CATEGORY because the bank's wasn't recognised.
-  categorySource: "override" | "bank" | "fallback"
+  // App category names to try, in order: the first one the database has wins
+  // (older databases call their income category "Income", newer ones "Salary").
+  categories: string[]
+  // How `categories` was chosen: the bank's own category (CATEGORY_MAP),
+  // FALLBACK_CATEGORY because the bank's wasn't recognised, or "transfer" — a
+  // movement between own accounts (`categories` empty: the import route files it
+  // under a transfer-type category).
+  categorySource: "bank" | "fallback" | "transfer"
   bookingText: string
   sourceHash: string
 }
@@ -19,7 +23,11 @@ export interface ParsedTransaction {
 // Row 12 (index 11) is the actual column header row
 const HEADER_ROW_INDEX = 11
 
-// Internal transfers between your own accounts — skip these to avoid double counting
+// Counterparties that are always movements between own accounts in a Raiffeisen
+// export. They're imported as transfers (left out of all totals), not dropped, so
+// they stay visible and can be re-mapped. Other banks' and card issuers' names are
+// the user's rules (→ a transfer-type category); pairs of opposite amounts across
+// accounts are found on import without any name (src/lib/transfers.ts).
 const INTERNAL_TRANSFER_PATTERNS = [
   /übertrag/i,
   /vorsorgekonto/i,
@@ -33,8 +41,9 @@ const INTERNAL_TRANSFER_PATTERNS = [
   /viseca card services/i,
 ]
 
-// Map Raiffeisen's German category names to your app's category names
-const CATEGORY_MAP: Record<string, string> = {
+// Map Raiffeisen's German category names to the default categories (prisma/seed.ts).
+// A list is tried in order, for databases that predate a default's name.
+const CATEGORY_MAP: Record<string, string | string[]> = {
   "lebensmittel":           "Groceries",
   "gastronomie":            "Dining & Bars",
   "shopping":               "Shopping",
@@ -49,19 +58,10 @@ const CATEGORY_MAP: Record<string, string> = {
   "dienstleistungen":       "Personal",
   "möbel & einrichtung":    "Shopping",
   "sparen & anlegen":       "Savings Transfer",
-  "lohn":                   "Income",
-  "weitere einnahmen":      "Income",
-  "rückerstattungen":       "Income",
+  "lohn":                   ["Salary", "Income"],
+  "weitere einnahmen":      ["Other Income", "Income"],
+  "rückerstattungen":       ["Other Income", "Income"],
 }
-
-// Merchant-specific overrides keyed on the counterparty. Raiffeisen often files
-// these under a generic category (e.g. "Persönliches" → "Personal"), so a match
-// here takes precedence over CATEGORY_MAP. Word boundaries avoid false hits
-// (e.g. "Salt" the telecom vs. a "Saltimbocca" restaurant).
-const COUNTERPARTY_OVERRIDES: { pattern: RegExp; category: string }[] = [
-  { pattern: /\bwingo\b/i, category: "Internet" },
-  { pattern: /\bsalt\b/i,  category: "Mobile" },
-]
 
 function isInternalTransfer(counterparty: string): boolean {
   return INTERNAL_TRANSFER_PATTERNS.some(pattern =>
@@ -73,14 +73,17 @@ function isInternalTransfer(counterparty: string): boolean {
 // the review inbox, since "Personal" is only a guess for them.
 export const FALLBACK_CATEGORY = "Personal"
 
-function mapCategory(counterparty: string, rawCategory: string): Pick<ParsedTransaction, "category" | "categorySource"> {
-  const override = COUNTERPARTY_OVERRIDES.find(o => o.pattern.test(counterparty))
-  if (override) return { category: override.category, categorySource: "override" }
+// The default transfer-type category (prisma/seed.ts); created on import when a
+// database has no transfer-type category yet.
+export const TRANSFER_CATEGORY = "Internal Transfer"
 
+// Merchant-specific categories (e.g. a telecom the bank files under
+// "Persönliches") are the user's own rules on Data → Rules, not built in here.
+function mapCategory(rawCategory: string): Pick<ParsedTransaction, "categories" | "categorySource"> {
   const mapped = CATEGORY_MAP[rawCategory.toLowerCase().trim()]
   return mapped
-    ? { category: mapped, categorySource: "bank" }
-    : { category: FALLBACK_CATEGORY, categorySource: "fallback" }
+    ? { categories: [mapped].flat(), categorySource: "bank" }
+    : { categories: [FALLBACK_CATEGORY], categorySource: "fallback" }
 }
 
 function generateHash(date: Date, counterparty: string, amount: number): string {
@@ -127,9 +130,6 @@ export function parseRaiffeisenXLSX(buffer: Buffer): ParsedTransaction[] {
 
     const counterparty = resolveCounterparty(rawCounterparty, bookingText)
 
-    // Skip internal transfers — they'd be double counted
-    if (isInternalTransfer(counterparty)) continue
-
     // Hashed on the counterparty as exported, so rows imported before
     // resolveCounterparty existed still deduplicate on re-import.
     const sourceHash = generateHash(date, rawCounterparty, amount)
@@ -140,7 +140,9 @@ export function parseRaiffeisenXLSX(buffer: Buffer): ParsedTransaction[] {
       amount,
       currency,
       account,
-      ...mapCategory(counterparty, rawCategory),
+      ...(isInternalTransfer(counterparty)
+        ? { categories: [], categorySource: "transfer" as const }
+        : mapCategory(rawCategory)),
       bookingText,
       sourceHash,
     })

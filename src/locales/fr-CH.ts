@@ -216,6 +216,7 @@ export const frCH: Dict = {
   "import.tryAgain": "Réessayer",
   "import.byRule": "{count} catégorisées par tes règles (Données → Règles)",
   "import.toReview": "{count} ont une catégorie supposée – vérifie-les sous Données → Contrôle",
+  "import.transfers": "{count} transférées entre tes propres comptes – exclues des totaux",
   "import.rejected#one": "{count} ordre refusé ignoré",
   "import.rejected#other": "{count} ordres refusés ignorés",
   "import.unknownTypes": "Types d'activité non reconnus : {types}",

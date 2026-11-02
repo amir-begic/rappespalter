@@ -141,7 +141,7 @@ Tables:
 - **CategoryRule** — auto-categorization rules (counterparty pattern → category);
   created on demand by `ensureRuleTable()` (src/lib/rules-store.ts).
 - **TransactionMark** — per-transaction flags keyed by transactionId: `oneOff`,
-  `categorySource` (rule | bank | override | fallback | manual), `reviewedAt`. A
+  `categorySource` (rule | bank | fallback | transfer | manual; override on older imports), `reviewedAt`. A
   separate table, not Transaction columns, so older databases keep working; created
   on demand by `ensureMarkTable()` (src/lib/marks.ts) — call it before any query that
   touches `mark`.
@@ -197,9 +197,12 @@ in the dashboard. They do not count as spending.
 ## Raiffeisen XLSX parser
 The parser (src/lib/parser.ts) handles the Raiffeisen Finanzassistent export format:
 - Skips the 11-row header block (data starts at row 12)
-- Filters some internal transfers via `INTERNAL_TRANSFER_PATTERNS` (Übertrag,
-  Vorsorgekonto, Privatkonto, Sparkonto, "Ihre Zahlung - danke") to avoid double counting
-- Maps German category names (Gastronomie, Lebensmittel etc.) to app categories
+- Flags known internal transfers via `INTERNAL_TRANSFER_PATTERNS` (Übertrag,
+  Vorsorgekonto, Privatkonto, Sparkonto, "Ihre Zahlung - danke", Viseca Card Services);
+  they're imported into the transfer category, not dropped (see "Internal transfers")
+- Maps German category names (Gastronomie, Lebensmittel etc.) to the default categories
+  (prisma/seed.ts); a list is tried in order (Lohn → Salary, else Income for older
+  databases). No merchant-specific categories are built in — those are the user's rules
 - Some rows carry only the payment type as counterparty ("Dauerauftrag",
   "Sammelzahlung", …) with the payee on line 2 of the booking text; the parser
   appends the payee ("Dauerauftrag Muster AG") so rules can tell them apart
@@ -217,12 +220,24 @@ individual purchases are already imported from the card account. Counting the lu
 sum too would double-count card spending, and misalign it in time (the bill is paid
 ~1 month late, so some months carry two billing cycles and others none).
 
-**Handling:**
-- **Parser** — `/viseca card services/i` is in `INTERNAL_TRANSFER_PATTERNS`, so the
-  settlement row is skipped on import (same handling as `Übertrag`).
-- **Older databases** — settlement rows imported before this pattern existed should
-  be recategorized to a transfer-type category (e.g. `Internal Transfer`), which
-  `summary`/`income` exclude from totals.
+**Handling:** `/viseca card services/i` is in `INTERNAL_TRANSFER_PATTERNS`, so the
+settlement row is imported as a transfer, left out of all totals. Rows from older
+imports (when matching rows were skipped, or before the pattern existed) can be
+re-mapped to `Internal Transfer` by hand. Other card issuers: a rule → Internal Transfer.
+
+### Internal transfers
+Money between own accounts must not count as spending on one side and income on
+the other. Import (`src/app/api/import/route.ts`) files it under the transfer-type
+category (prefers `Internal Transfer`, creates it if the database has none), in
+this order:
+1. **Rules** win — a rule's category is never overridden (e.g. → Säule 3a).
+2. **Known names** — `INTERNAL_TRANSFER_PATTERNS` in the parser.
+3. **Pairs** (`src/lib/transfers.ts`, pure) — the same amount (to the cent, same
+   currency) out of one account and into another within 3 days, matched against
+   the new rows and what's already imported. Never touches rule/manual rows or rows
+   with no recorded source (older imports, maybe hand-set); an outgoing
+   savings-type payment stays savings and only its incoming half becomes a transfer.
+`categorySource = "transfer"` marks these rows.
 
 The annual card fee ("Gebühr / Jahresgebühr Kreditkarte") does **not** match the
 filter and correctly stays as a real expense.

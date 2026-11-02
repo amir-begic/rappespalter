@@ -216,6 +216,7 @@ export const itCH: Dict = {
   "import.tryAgain": "Riprova",
   "import.byRule": "{count} categorizzate dalle tue regole (Dati → Regole)",
   "import.toReview": "{count} hanno una categoria ipotizzata – controllale in Dati → Verifica",
+  "import.transfers": "{count} trasferite tra i tuoi conti – escluse dai totali",
   "import.rejected#one": "{count} ordine rifiutato ignorato",
   "import.rejected#other": "{count} ordini rifiutati ignorati",
   "import.unknownTypes": "Tipi di attività non riconosciuti: {types}",

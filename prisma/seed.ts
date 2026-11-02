@@ -17,11 +17,15 @@ const categories = [
   { name: 'Health Insurance', color: '#8ab4d4', type: 'fixed'    },
   { name: 'Mobile',           color: '#8ab4d4', type: 'fixed'    },
   { name: 'Internet',         color: '#8ab4d4', type: 'fixed'    },
+  { name: 'Utilities',        color: '#8ab4d4', type: 'fixed'    },
   { name: 'ETF Investment',   color: '#6aaa7a', type: 'savings'  },
   { name: 'Säule 3a',         color: '#6aaa7a', type: 'savings'  },
   { name: 'Savings Transfer', color: '#6aaa7a', type: 'savings'  },
   { name: 'Salary',           color: '#4caf72', type: 'income'   },
   { name: 'Other Income',     color: '#9b7ec4', type: 'income'   },
+  // Money between your own accounts (e.g. a card bill paid from checking);
+  // left out of all totals, and rules never move transactions out of it.
+  { name: 'Internal Transfer', color: '#9e9e9e', type: 'transfer' },
 ]
 
 async function main() {

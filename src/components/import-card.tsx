@@ -53,6 +53,7 @@ export const IMPORT_SOURCES: Source[] = [
     afterImport: async (data, t) => [
       ...(Number(data.byRule) ? [t("import.byRule", { count: Number(data.byRule) })] : []),
       ...(Number(data.toReview) ? [t("import.toReview", { count: Number(data.toReview) })] : []),
+      ...(Number(data.transfers) ? [t("import.transfers", { count: Number(data.transfers) })] : []),
     ],
   },
   {

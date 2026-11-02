@@ -75,7 +75,7 @@ Monthly spending overview with drill-downs.
 Upload a Raiffeisen **Finanzassistent** `.xlsx` export.
 - Drag-and-drop or browse
 - Automatic German→English category mapping
-- Internal-transfer filtering (so credit-card settlements aren't double-counted)
+- Transfers between your own accounts are recognised (known names, plus the same amount leaving one account and arriving in another within 3 days) and left out of totals, so card bills and savings moves aren't double-counted
 - Deduplicated on re-import — re-uploading the same file imports nothing twice
 - Reports imported / skipped / total counts
 
