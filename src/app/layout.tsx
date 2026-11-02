@@ -5,6 +5,9 @@ import "./globals.css"
 import { TopNav } from "@/components/app-nav"
 import { Blobs } from "@/components/blobs"
 import { loadAppearance } from "@/lib/appearance-store"
+import { loadLocale } from "@/lib/i18n/store"
+import { I18nProvider } from "@/lib/i18n/provider"
+import { loadMessages } from "@/locales"
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin", "latin-ext"],
@@ -34,18 +37,24 @@ export default async function RootLayout({
   // build time: they live in the user's database.
   await connection()
   const { theme, motion } = await loadAppearance()
+  // The language (Settings → Appearance, else the system's) and its messages: the
+  // provider hands them to every client component.
+  const { locale } = await loadLocale()
+  const messages = await loadMessages(locale)
   return (
     <html
-      lang="en"
+      lang={locale}
       data-theme={theme}
       data-motion={motion}
       suppressHydrationWarning
       className={`${spaceGrotesk.variable} ${bricolage.variable}`}
     >
       <body className="font-sans antialiased min-h-screen">
-        <Blobs />
-        <TopNav />
-        <main>{children}</main>
+        <I18nProvider locale={locale} messages={messages}>
+          <Blobs />
+          <TopNav />
+          <main>{children}</main>
+        </I18nProvider>
       </body>
     </html>
   )

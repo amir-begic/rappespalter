@@ -8,6 +8,8 @@ import {
 } from "recharts"
 import Link from "next/link"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import type { MessageKey } from "@/locales"
 
 interface Snapshot {
   month:    string
@@ -24,19 +26,13 @@ interface AssetTotals { assets: number; liquid: number; debts: number; commitmen
 
 // Asset series, drawn bottom-to-top in the stack. Liquid assets first.
 const ASSETS = [
-  { key: "checking", label: "Checking",   color: "#d4857a" },
-  { key: "savings",  label: "Savings",    color: "#8ab4d4" },
-  { key: "etf",      label: "ETF",        color: "#6aaa7a" },
-  { key: "pillar3a", label: "Säule 3a",   color: "#f0c080" },
-  { key: "pillar2",  label: "2. Säule",   color: "#b89dd4" },
-  { key: "other",    label: "Other assets", color: "#e0a8c4" },
-] as const
-
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
-const fmtMonth = (m: string) => {
-  const [y, mo] = m.split("-").map(Number)
-  return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "short", year: "2-digit" })
-}
+  { key: "checking", label: "networth.series.checking", color: "#d4857a" },
+  { key: "savings",  label: "networth.series.savings",  color: "#8ab4d4" },
+  { key: "etf",      label: "networth.series.etf",      color: "#6aaa7a" },
+  { key: "pillar3a", label: "networth.series.pillar3a", color: "#f0c080" },
+  { key: "pillar2",  label: "networth.series.pillar2",  color: "#b89dd4" },
+  { key: "other",    label: "networth.series.other",    color: "#e0a8c4" },
+] as const satisfies readonly { key: string; label: MessageKey; color: string }[]
 
 // Snapshot months are stored as local midnight on the 1st; read them back in
 // local time (toISOString would give the previous month east of UTC).
@@ -48,6 +44,9 @@ const monthKey = (d: string) => {
 type EtfSource = "tracker" | "snapshots"
 
 export default function NetWorthPage() {
+  const { t, rich, f } = useT()
+  const fmtR = f.int
+  const fmtMonth = f.monthShort
   const [snapshots, setSnapshots] = useState<Snapshot[] | null>(null)
   const [tracker, setTracker]     = useState<Record<string, { date: string; value: number }>>({})
   const [source, setSource]       = useState<EtfSource>("tracker")
@@ -70,8 +69,10 @@ export default function NetWorthPage() {
         setTracker(t.months ?? {})
         setOthers(o.months ?? {})
       })
-      .catch(() => setError("Failed to load data"))
+      .catch(() => setError(t("dashboard.loadFailed")))
       .finally(() => setLoading(false))
+    // Loads once; t is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // With the tracker selected, the ETF line uses the Yuh account's month-end
@@ -80,8 +81,8 @@ export default function NetWorthPage() {
   // Other assets add to the stack, debts (and, if chosen, lease payments to come)
   // go below zero; the total line is what's left.
   const data = useMemo(() => snapshots?.map(s => {
-    const t = source === "tracker" ? tracker[s.month] : undefined
-    const etf = t ? t.value : s.etf
+    const fromTracker = source === "tracker" ? tracker[s.month] : undefined
+    const etf = fromTracker ? fromTracker.value : s.etf
     const o = others[s.month]
     const other = o?.assets ?? 0
     const owed = (o?.debts ?? 0) + (withLeases ? o?.commitments ?? 0 : 0)
@@ -106,13 +107,13 @@ export default function NetWorthPage() {
 
       <div className="mb-8">
         <p className="text-xs uppercase text-muted-foreground mb-2">
-          Wealth
+          {t("nav.section.wealth")}
         </p>
         <h1>
-          Net Worth Over Time
+          {t("networth.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Everything you own — accounts and other assets — less what you owe, month by month: the single best gauge of whether you&apos;re on track.
+          {t("networth.intro")}
         </p>
       </div>
 
@@ -126,7 +127,7 @@ export default function NetWorthPage() {
 
       {data && !loading && data.length === 0 && (
         <p className="text-sm text-muted-foreground py-20 text-center">
-          No snapshots recorded yet. Record your balances on the <a href="/projections" className="underline">Projections</a> page each month to build the trend.
+          {rich("networth.noSnapshots", { link: text => <a href="/projections" className="underline">{text}</a> })}
         </p>
       )}
 
@@ -137,34 +138,34 @@ export default function NetWorthPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase text-muted-foreground mb-2">Net worth</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">{t("networth.netWorth")}</p>
                 <p className="font-display text-3xl">{latest!.total < 0 ? "−" : ""}Fr. {fmtR(Math.abs(latest!.total))}</p>
                 {latest!.owed > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">after Fr. {fmtR(latest!.owed)} {withLeases ? "owed and leased" : "owed"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t(withLeases ? "networth.afterOwedLeased" : "networth.afterOwed", { amount: fmtR(latest!.owed) })}</p>
                 )}
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase text-muted-foreground mb-2">Change</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">{t("networth.change")}</p>
                 <p className={`font-display text-3xl ${change >= 0 ? "text-positive" : "text-negative"}`}>
                   {change >= 0 ? "+" : "−"}Fr. {fmtR(Math.abs(change))}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">since {fmtMonth(first!.month)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("networth.since", { month: fmtMonth(first!.month) })}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase text-muted-foreground mb-2">Liquid</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">{t("networth.liquid")}</p>
                 <p className="font-display text-3xl text-positive">Fr. {fmtR(liquid)}</p>
-                <p className="text-xs text-muted-foreground mt-1">ETF + savings + checking{latest!.otherLiquid > 0 && " + gold & crypto"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t(latest!.otherLiquid > 0 ? "networth.liquidNoteMore" : "networth.liquidNote")}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-xs uppercase text-muted-foreground mb-2">Locked</p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">{t("networth.locked")}</p>
                 <p className="font-display text-3xl text-highlight">Fr. {fmtR(locked)}</p>
-                <p className="text-xs text-muted-foreground mt-1">3a + 2. Säule</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("networth.lockedNote")}</p>
               </CardContent>
             </Card>
           </div>
@@ -173,13 +174,13 @@ export default function NetWorthPage() {
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm text-muted-foreground">
-                Composition over time
+                {t("networth.composition")}
               </CardTitle>
               {covered > 0 && (
                 <Tabs value={source} onValueChange={v => setSource(v as EtfSource)}>
                   <TabsList>
-                    <TabsTrigger value="tracker">ETF from portfolio</TabsTrigger>
-                    <TabsTrigger value="snapshots">ETF from snapshots</TabsTrigger>
+                    <TabsTrigger value="tracker">{t("networth.etfPortfolio")}</TabsTrigger>
+                    <TabsTrigger value="snapshots">{t("networth.etfSnapshots")}</TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
@@ -188,27 +189,26 @@ export default function NetWorthPage() {
               {covered > 0 && (
                 <p className="text-xs text-muted-foreground mb-3">
                   {source === "tracker"
-                    ? `ETF uses your Yuh portfolio's value at the end of each month (${covered} of ${data.length} months)${covered < data.length ? "; earlier months use the snapshot" : ""}. Other balances come from your snapshots.`
-                    : "ETF uses the balances you entered in your snapshots."}
+                    ? t(covered < data.length ? "networth.trackerNoteEarlier" : "networth.trackerNote", { covered, total: data.length })
+                    : t("networth.snapshotNote")}
                 </p>
               )}
               {(hasOthers || hasDebts || hasLeases) && (
                 <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
                   <span>
-                    Other assets and loans come from <Link href="/assets" className="underline">Assets</Link>; a leased
-                    car isn&apos;t yours, so it isn&apos;t counted.
+                    {rich("networth.othersNote", { link: text => <Link href="/assets" className="underline">{text}</Link> })}
                   </span>
                   {hasLeases && (
                     <label className="flex items-center gap-1.5">
                       <input type="checkbox" checked={withLeases} onChange={e => setWithLeases(e.target.checked)} className="accent-primary" />
-                      Subtract lease payments still to come
+                      {t("networth.subtractLeases")}
                     </label>
                   )}
                 </div>
               )}
               {data.length === 1 && (
                 <p className="text-xs text-muted-foreground mb-3">
-                  Only one snapshot so far — record more monthly balances to see the trend.
+                  {t("networth.oneSnapshot")}
                 </p>
               )}
               <ResponsiveContainer width="100%" height={320}>
@@ -233,7 +233,7 @@ export default function NetWorthPage() {
                       key={a.key}
                       type="monotone"
                       dataKey={a.key}
-                      name={a.label}
+                      name={t(a.label)}
                       stackId="nw"
                       stroke={a.color}
                       fill={a.color}
@@ -244,7 +244,7 @@ export default function NetWorthPage() {
                     <Area
                       type="monotone"
                       dataKey="debts"
-                      name={withLeases ? "Debts & leases" : "Debts"}
+                      name={withLeases ? t("networth.series.debtsLeases") : t("networth.series.debts")}
                       stackId="owed"
                       stroke="#c46a5e"
                       fill="#c46a5e"
@@ -254,7 +254,7 @@ export default function NetWorthPage() {
                   <Line
                     type="monotone"
                     dataKey="total"
-                    name="Total"
+                    name={t("networth.series.total")}
                     stroke="var(--foreground)"
                     strokeWidth={2}
                     dot={{ r: 3 }}

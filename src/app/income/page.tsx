@@ -17,6 +17,7 @@ import {
 import { ALL_STREAM, type StreamAnalysis } from "@/lib/income"
 import { StreamTrends, StreamsByYear } from "./stream-trends"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
 
 interface IncomeData {
   total: number
@@ -42,17 +43,17 @@ interface Txn {
   category:     { name: string; color: string } | null
 }
 
-const fmt = (n: number) =>
-  n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-const fmtR = (n: number) =>
-  Math.round(n).toLocaleString("de-CH")
-
 // Maps a selected year ("all" or "2026") to inclusive from/to month params.
 const yearRange = (year: string): Record<string, string> =>
   year === "all" ? {} : { from: `${year}-01`, to: `${year}-12` }
 
 export default function IncomePage() {
+  const { t, f } = useT()
+  const fmt = (n: number) => f.decimal(n)
+  const fmtR = f.int
+  // The aggregate and the no-category stream are named in English by the API.
+  const label = (name: string) =>
+    name === ALL_STREAM ? t("income.allIncome") : name === "Uncategorized" ? t("dashboard.uncategorized") : name
   const [data, setData]       = useState<IncomeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
@@ -113,8 +114,10 @@ export default function IncomePage() {
         if (d.error) setError(d.error)
         else setData(d)
       })
-      .catch(() => setError("Failed to load data"))
+      .catch(() => setError(t("dashboard.loadFailed")))
       .finally(() => setLoading(false))
+    // Reloads per year; t is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year])
 
   // `source` is a category name, or null for "all income".
@@ -142,24 +145,22 @@ export default function IncomePage() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase text-muted-foreground mb-2">
-            Income
+            {t("nav.page.income")}
           </p>
           <h1>
-            Income by Source
+            {t("income.title")}
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            {year === "all"
-              ? "Every incoming payment, broken down by category across all recorded months."
-              : `Incoming payments for ${year}, broken down by category.`}
+            {year === "all" ? t("income.introAll") : t("income.introYear", { year })}
           </p>
         </div>
 
         <Select value={year} onValueChange={changeYear}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Year" />
+            <SelectValue placeholder={t("income.year")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All years</SelectItem>
+            <SelectItem value="all">{t("income.allYears")}</SelectItem>
             {years.map(y => (
               <SelectItem key={y} value={y}>{y}</SelectItem>
             ))}
@@ -171,15 +172,15 @@ export default function IncomePage() {
 
       {error && (
         <div className="text-sm text-destructive py-20 text-center">
-          {error} — have you imported any transactions yet?
+          {t("dashboard.noDataHint", { error })}
           <br />
-          <a href="/import" className="underline mt-2 inline-block">Go to import</a>
+          <a href="/import" className="underline mt-2 inline-block">{t("dashboard.goToImport")}</a>
         </div>
       )}
 
       {data && data.byCategory.length === 0 && (
         <p className="text-sm text-muted-foreground py-20 text-center">
-          No income recorded yet.
+          {t("income.none")}
         </p>
       )}
 
@@ -197,13 +198,13 @@ export default function IncomePage() {
             >
               <CardContent className="pt-6">
                 <p className="text-xs uppercase text-muted-foreground mb-2">
-                  Total income
+                  {t("income.total")}
                 </p>
                 <p className="font-display text-3xl text-positive">
                   Fr. {fmtR(data.total)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  View all transactions
+                  {t("income.viewAll")}
                 </p>
               </CardContent>
             </Card>
@@ -220,13 +221,13 @@ export default function IncomePage() {
               >
                 <CardContent className="pt-6">
                   <p className="text-xs uppercase text-muted-foreground mb-2 truncate">
-                    {c.categoryName}
+                    {label(c.categoryName)}
                   </p>
                   <p className="font-display text-3xl">
                     Fr. {fmtR(c.total)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {c.share}% · {c.count} payment{c.count === 1 ? "" : "s"}
+                    {t("income.shareCount", { share: c.share, count: c.count })}
                   </p>
                 </CardContent>
               </Card>
@@ -251,7 +252,7 @@ export default function IncomePage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">
-                By source
+                {t("income.bySource")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -262,12 +263,12 @@ export default function IncomePage() {
                     type="button"
                     onClick={() => showTrend(c.categoryName)}
                     className="block w-full text-left rounded-md -mx-2 px-2 py-1 hover:bg-muted/60 transition-colors"
-                    title={`Show how ${c.categoryName} develops`}
+                    title={t("income.showTrend", { name: label(c.categoryName) })}
                   >
                     <div className="flex justify-between text-sm mb-1">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c.color }} />
-                        <span className="text-muted-foreground">{c.categoryName}</span>
+                        <span className="text-muted-foreground">{label(c.categoryName)}</span>
                         <span className="text-xs text-muted-foreground">· {c.count}×</span>
                       </div>
                       <span className="font-mono">Fr. {fmt(c.total)}</span>
@@ -289,7 +290,7 @@ export default function IncomePage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground">
-                  All sources per month
+                  {t("income.perMonth")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -332,12 +333,12 @@ export default function IncomePage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {openSource === "__all__" ? "All income" : openSource}
+              {openSource === "__all__" ? t("income.allIncome") : label(openSource ?? "")}
             </DialogTitle>
             <DialogDescription>
               {txns
-                ? `${txns.length} tracked transaction${txns.length === 1 ? "" : "s"} · Fr. ${fmt(txns.reduce((s, t) => s + t.amount, 0))}`
-                : "Loading transactions…"}
+                ? t("income.dialog.count", { count: txns.length, amount: fmt(txns.reduce((sum, x) => sum + x.amount, 0)) })
+                : t("dashboard.drill.loading")}
             </DialogDescription>
           </DialogHeader>
 
@@ -345,13 +346,13 @@ export default function IncomePage() {
             {txnsLoading && (
               <div className="flex items-center gap-3 text-sm text-muted-foreground py-10 justify-center">
                 <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                Loading...
+                {t("common.loading")}
               </div>
             )}
 
             {!txnsLoading && txns && txns.length === 0 && (
               <p className="text-sm text-muted-foreground py-10 text-center">
-                No transactions found.
+                {t("dashboard.drill.none")}
               </p>
             )}
 
@@ -359,31 +360,31 @@ export default function IncomePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Counterparty</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>{t("dashboard.drill.date")}</TableHead>
+                    <TableHead>{t("dashboard.drill.counterparty")}</TableHead>
+                    <TableHead>{t("income.dialog.account")}</TableHead>
+                    <TableHead className="text-right">{t("dashboard.drill.amount")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {txns.map(t => (
-                    <TableRow key={t.id}>
+                  {txns.map(row => (
+                    <TableRow key={row.id}>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {new Date(t.date).toLocaleDateString("de-CH")}
+                        {f.date(row.date)}
                       </TableCell>
                       <TableCell>
-                        <div>{t.counterparty}</div>
-                        {t.bookingText && (
+                        <div>{row.counterparty}</div>
+                        {row.bookingText && (
                           <div className="text-xs text-muted-foreground truncate max-w-[220px]">
-                            {t.bookingText}
+                            {row.bookingText}
                           </div>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {t.account}
+                        {row.account}
                       </TableCell>
                       <TableCell className="text-right font-mono whitespace-nowrap text-positive">
-                        Fr. {fmt(t.amount)}
+                        Fr. {fmt(row.amount)}
                       </TableCell>
                     </TableRow>
                   ))}

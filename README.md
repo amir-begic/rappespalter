@@ -60,6 +60,9 @@ holdings files on Portfolio → Look-through. Capture at 1440×1000 in the defau
 ### 👋 First-start setup
 A fresh install opens a short guided setup: your birth date, what you save each month (ETF, Säule 3a, 2. Säule), what your accounts hold today (recorded as your first snapshot) and your first bank export. Every step can be skipped and changed later; moving computers, you can restore a backup instead. Existing databases skip it, and Settings can run it again.
 
+### 🌍 Languages
+English, German, French and Italian, with Swiss number and date formats (`1'234.50`, `1 234,50`). The app starts in your system's language and you can switch on the first setup screen or under Settings → Appearance. Every page is translated; the terms are listed for a native speaker to review. Details and the glossary: [docs/I18N.md](docs/I18N.md).
+
 ### 📊 Dashboard
 Monthly spending overview with drill-downs.
 - Income / Expenses / Saved / Net stat cards, each clickable to inspect the underlying transactions

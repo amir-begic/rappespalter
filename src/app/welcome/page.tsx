@@ -11,14 +11,21 @@ import { PageLoading } from "@/components/page-loading"
 import { BackupCard } from "@/components/backup-card"
 import { IMPORT_SOURCES, ImportCard } from "@/components/import-card"
 import { ageOn, type SettingKey, type Settings } from "@/lib/settings"
+import { LOCALES, LOCALE_NAMES, isLocale } from "@/lib/i18n/locales"
+import { useSetLanguage, useT } from "@/lib/i18n/provider"
+import type { MessageKey } from "@/locales"
 import { cn } from "@/lib/utils"
 
 // First-start setup: the Settings data points (birth date, monthly saving,
 // balances today) and the first bank import, one step at a time. `/` sends a new
 // database here (src/lib/onboarding.ts); every step can be skipped, progress is
-// saved, and everything can be changed later on Settings and Import.
+// saved, and everything can be changed later on Settings and Import. The first
+// screen offers the language, so it can be changed before reading anything.
 
-const STEPS = ["Welcome", "You", "Saving", "Balances", "Import", "Done"] as const
+const STEPS: MessageKey[] = [
+  "welcome.step.welcome", "welcome.step.you", "welcome.step.saving",
+  "welcome.step.balances", "welcome.step.import", "welcome.step.done",
+]
 const LAST = STEPS.length - 1
 
 const thisMonth = () => {
@@ -26,10 +33,12 @@ const thisMonth = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 }
 
+// Throws the server's message, or an empty one when it sent none (callers fall back
+// to a translated "Failed to save").
 async function send(url: string, body: unknown, method = "PUT") {
   const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error ?? "Failed to save")
+  if (!res.ok) throw new Error(data.error ?? "")
   return data
 }
 
@@ -39,6 +48,8 @@ type Amounts = Partial<Record<SettingKey | "checking", string>>
 
 export default function WelcomePage() {
   const router = useRouter()
+  const { t, rich, f, locale } = useT()
+  const setLanguage = useSetLanguage()
   const [step, setStep]         = useState<number | null>(null)
   const [birthDate, setBirthDate] = useState("")
   const [amounts, setAmounts]   = useState<Amounts>({})
@@ -46,6 +57,8 @@ export default function WelcomePage() {
   const [imported, setImported] = useState<string[]>([])
   const [busy, setBusy]         = useState(false)
   const [error, setError]       = useState<string | null>(null)
+
+  const failure = (e: unknown) => e instanceof Error && e.message ? e.message : t("common.saveFailed")
 
   useEffect(() => {
     Promise.all([fetch("/api/onboarding").then(r => r.json()), fetch("/api/settings").then(r => r.json())])
@@ -62,7 +75,9 @@ export default function WelcomePage() {
         }
         setStep(Math.min(o.step ?? 0, LAST))
       })
-      .catch(() => setError("Couldn't load the setup — you can still use the app."))
+      .catch(() => setError(t("welcome.loadFailed")))
+    // Runs once; the message is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   const set = (key: keyof Amounts, value: string) => setAmounts(a => ({ ...a, [key]: value }))
@@ -80,7 +95,7 @@ export default function WelcomePage() {
       setStep(to)
       window.scrollTo({ top: 0 })
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save")
+      setError(failure(e))
     } finally {
       setBusy(false)
     }
@@ -97,9 +112,18 @@ export default function WelcomePage() {
     router.push(href)
   }
 
+  async function changeLanguage(next: string) {
+    if (!isLocale(next)) return
+    try {
+      await setLanguage(next)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("language.saveFailed"))
+    }
+  }
+
   function checkAmounts(keys: (keyof Amounts)[]) {
     const bad = keys.find(k => !Number.isFinite(amount(k)) || amount(k) < 0)
-    if (bad) throw new Error("Amounts must be numbers ≥ 0")
+    if (bad) throw new Error(t("welcome.amountsInvalid"))
   }
 
   const saveYou = async () => {
@@ -115,6 +139,7 @@ export default function WelcomePage() {
     checkAmounts([...keys, "checking"])
     await send("/api/settings", { settings: Object.fromEntries(keys.map(k => [k, amount(k)])) })
     if (snapshot) {
+      // The note is stored with the snapshot, so it stays as written, whatever the language.
       await send("/api/snapshots", {
         month: thisMonth(), checking: amount("checking"), savings: amount("initSavings"),
         etf: amount("initEtf"), pillar3a: amount("initPillar3a"), pillar2: amount("initPillar2"),
@@ -123,12 +148,14 @@ export default function WelcomePage() {
     }
   }
 
+  const bold = { b: (text: string) => <strong className="font-medium">{text}</strong> }
+
   return (
     <div className={cn("mx-auto py-10 px-4", step === 4 ? "max-w-5xl" : "max-w-2xl")}>
       {step == null && !error && <PageLoading />}
       {step == null && error && (
         <p className="text-sm text-destructive py-20 text-center">
-          {error} <Link href="/dashboard" className="underline">Open the dashboard</Link>
+          {error} <Link href="/dashboard" className="underline">{t("welcome.openDashboard")}</Link>
         </p>
       )}
 
@@ -139,36 +166,37 @@ export default function WelcomePage() {
           {step === 0 && (
             <>
               <div>
-                <p className="text-xs uppercase text-muted-foreground mb-2">Welcome</p>
-                <h1>Hoi! Let&apos;s set up Rappespalter</h1>
-                <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                  A few questions about you and your money, then your first bank export — about five minutes.
-                  Everything stays on this computer; nothing is sent anywhere. Every step can be skipped and
-                  changed later on Settings.
-                </p>
+                <p className="text-xs uppercase text-muted-foreground mb-2">{t("welcome.intro.label")}</p>
+                <h1>{t("welcome.intro.title")}</h1>
+                <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{t("welcome.intro.text")}</p>
+              </div>
+              <div role="group" aria-label={t("language.title")} className="flex flex-wrap gap-1.5">
+                {LOCALES.map(l => (
+                  <Button
+                    key={l} size="sm" lang={l} variant={l === locale ? "default" : "outline"}
+                    aria-pressed={l === locale} onClick={() => changeLanguage(l)}
+                  >
+                    {LOCALE_NAMES[l]}
+                  </Button>
+                ))}
               </div>
               <Card>
                 <CardContent className="pt-6 space-y-3 text-sm">
-                  {[
-                    ["You", "your birth date, so forecasts run until retirement"],
-                    ["Saving", "what goes into ETFs, Säule 3a and your pension fund each month"],
-                    ["Balances", "what your accounts hold today — the starting point for Net Worth and Goals"],
-                    ["Import", "an export from your bank, for spending, budgets and trends"],
-                  ].map(([title, text], i) => (
-                    <p key={title} className="flex gap-3">
+                  {(["you", "saving", "balances", "import"] as const).map((item, i) => (
+                    <p key={item} className="flex gap-3">
                       <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-pop-blue text-xs text-white">{i + 1}</span>
-                      <span><strong className="font-medium">{title}</strong> — {text}</span>
+                      <span>{rich(`welcome.intro.${item}`, bold)}</span>
                     </p>
                   ))}
                 </CardContent>
               </Card>
               <div className="flex flex-wrap items-center gap-2">
-                <Button disabled={busy} onClick={() => go(1)}>Let&apos;s go</Button>
-                <Button variant="ghost" disabled={busy} onClick={skipAll}>Skip — I&apos;ll look around first</Button>
+                <Button disabled={busy} onClick={() => go(1)}>{t("welcome.start")}</Button>
+                <Button variant="ghost" disabled={busy} onClick={skipAll}>{t("welcome.skipAll")}</Button>
               </div>
               <details className="group">
                 <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
-                  Moving from another computer? Restore a backup instead
+                  {t("welcome.restore")}
                 </summary>
                 <div className="mt-3"><BackupCard /></div>
               </details>
@@ -177,21 +205,20 @@ export default function WelcomePage() {
 
           {step === 1 && (
             <StepShell
-              label="About you" title="When were you born?"
-              text="Forecasts are drawn on your age and run until you retire at 65 (you can try other ages on Projections)."
+              label={t("welcome.you.label")} title={t("welcome.you.title")} text={t("welcome.you.text")}
               busy={busy} error={error}
               onBack={() => go(0)} onSkip={() => go(2)} onNext={() => go(2, saveYou)} nextDisabled={!birthDate}
             >
               <Card>
                 <CardContent className="pt-6">
                   <label className="block max-w-xs">
-                    <span className="text-xs uppercase text-muted-foreground">Birth date</span>
+                    <span className="text-xs uppercase text-muted-foreground">{t("welcome.you.birthDate")}</span>
                     <Input
                       type="date" max={new Date().toISOString().slice(0, 10)} value={birthDate}
                       onChange={e => setBirthDate(e.target.value)} className="mt-1 h-9"
                     />
                   </label>
-                  {birthDate && <p className="text-xs text-muted-foreground mt-2">That makes you {ageOn(birthDate)}.</p>}
+                  {birthDate && <p className="text-xs text-muted-foreground mt-2">{t("welcome.you.age", { age: ageOn(birthDate) })}</p>}
                 </CardContent>
               </Card>
             </StepShell>
@@ -199,16 +226,15 @@ export default function WelcomePage() {
 
           {step === 2 && (
             <StepShell
-              label="Saving" title="What do you put away each month?"
-              text="Used by the forecast on Projections. Roughly is fine — your actual savings show up once your bank export is in."
+              label={t("welcome.saving.label")} title={t("welcome.saving.title")} text={t("welcome.saving.text")}
               busy={busy} error={error}
               onBack={() => go(1)} onSkip={() => go(3)} onNext={() => go(3, saveSaving)}
             >
               <Card>
                 <CardContent className="pt-6 grid gap-4 sm:grid-cols-3">
-                  <AmountField label="ETFs / investing" hint="Standing order to your broker" value={amounts.monthlyEtf} onChange={v => set("monthlyEtf", v)} />
-                  <AmountField label="Säule 3a" hint="There's a yearly maximum" value={amounts.monthly3a} onChange={v => set("monthly3a", v)} />
-                  <AmountField label="2. Säule" hint="Your + employer's part, from the payslip" value={amounts.monthlyPillar2} onChange={v => set("monthlyPillar2", v)} />
+                  <AmountField label={t("welcome.saving.etf")} hint={t("welcome.saving.etfHint")} value={amounts.monthlyEtf} onChange={v => set("monthlyEtf", v)} />
+                  <AmountField label={t("welcome.saving.pillar3a")} hint={t("welcome.saving.pillar3aHint")} value={amounts.monthly3a} onChange={v => set("monthly3a", v)} />
+                  <AmountField label={t("welcome.saving.pillar2")} hint={t("welcome.saving.pillar2Hint")} value={amounts.monthlyPillar2} onChange={v => set("monthlyPillar2", v)} />
                 </CardContent>
               </Card>
             </StepShell>
@@ -216,32 +242,27 @@ export default function WelcomePage() {
 
           {step === 3 && (
             <StepShell
-              label="Balances" title="What do your accounts hold today?"
-              text="The starting point for Net Worth, Goals and the forecast. Your pension fund statement shows the 2. Säule balance."
+              label={t("welcome.balances.label")} title={t("welcome.balances.title")} text={t("welcome.balances.text")}
               busy={busy} error={error}
               onBack={() => go(2)} onSkip={() => go(4)} onNext={() => go(4, saveBalances)}
             >
               <Card>
                 <CardContent className="pt-6 space-y-4">
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <AmountField label="Checking account" value={amounts.checking} onChange={v => set("checking", v)} />
-                    <AmountField label="Savings account" value={amounts.initSavings} onChange={v => set("initSavings", v)} />
-                    <AmountField label="ETF portfolio" value={amounts.initEtf} onChange={v => set("initEtf", v)} />
-                    <AmountField label="Säule 3a" value={amounts.initPillar3a} onChange={v => set("initPillar3a", v)} />
-                    <AmountField label="2. Säule" value={amounts.initPillar2} onChange={v => set("initPillar2", v)} />
+                    <AmountField label={t("welcome.balances.checking")} value={amounts.checking} onChange={v => set("checking", v)} />
+                    <AmountField label={t("welcome.balances.savings")} value={amounts.initSavings} onChange={v => set("initSavings", v)} />
+                    <AmountField label={t("welcome.balances.etf")} value={amounts.initEtf} onChange={v => set("initEtf", v)} />
+                    <AmountField label={t("welcome.balances.pillar3a")} value={amounts.initPillar3a} onChange={v => set("initPillar3a", v)} />
+                    <AmountField label={t("welcome.balances.pillar2")} value={amounts.initPillar2} onChange={v => set("initPillar2", v)} />
                   </div>
                   <label className="flex items-start gap-2 text-sm">
                     <input type="checkbox" checked={snapshot} onChange={e => setSnapshot(e.target.checked)} className="mt-1 accent-primary" />
                     <span>
-                      Record these as this month&apos;s snapshot
-                      <span className="block text-xs text-muted-foreground">
-                        Net Worth and Goals start from it. Add a new one each month on Projections.
-                      </span>
+                      {t("welcome.balances.snapshot")}
+                      <span className="block text-xs text-muted-foreground">{t("welcome.balances.snapshotHint")}</span>
                     </span>
                   </label>
-                  <p className="text-xs text-muted-foreground">
-                    Gold, crypto, collections or a car? Add them under Wealth → Assets once you&apos;re set up.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("welcome.balances.assetsHint")}</p>
                 </CardContent>
               </Card>
             </StepShell>
@@ -249,11 +270,10 @@ export default function WelcomePage() {
 
           {step === 4 && (
             <StepShell
-              label="Import" title="Bring in your bank transactions"
-              text="Spending, income, budgets and trends all come from your bank's export. Start with the last 12 months if you can — re-importing later is safe, duplicates are skipped."
+              label={t("welcome.import.label")} title={t("welcome.import.title")} text={t("welcome.import.text")}
               busy={busy} error={error}
               onBack={() => go(3)} onNext={() => go(5)}
-              nextLabel={imported.length ? "Continue" : "Continue without importing"}
+              nextLabel={imported.length ? t("welcome.import.continue") : t("welcome.import.continueWithout")}
             >
               <div className="grid gap-6 lg:grid-cols-2 items-start">
                 {IMPORT_SOURCES.map(source => (
@@ -263,41 +283,38 @@ export default function WelcomePage() {
                   />
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Your bank isn&apos;t listed? Only Raiffeisen (Finanzassistent) exports can be read for now; Yuh covers
-                investments. You can still use Projections, Goals and Assets with the balances you entered.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("welcome.import.notListed")}</p>
             </StepShell>
           )}
 
           {step === 5 && (
             <>
               <div>
-                <p className="text-xs uppercase text-muted-foreground mb-2">All set</p>
-                <h1>You&apos;re ready 🎉</h1>
+                <p className="text-xs uppercase text-muted-foreground mb-2">{t("welcome.done.label")}</p>
+                <h1>{t("welcome.done.title")}</h1>
                 <p className="text-sm text-muted-foreground mt-3">
                   {imported.length
-                    ? `Imported from ${imported.join(" and ")}. `
-                    : "No export yet — add one any time on Data → Import. "}
-                  Everything you entered can be changed on Settings (the gear, top right).
+                    ? t("welcome.done.imported", { sources: f.list(imported) })
+                    : t("welcome.done.noImport")}{" "}
+                  {t("welcome.done.changeLater")}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  { href: "/dashboard", title: "Dashboard", text: "This month's spending and saving" },
-                  { href: "/budgets",   title: "Budgets",   text: "Set monthly limits per category" },
-                  { href: "/goal",      title: "Goals",     text: "A home, a trip, a safety net" },
-                ].map(l => (
+                {([
+                  { href: "/dashboard", title: "welcome.done.dashboard", text: "welcome.done.dashboardText" },
+                  { href: "/budgets",   title: "welcome.done.budgets",   text: "welcome.done.budgetsText" },
+                  { href: "/goal",      title: "welcome.done.goals",     text: "welcome.done.goalsText" },
+                ] as const).map(l => (
                   <button
                     key={l.href} type="button" onClick={() => finish(l.href)}
                     className="rounded-3xl bg-card p-5 text-left transition-colors hover:bg-accent"
                   >
-                    <span className="block text-xs uppercase text-muted-foreground">{l.title}</span>
-                    <span className="mt-1 block text-sm">{l.text} →</span>
+                    <span className="block text-xs uppercase text-muted-foreground">{t(l.title)}</span>
+                    <span className="mt-1 block text-sm">{t(l.text)} →</span>
                   </button>
                 ))}
               </div>
-              <Button variant="ghost" size="sm" onClick={() => go(4)}><ArrowLeft className="size-3" /> Back to import</Button>
+              <Button variant="ghost" size="sm" onClick={() => go(4)}><ArrowLeft className="size-3" /> {t("welcome.done.backToImport")}</Button>
             </>
           )}
         </div>
@@ -307,8 +324,9 @@ export default function WelcomePage() {
 }
 
 function Progress({ step }: { step: number }) {
+  const { t } = useT()
   return (
-    <ol className="flex flex-wrap items-center gap-1" aria-label="Setup steps">
+    <ol className="flex flex-wrap items-center gap-1" aria-label={t("welcome.progress")}>
       {STEPS.map((name, i) => (
         <li
           key={name}
@@ -319,18 +337,19 @@ function Progress({ step }: { step: number }) {
           )}
         >
           {i < step && <Check className="size-3" />}
-          {name}
+          {t(name)}
         </li>
       ))}
     </ol>
   )
 }
 
-function StepShell({ label, title, text, busy, error, nextDisabled, nextLabel = "Continue", onBack, onSkip, onNext, children }: {
+function StepShell({ label, title, text, busy, error, nextDisabled, nextLabel, onBack, onSkip, onNext, children }: {
   label: string; title: string; text: string; busy: boolean; error: string | null
   nextDisabled?: boolean; nextLabel?: string
   onBack: () => void; onSkip?: () => void; onNext: () => void; children: React.ReactNode
 }) {
+  const { t } = useT()
   return (
     <>
       <div>
@@ -341,10 +360,10 @@ function StepShell({ label, title, text, busy, error, nextDisabled, nextLabel = 
       <div className="space-y-4">{children}</div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" disabled={busy} onClick={onBack}><ArrowLeft className="size-3" /> Back</Button>
+        <Button variant="ghost" disabled={busy} onClick={onBack}><ArrowLeft className="size-3" /> {t("common.back")}</Button>
         <span className="ml-auto" />
-        {onSkip && <Button variant="outline" disabled={busy} onClick={onSkip}>Skip</Button>}
-        <Button disabled={busy || nextDisabled} onClick={onNext}>{busy ? "Saving…" : nextLabel}</Button>
+        {onSkip && <Button variant="outline" disabled={busy} onClick={onSkip}>{t("common.skip")}</Button>}
+        <Button disabled={busy || nextDisabled} onClick={onNext}>{busy ? t("welcome.saving") : nextLabel ?? t("common.continue")}</Button>
       </div>
     </>
   )

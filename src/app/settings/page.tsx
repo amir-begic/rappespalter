@@ -10,16 +10,27 @@ import { AppearanceCard } from "@/components/appearance-card"
 import { BackupCard } from "@/components/backup-card"
 import { SETTING_FIELDS, ageOn, type SettingKey, type Settings } from "@/lib/settings"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import type { MessageKey } from "@/locales"
 
 const GROUPS = [
-  { id: "monthly", title: "Monthly contributions", hint: "CHF added every month in the projection." },
-  { id: "initial", title: "Opening balances",      hint: "CHF starting balances, used only until you record a snapshot on the Projections page." },
+  { id: "monthly", title: "settings.group.monthly", hint: "settings.group.monthlyHint" },
+  { id: "initial", title: "settings.group.initial", hint: "settings.group.initialHint" },
 ] as const
 
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
+const FIELD_LABELS: Record<SettingKey, MessageKey> = {
+  monthlyEtf:     "settings.field.monthlyEtf",
+  monthly3a:      "settings.field.monthly3a",
+  monthlyPillar2: "settings.field.monthlyPillar2",
+  initEtf:        "settings.field.initEtf",
+  initSavings:    "settings.field.initSavings",
+  initPillar3a:   "settings.field.initPillar3a",
+  initPillar2:    "settings.field.initPillar2",
+}
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { t, f: fmt } = useT()
   const [values, setValues]     = useState<Record<SettingKey, string> | null>(null)
   const [birthDate, setBirthDate] = useState("")
   const [estimated, setEstimated] = useState(false) // birth date guessed from the old age setting
@@ -40,8 +51,10 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/settings")
       .then(r => r.json())
-      .then(d => d.settings ? apply(d) : setError(d.error ?? "Failed to load settings"))
-      .catch(() => setError("Failed to load settings"))
+      .then(d => d.settings ? apply(d) : setError(d.error ?? t("settings.loadFailed")))
+      .catch(() => setError(t("settings.loadFailed")))
+    // Loads once; t is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function setValue(key: SettingKey, value: string) {
@@ -55,7 +68,7 @@ export default function SettingsPage() {
     for (const f of SETTING_FIELDS) {
       const n = Number(values[f.key])
       if (!reset && (values[f.key].trim() === "" || !Number.isFinite(n) || n < 0)) {
-        setError(`${f.label}: enter a number ≥ 0`)
+        setError(t("settings.numberError", { field: t(FIELD_LABELS[f.key]) }))
         return
       }
       payload[f.key] = reset ? null : n
@@ -63,7 +76,7 @@ export default function SettingsPage() {
     if (reset) payload.birthDate = null
     else if (birthDate && !estimated) payload.birthDate = birthDate
     else if (!birthDate) {
-      setError("Birth date: pick a date")
+      setError(t("settings.birthDateError"))
       return
     }
 
@@ -77,11 +90,11 @@ export default function SettingsPage() {
         body: JSON.stringify({ settings: payload }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Failed to save settings")
+      if (!res.ok) throw new Error(data.error ?? t("settings.saveFailed"))
       apply(data)
       setSaved(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save settings")
+      setError(e instanceof Error ? e.message : t("settings.saveFailed"))
     } finally {
       setSaving(false)
     }
@@ -101,14 +114,14 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs uppercase text-muted-foreground mb-2">
-          Settings
+          {t("settings.label")}
         </p>
         <h1>
-          Projection inputs
+          {t("settings.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Values saved here override the defaults from your environment.{" "}
-          <button type="button" onClick={rerunSetup} className="underline hover:text-foreground">Run the setup again</button>
+          {t("settings.intro")}{" "}
+          <button type="button" onClick={rerunSetup} className="underline hover:text-foreground">{t("settings.rerunSetup")}</button>
         </p>
       </div>
 
@@ -122,15 +135,15 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Profile</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("settings.profile")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground mb-4">
-                Places the forecast on your age and runs it until retirement.
+                {t("settings.profileText")}
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div>
-                  <label htmlFor="birthDate" className="text-xs text-muted-foreground mb-1 block">Birth date</label>
+                  <label htmlFor="birthDate" className="text-xs text-muted-foreground mb-1 block">{t("settings.birthDate")}</label>
                   <Input
                     id="birthDate"
                     type="date"
@@ -139,13 +152,13 @@ export default function SettingsPage() {
                     onChange={e => { setSaved(false); setEstimated(false); setBirthDate(e.target.value) }}
                   />
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    {birthDate ? `Age ${ageOn(birthDate)}` : "Not set"}
+                    {birthDate ? t("settings.age", { age: ageOn(birthDate) }) : t("settings.notSet")}
                   </p>
                 </div>
               </div>
               {estimated && (
                 <p className="text-xs text-negative mt-3">
-                  Estimated from the age you entered before — please set your real birth date.
+                  {t("settings.estimated")}
                 </p>
               )}
             </CardContent>
@@ -155,16 +168,16 @@ export default function SettingsPage() {
             <Card key={group.id}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground">
-                  {group.title}
+                  {t(group.title)}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-muted-foreground mb-4">{group.hint}</p>
+                <p className="text-xs text-muted-foreground mb-4">{t(group.hint)}</p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {SETTING_FIELDS.filter(f => f.group === group.id).map(f => (
                     <div key={f.key}>
                       <label htmlFor={f.key} className="text-xs text-muted-foreground mb-1 block">
-                        {f.label}
+                        {t(FIELD_LABELS[f.key])}
                       </label>
                       <Input
                         id={f.key}
@@ -174,7 +187,7 @@ export default function SettingsPage() {
                         onChange={e => setValue(f.key, e.target.value)}
                       />
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Default: {fmtR(defaults[f.key])}
+                        {t("settings.default", { amount: fmt.int(defaults[f.key]) })}
                       </p>
                     </div>
                   ))}
@@ -185,12 +198,12 @@ export default function SettingsPage() {
 
           <div className="flex items-center gap-3">
             <Button onClick={() => save()} disabled={saving}>
-              {saving ? "Saving..." : "Save settings"}
+              {saving ? t("settings.saving") : t("settings.save")}
             </Button>
             <Button variant="outline" onClick={() => save(true)} disabled={saving}>
-              Reset to defaults
+              {t("settings.reset")}
             </Button>
-            {saved && <span className="text-xs text-positive">✓ Saved</span>}
+            {saved && <span className="text-xs text-positive">{t("settings.saved")}</span>}
             {error && <span className="text-xs text-destructive">{error}</span>}
           </div>
         </div>

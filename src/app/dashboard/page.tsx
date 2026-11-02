@@ -20,6 +20,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import type { MessageKey } from "@/locales"
 
 interface Summary {
   month: string
@@ -78,11 +80,8 @@ interface Summary {
 }
 
 
-const fmt = (n: number) =>
-  n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-const fmtR = (n: number) =>
-  Math.round(n).toLocaleString("de-CH")
+// The category filter's value for transactions without one (shown translated).
+const UNCATEGORIZED = "Uncategorized"
 
 interface Txn {
   id:           number
@@ -100,29 +99,29 @@ interface Txn {
 type DrillKind = "income" | "expenses" | "saved" | "net"
 
 const DRILL: Record<DrillKind, {
-  title:     string
+  title:     MessageKey
   color:     string                       // accent for amounts of this kind
   predicate: (t: Txn) => boolean
 }> = {
   income: {
-    title: "Income",
+    title: "dashboard.income",
     color: "text-positive",
     predicate: t => t.amount > 0 && t.category?.type !== "transfer",
   },
   expenses: {
-    title: "Expenses",
+    title: "dashboard.expenses",
     color: "text-negative",
     predicate: t => t.amount < 0 && t.category?.type !== "savings" && t.category?.type !== "transfer",
   },
   saved: {
-    title: "Saved",
+    title: "dashboard.saved",
     color: "text-info",
     predicate: t => t.amount < 0 && t.category?.type === "savings",
   },
   // Net = income − expenses, so it spans both — everything except transfers
   // and savings outflows. Summing signed amounts over this set yields net.
   net: {
-    title: "Net",
+    title: "dashboard.net",
     color: "text-foreground",
     predicate: t => t.category?.type !== "transfer" && !(t.amount < 0 && t.category?.type === "savings"),
   },
@@ -140,7 +139,7 @@ function filterAndSort(
 ): Txn[] {
   const q = search.trim().toLowerCase()
   const filtered = txns.filter(t => {
-    if (category !== "all" && (t.category?.name ?? "Uncategorized") !== category) return false
+    if (category !== "all" && (t.category?.name ?? UNCATEGORIZED) !== category) return false
     if (q && !(`${t.counterparty} ${t.bookingText ?? ""}`.toLowerCase().includes(q))) return false
     return true
   })
@@ -151,7 +150,7 @@ function filterAndSort(
       case "date":         return sign * (new Date(a.date).getTime() - new Date(b.date).getTime())
       case "amount":       return sign * (Math.abs(a.amount) - Math.abs(b.amount))
       case "counterparty": return sign * a.counterparty.localeCompare(b.counterparty)
-      case "category":     return sign * (a.category?.name ?? "Uncategorized").localeCompare(b.category?.name ?? "Uncategorized")
+      case "category":     return sign * (a.category?.name ?? UNCATEGORIZED).localeCompare(b.category?.name ?? UNCATEGORIZED)
     }
   })
 }
@@ -212,6 +211,8 @@ function BudgetSankey({
   byCategory: Summary["byCategory"]
   bySavings:  Summary["bySavings"]
 }) {
+  const { t, f } = useT()
+  const fmtR = f.int
   type Node = { name: string; value: number; color: string }
   const toNode = (c: { categoryName: string; actual: number; color: string }): Node =>
     ({ name: c.categoryName, value: c.actual, color: c.color })
@@ -222,13 +223,13 @@ function BudgetSankey({
   const variable = byCategory.filter(c => c.type !== "fixed").map(toNode).sort((a, b) => b.value - a.value)
   // byCategory leaves out uncategorized payments; the summary's total doesn't.
   const uncategorized = expenseTotal - byCategory.reduce((s, c) => s + c.actual, 0)
-  let expenses = [...fixed, ...variable, ...(uncategorized > 0.5 ? [{ name: "Uncategorized", value: uncategorized, color: "#888888" }] : [])]
+  let expenses = [...fixed, ...variable, ...(uncategorized > 0.5 ? [{ name: t("dashboard.uncategorized"), value: uncategorized, color: "#888888" }] : [])]
   if (expenses.length > SANKEY_MAX_EXPENSE_NODES) {
     const keep = new Set([...expenses].sort((a, b) => b.value - a.value).slice(0, SANKEY_MAX_EXPENSE_NODES - 1))
     const rest = expenses.filter(n => !keep.has(n))
     expenses = [
       ...expenses.filter(n => keep.has(n)),
-      { name: `Other (${rest.length})`, value: rest.reduce((s, n) => s + n.value, 0), color: "#b0b0b8" },
+      { name: t("dashboard.flow.rest", { count: rest.length }), value: rest.reduce((s, n) => s + n.value, 0), color: "#b0b0b8" },
     ]
   }
   const savings  = [...bySavings].map(toNode).sort((a, b) => b.value - a.value)
@@ -236,15 +237,15 @@ function BudgetSankey({
   const totalOut = outflows.reduce((s, n) => s + n.value, 0)
   const balance  = income - totalOut
 
-  const rightNodes: Node[] = [...outflows, ...(balance > 0.5 ? [{ name: "Remaining", value: balance, color: "#9999aa" }] : [])]
+  const rightNodes: Node[] = [...outflows, ...(balance > 0.5 ? [{ name: t("dashboard.flow.remaining"), value: balance, color: "#9999aa" }] : [])]
   const leftNodes:  Node[] = [
-    ...(income > 0 ? [{ name: "Income", value: income, color: "#6aaa7a" }] : []),
-    ...(balance < -0.5 ? [{ name: "Beyond income", value: -balance, color: "#d4857a" }] : []),
+    ...(income > 0 ? [{ name: t("dashboard.income"), value: income, color: "#6aaa7a" }] : []),
+    ...(balance < -0.5 ? [{ name: t("dashboard.flow.beyondIncome"), value: -balance, color: "#d4857a" }] : []),
   ]
   if (rightNodes.length === 0 || leftNodes.length === 0) return null
 
   const VW = 660
-  const leftLabelW = 112, nodeW = 14, rightLabelW = 158
+  const leftLabelW = 132, nodeW = 14, rightLabelW = 158
   const pTop = 10, pBottom = 10, gap = 5
   const SLOT = 26  // minimum room per right-hand node: name + amount
   const srcH = 280 // height of the left column for the larger side's total
@@ -288,7 +289,7 @@ function BudgetSankey({
 
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }} role="img"
-      aria-label={`Money flow: income Fr. ${fmtR(income)} to ${rightNodes.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ")}`}>
+      aria-label={t("dashboard.flow.aria", { income: fmtR(income), parts: rightNodes.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ") })}>
       {leftNodes.map((n, i) => {
         const { y, h } = leftPos[i]
         // Labels sit beside the node's middle; a short shortfall block gets them below the income label.
@@ -297,7 +298,7 @@ function BudgetSankey({
           <g key={n.name}>
             <rect x={leftNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={n.color} rx={2} style={shape} />
             <text style={at(leftNodeX - 7, labelY - 7)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="currentColor" opacity={0.8}>
-              {truncate(n.name, 15)}
+              {truncate(n.name, 20)}
             </text>
             <text style={at(leftNodeX - 7, labelY + 7)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill="currentColor" opacity={0.5}>
               Fr. {fmtR(n.value)}
@@ -341,10 +342,11 @@ function BudgetSankey({
 function OutflowRow({ date, counterparty, amount, categoryName, color }: {
   date: string; counterparty: string; amount: number; categoryName: string; color: string
 }) {
+  const { f } = useT()
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
       <span className="text-xs text-muted-foreground w-14 flex-shrink-0">
-        {new Date(date).toLocaleDateString("de-CH", { day: "2-digit", month: "short" })}
+        {f.date(date, { day: "2-digit", month: "short" })}
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-sm truncate">{counterparty}</p>
@@ -354,14 +356,19 @@ function OutflowRow({ date, counterparty, amount, categoryName, color }: {
         </div>
       </div>
       <span className="font-mono text-sm text-negative flex-shrink-0">
-        Fr. {fmt(Math.abs(amount))}
+        Fr. {f.decimal(Math.abs(amount))}
       </span>
     </div>
   )
 }
 
 export default function DashboardPage() {
-  
+  const { t, rich, f } = useT()
+  const fmt = (n: number) => f.decimal(n)
+  const fmtR = f.int
+  // A category's name for display: the filter value for "none" is shown translated.
+  const catLabel = (name: string) => name === UNCATEGORIZED ? t("dashboard.uncategorized") : name
+
   const [month, setMonth]   = useState("")
     const [months, setMonths] = useState<string[]>([])
   const [data, setData]       = useState<Summary | null>(null)
@@ -432,9 +439,11 @@ useEffect(() => {
       const m = d.months ?? []
       setMonths(m)        // populate the dropdown
       if (m.length > 0) setMonth(m[0]) // default to most recent
-      else { setError("No transactions found"); setLoading(false) }
+      else { setError(t("dashboard.noTransactions")); setLoading(false) }
     })
-    .catch(() => { setError("Failed to load data"); setLoading(false) })
+    .catch(() => { setError(t("dashboard.loadFailed")); setLoading(false) })
+  // Loads once; t is only read if loading fails.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [])
 
 
@@ -452,20 +461,22 @@ useEffect(() => {
         if (d.error) setError(d.error)
         else setData(d)
       })
-      .catch(() => { if (!stale) setError("Failed to load data") })
+      .catch(() => { if (!stale) setError(t("dashboard.loadFailed")) })
       .finally(() => { if (!stale) setLoading(false) })
     return () => { stale = true }
+    // Reloads per month; t is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month])
 
   // Drill-down derived views: the categories present, and the filtered+sorted rows.
   const drillCategories = txns
-    ? Array.from(new Set(txns.map(t => t.category?.name ?? "Uncategorized"))).sort()
+    ? Array.from(new Set(txns.map(x => x.category?.name ?? UNCATEGORIZED))).sort()
     : []
   const visibleTxns = txns
     ? filterAndSort(txns, drillSearch, drillCategory, drillSort)
     : []
   const visibleTotal = visibleTxns.reduce(
-    (s, t) => s + (openKind === "net" ? t.amount : Math.abs(t.amount)), 0,
+    (sum, x) => sum + (openKind === "net" ? x.amount : Math.abs(x.amount)), 0,
   )
 
   return (
@@ -475,10 +486,10 @@ useEffect(() => {
       <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
         <div>
           <p className="text-xs uppercase text-muted-foreground mb-2">
-            Dashboard
+            {t("dashboard.label")}
           </p>
           <h1>
-            Monthly Overview
+            {t("dashboard.title")}
           </h1>
         </div>
         <select
@@ -498,10 +509,10 @@ useEffect(() => {
 
       {error && (
         <div className="text-sm text-destructive py-20 text-center">
-          {error} — have you imported any transactions yet?
+          {t("dashboard.noDataHint", { error })}
           <br />
           <a href="/import" className="underline mt-2 inline-block">
-            Go to import
+            {t("dashboard.goToImport")}
           </a>
         </div>
       )}
@@ -513,7 +524,7 @@ useEffect(() => {
 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
   <StatCard onClick={() => openDrill("income")}>
     <p className="text-xs uppercase text-muted-foreground mb-2">
-      Income
+      {t("dashboard.income")}
     </p>
     <p className="font-display text-3xl text-positive">
       Fr. {fmtR(data.summary.income)}
@@ -521,7 +532,7 @@ useEffect(() => {
   </StatCard>
   <StatCard onClick={() => openDrill("expenses")}>
     <p className="text-xs uppercase text-muted-foreground mb-2">
-      Expenses
+      {t("dashboard.expenses")}
     </p>
     <p className="font-display text-3xl text-negative">
       Fr. {fmtR(data.summary.expenses)}
@@ -529,18 +540,18 @@ useEffect(() => {
   </StatCard>
   <StatCard onClick={() => openDrill("saved")}>
     <p className="text-xs uppercase text-muted-foreground mb-2">
-      Saved
+      {t("dashboard.saved")}
     </p>
     <p className="font-display text-3xl text-info">
       Fr. {fmtR(data.summary.saved)}
     </p>
     <p className="text-xs text-muted-foreground mt-1">
-      {data.summary.savingsRate}% savings rate
+      {t("dashboard.savingsRate", { rate: data.summary.savingsRate })}
     </p>
   </StatCard>
   <StatCard onClick={() => openDrill("net")}>
     <p className="text-xs uppercase text-muted-foreground mb-2">
-      Net
+      {t("dashboard.net")}
     </p>
     <p className={`font-display text-3xl ${
       data.summary.net >= 0 ? "text-positive" : "text-negative"
@@ -555,7 +566,7 @@ useEffect(() => {
 <Card>
   <CardHeader className="pb-2">
     <CardTitle className="text-sm text-muted-foreground">
-      Money flow
+      {t("dashboard.moneyFlow")}
     </CardTitle>
   </CardHeader>
   <CardContent className="pt-0 pb-3">
@@ -573,7 +584,7 @@ useEffect(() => {
   <Card>
     <CardHeader className="pb-2">
       <CardTitle className="text-sm text-muted-foreground">
-        Savings & investments
+        {t("dashboard.savingsInvestments")}
       </CardTitle>
     </CardHeader>
     <CardContent>
@@ -593,7 +604,7 @@ useEffect(() => {
           </div>
         ))}
         <div className="flex justify-between items-center pt-2 border-t border-border text-sm">
-          <span>Total saved</span>
+          <span>{t("dashboard.totalSaved")}</span>
           <span className="font-mono text-info">
             Fr. {fmtR(data.summary.saved)}
           </span>
@@ -610,15 +621,15 @@ useEffect(() => {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">
-                Spending allocation
+                {t("dashboard.allocation")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex h-3 rounded-full overflow-hidden gap-0.5 mb-3">
                 {[
-                  { label: "Fixed",    value: data.byType.fixed,    color: "#8ab4d4" },
-                  { label: "Variable", value: data.byType.variable, color: "#f0c080" },
-                  { label: "Savings",  value: data.byType.savings,  color: "#6aaa7a" },
+                  { label: t("dashboard.type.fixed"),    value: data.byType.fixed,    color: "#8ab4d4" },
+                  { label: t("dashboard.type.variable"), value: data.byType.variable, color: "#f0c080" },
+                  { label: t("dashboard.type.savings"),  value: data.byType.savings,  color: "#6aaa7a" },
                 ].map(seg => {
                   const total = data.byType.fixed + data.byType.variable + data.byType.savings
                   const pct = total > 0 ? (seg.value / total) * 100 : 0
@@ -632,9 +643,9 @@ useEffect(() => {
               </div>
               <div className="flex gap-4 text-xs text-muted-foreground">
                 {[
-                  { label: "Fixed",    value: data.byType.fixed,    color: "#8ab4d4" },
-                  { label: "Variable", value: data.byType.variable, color: "#f0c080" },
-                  { label: "Savings",  value: data.byType.savings,  color: "#6aaa7a" },
+                  { label: t("dashboard.type.fixed"),    value: data.byType.fixed,    color: "#8ab4d4" },
+                  { label: t("dashboard.type.variable"), value: data.byType.variable, color: "#f0c080" },
+                  { label: t("dashboard.type.savings"),  value: data.byType.savings,  color: "#6aaa7a" },
                 ].map(seg => (
                   <div key={seg.label} className="flex items-center gap-1.5">
                     <div
@@ -655,7 +666,7 @@ useEffect(() => {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground">
-                  By category
+                  {t("dashboard.byCategory")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -736,17 +747,17 @@ useEffect(() => {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm text-muted-foreground">
-                    Budget vs actual
+                    {t("dashboard.budgetVsActual")}
                   </CardTitle>
                   <a href="/budgets" className="text-xs text-muted-foreground underline hover:text-foreground">
-                    {data.flags.length === 0 ? "Set budgets" : "Edit"}
+                    {data.flags.length === 0 ? t("dashboard.setBudgets") : t("dashboard.editBudgets")}
                   </a>
                 </div>
               </CardHeader>
               <CardContent>
                 {data.flags.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    No budgets set yet. <a href="/budgets" className="underline">Set budgets</a> to compare each month against a plan.
+                    {rich("dashboard.noBudgets", { link: text => <a href="/budgets" className="underline">{text}</a> })}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -759,7 +770,7 @@ useEffect(() => {
                         <div className="pb-1">
                           <div className="flex justify-between text-xs mb-1">
                             <span className="text-muted-foreground">
-                              Fr. {fmtR(actual)} of Fr. {fmtR(budget)}
+                              {t("dashboard.budgetOf", { actual: fmtR(actual), budget: fmtR(budget) })}
                             </span>
                             <span className="font-mono" style={{ color: over ? "#d4857a" : "#6aaa7a" }}>
                               {over ? "+" : "−"}Fr. {fmtR(Math.abs(actual - budget))}
@@ -824,7 +835,7 @@ useEffect(() => {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm text-muted-foreground">
-                  Largest outflows{selectedCat ? <span className="text-foreground"> · {selectedCat}</span> : null}
+                  {t("dashboard.largestOutflows")}{selectedCat ? <span className="text-foreground"> · {selectedCat}</span> : null}
                 </CardTitle>
                 {selectedCat && (
                   <button
@@ -832,7 +843,7 @@ useEffect(() => {
                     onClick={() => { setSelectedCat(null); setCatExpenses(null) }}
                     className="text-xs text-muted-foreground underline hover:text-foreground"
                   >
-                    Show all
+                    {t("dashboard.showAll")}
                   </button>
                 )}
               </div>
@@ -856,13 +867,13 @@ useEffect(() => {
               {selectedCat && catLoading && (
                 <div className="flex items-center gap-3 text-sm text-muted-foreground py-8 justify-center">
                   <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                  Loading...
+                  {t("common.loading")}
                 </div>
               )}
 
               {selectedCat && !catLoading && catExpenses && catExpenses.length === 0 && (
                 <p className="text-sm text-muted-foreground py-8 text-center">
-                  No expenses in {selectedCat} this month.
+                  {t("dashboard.noExpensesIn", { category: selectedCat })}
                 </p>
               )}
 
@@ -874,13 +885,13 @@ useEffect(() => {
                       date={tx.date}
                       counterparty={tx.counterparty}
                       amount={tx.amount}
-                      categoryName={tx.category?.name ?? "Uncategorized"}
+                      categoryName={tx.category?.name ?? t("dashboard.uncategorized")}
                       color={tx.category?.color ?? "#888888"}
                     />
                   ))}
                   {catExpenses.length > 15 && (
                     <p className="text-xs text-muted-foreground pt-2">
-                      Showing top 15 of {catExpenses.length}.
+                      {t("dashboard.showingTop", { shown: 15, total: catExpenses.length })}
                     </p>
                   )}
                 </div>
@@ -893,7 +904,7 @@ useEffect(() => {
   <Card>
     <CardHeader className="pb-2">
       <CardTitle className="text-sm text-muted-foreground">
-        Savings & investments
+        {t("dashboard.savingsInvestments")}
       </CardTitle>
     </CardHeader>
     <CardContent>
@@ -904,9 +915,7 @@ useEffect(() => {
             className="flex items-center gap-3 py-2.5 border-b border-border last:border-0"
           >
             <span className="text-xs text-muted-foreground w-14 flex-shrink-0">
-              {new Date(tx.date).toLocaleDateString("de-CH", {
-                day: "2-digit", month: "short"
-              })}
+              {f.date(tx.date, { day: "2-digit", month: "short" })}
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-sm truncate">{tx.counterparty}</p>
@@ -926,7 +935,7 @@ useEffect(() => {
           </div>
         ))}
         <div className="flex justify-between items-center pt-3 border-t border-border text-sm">
-          <span className="text-muted-foreground">Total saved</span>
+          <span className="text-muted-foreground">{t("dashboard.totalSaved")}</span>
           <span className="font-mono text-info">
             Fr. {fmt(data.summary.saved)}
           </span>
@@ -944,12 +953,12 @@ useEffect(() => {
         <DialogContent className="max-w-4xl w-[95vw]">
           <DialogHeader>
             <DialogTitle>
-              {openKind ? DRILL[openKind].title : ""} · {month}
+              {openKind ? t(DRILL[openKind].title) : ""} · {month}
             </DialogTitle>
             <DialogDescription>
               {txns
-                ? `${visibleTxns.length} of ${txns.length} transaction${txns.length === 1 ? "" : "s"} · Fr. ${fmt(visibleTotal)}`
-                : "Loading transactions…"}
+                ? t("dashboard.drill.count", { shown: visibleTxns.length, count: txns.length, amount: fmt(visibleTotal) })
+                : t("dashboard.drill.loading")}
             </DialogDescription>
           </DialogHeader>
 
@@ -957,19 +966,19 @@ useEffect(() => {
           {!txnsLoading && txns && txns.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <Input
-                placeholder="Search counterparty or text…"
+                placeholder={t("dashboard.drill.search")}
                 value={drillSearch}
                 onChange={e => setDrillSearch(e.target.value)}
                 className="h-8 max-w-xs"
               />
               <Select value={drillCategory} onValueChange={setDrillCategory}>
                 <SelectTrigger className="h-8 w-[200px]">
-                  <SelectValue placeholder="Category" />
+                  <SelectValue placeholder={t("dashboard.drill.category")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All categories</SelectItem>
+                  <SelectItem value="all">{t("dashboard.drill.allCategories")}</SelectItem>
                   {drillCategories.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c} value={c}>{catLabel(c)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -979,7 +988,7 @@ useEffect(() => {
                   onClick={() => { setDrillSearch(""); setDrillCategory("all") }}
                   className="text-xs text-muted-foreground underline hover:text-foreground"
                 >
-                  Clear
+                  {t("dashboard.drill.clear")}
                 </button>
               )}
             </div>
@@ -989,19 +998,19 @@ useEffect(() => {
             {txnsLoading && (
               <div className="flex items-center gap-3 text-sm text-muted-foreground py-10 justify-center">
                 <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                Loading...
+                {t("common.loading")}
               </div>
             )}
 
             {!txnsLoading && txns && txns.length === 0 && (
               <p className="text-sm text-muted-foreground py-10 text-center">
-                No transactions found.
+                {t("dashboard.drill.none")}
               </p>
             )}
 
             {!txnsLoading && txns && txns.length > 0 && visibleTxns.length === 0 && (
               <p className="text-sm text-muted-foreground py-10 text-center">
-                No transactions match your filters.
+                {t("dashboard.drill.noMatch")}
               </p>
             )}
 
@@ -1010,30 +1019,30 @@ useEffect(() => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>
-                      <SortHeader label="Date" sortKey="date" active={drillSort.key === "date"} dir={drillSort.dir} onSort={toggleSort} />
+                      <SortHeader label={t("dashboard.drill.date")} sortKey="date" active={drillSort.key === "date"} dir={drillSort.dir} onSort={toggleSort} />
                     </TableHead>
                     <TableHead>
-                      <SortHeader label="Counterparty" sortKey="counterparty" active={drillSort.key === "counterparty"} dir={drillSort.dir} onSort={toggleSort} />
+                      <SortHeader label={t("dashboard.drill.counterparty")} sortKey="counterparty" active={drillSort.key === "counterparty"} dir={drillSort.dir} onSort={toggleSort} />
                     </TableHead>
                     <TableHead>
-                      <SortHeader label="Category" sortKey="category" active={drillSort.key === "category"} dir={drillSort.dir} onSort={toggleSort} />
+                      <SortHeader label={t("dashboard.drill.category")} sortKey="category" active={drillSort.key === "category"} dir={drillSort.dir} onSort={toggleSort} />
                     </TableHead>
                     <TableHead className="text-right">
-                      <SortHeader label="Amount" sortKey="amount" active={drillSort.key === "amount"} dir={drillSort.dir} onSort={toggleSort} align="right" />
+                      <SortHeader label={t("dashboard.drill.amount")} sortKey="amount" active={drillSort.key === "amount"} dir={drillSort.dir} onSort={toggleSort} align="right" />
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleTxns.map(t => (
-                    <TableRow key={t.id}>
+                  {visibleTxns.map(row => (
+                    <TableRow key={row.id}>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {new Date(t.date).toLocaleDateString("de-CH")}
+                        {f.date(row.date)}
                       </TableCell>
                       <TableCell>
-                        <div>{t.counterparty}</div>
-                        {t.bookingText && (
+                        <div>{row.counterparty}</div>
+                        {row.bookingText && (
                           <div className="text-xs text-muted-foreground truncate max-w-[320px]">
-                            {t.bookingText}
+                            {row.bookingText}
                           </div>
                         )}
                       </TableCell>
@@ -1041,19 +1050,19 @@ useEffect(() => {
                         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span
                             className="w-2 h-2 rounded-sm flex-shrink-0"
-                            style={{ background: t.category?.color ?? "#888888" }}
+                            style={{ background: row.category?.color ?? "#888888" }}
                           />
-                          {t.category?.name ?? "Uncategorized"}
+                          {catLabel(row.category?.name ?? UNCATEGORIZED)}
                         </span>
                       </TableCell>
                       <TableCell
                         className={`text-right font-mono whitespace-nowrap ${
                           openKind === "net"
-                            ? t.amount >= 0 ? "text-positive" : "text-negative"
+                            ? row.amount >= 0 ? "text-positive" : "text-negative"
                             : openKind ? DRILL[openKind].color : ""
                         }`}
                       >
-                        {openKind === "net" && t.amount < 0 ? "−" : ""}Fr. {fmt(Math.abs(t.amount))}
+                        {openKind === "net" && row.amount < 0 ? "−" : ""}Fr. {fmt(Math.abs(row.amount))}
                       </TableCell>
                     </TableRow>
                   ))}

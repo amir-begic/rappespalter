@@ -53,6 +53,13 @@ export interface Holding {
   yieldOnCost:   number | null // trailing 12 months net ÷ cost basis
 }
 
+// Something the maths had to work around, as data: the pages word it in the
+// language in use (pfwarn.* messages).
+export type PortfolioWarning =
+  | { code: "noFx"; currency: string }
+  | { code: "noMarketPriceNamed"; name: string }
+  | { code: "noMarketPrice" }
+
 export interface PortfolioResult {
   asOf:        string
   start:       string | null
@@ -76,7 +83,7 @@ export interface PortfolioResult {
   series:     { date: string; value: number; invested: number }[]
   holdings:   Holding[]
   dividends:  { month: string; net: number; tax: number }[]
-  warnings:   string[]
+  warnings:   PortfolioWarning[]
 }
 
 // Walks a date-sorted series forward, returning the latest value on/before a
@@ -122,7 +129,8 @@ export function computePortfolio(input: {
 }, opts: { fullSeries?: boolean } = {}): PortfolioResult {
   const { securities, prices, fx, today } = input
   const activities = [...input.activities].sort((a, b) => a.date.localeCompare(b.date))
-  const warnings = new Set<string>()
+  const warnings = new Map<string, PortfolioWarning>()
+  const warn = (w: PortfolioWarning) => warnings.set(JSON.stringify(w), w)
   const secBySymbol = new Map(securities.map(s => [s.symbol, s]))
 
   // FX lookups, cursor-based for the daily walk plus a random-access variant.
@@ -131,13 +139,13 @@ export function computePortfolio(input: {
     if (!ccy || ccy === BASE_CURRENCY) return 1
     if (!fxCursors.has(ccy)) fxCursors.set(ccy, cursor(fx.get(ccy)))
     const hit = fxCursors.get(ccy)!(date) ?? fx.get(ccy)?.[0] // before first rate: use earliest
-    if (!hit) { warnings.add(`No ${ccy}→${BASE_CURRENCY} exchange rates — refresh prices`); return 0 }
+    if (!hit) { warn({ code: "noFx", currency: ccy }); return 0 }
     return hit.value
   }
   const fxOn = (ccy: string, date: string): number => {
     if (!ccy || ccy === BASE_CURRENCY) return 1
     const pts = fx.get(ccy)
-    if (!pts?.length) { warnings.add(`No ${ccy}→${BASE_CURRENCY} exchange rates — refresh prices`); return 0 }
+    if (!pts?.length) { warn({ code: "noFx", currency: ccy }); return 0 }
     let best = pts[0]
     for (const p of pts) { if (p.date <= date) best = p; else break }
     return best.value
@@ -267,7 +275,7 @@ export function computePortfolio(input: {
     const market = prices.get(symbol)?.filter(p => p.date <= today).at(-1) ?? null
     const trade = lastTrade.get(symbol)
     const priceIsTrade = held && !market
-    if (priceIsTrade) warnings.add(`${sec?.name ?? symbol}: no market price — valued at last trade price`)
+    if (priceIsTrade) warn({ code: "noMarketPriceNamed", name: sec?.name ?? symbol })
     const value = held ? u * (market
       ? market.value * fxOn(sec?.priceCurrency ?? sec?.currency ?? BASE_CURRENCY, today)
       : (trade ? trade.price * fxOn(trade.currency, today) : 0)) : 0
@@ -330,7 +338,7 @@ export function computePortfolio(input: {
       : series,
     holdings,
     dividends: [...byMonth].sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({ month, ...v })),
-    warnings: [...warnings],
+    warnings: [...warnings.values()],
   }
 }
 
@@ -396,7 +404,7 @@ export interface HoldingDetail {
   }[]
   trades:    HoldingTrade[]
   dividends: { date: string; amount: number; currency: string; tax: number; chf: number }[]
-  warnings:  string[]
+  warnings:  PortfolioWarning[]
 }
 
 export function computeHoldingDetail(input: {
@@ -412,7 +420,8 @@ export function computeHoldingDetail(input: {
     .sort((a, b) => a.date.localeCompare(b.date))
   if (!sec && acts.length === 0) return null
 
-  const warnings = new Set<string>()
+  const warnings = new Map<string, PortfolioWarning>()
+  const warn = (w: PortfolioWarning) => warnings.set(JSON.stringify(w), w)
   const tradeCcy = sec?.currency ?? acts.find(a => a.type !== "dividend")?.currency ?? BASE_CURRENCY
   const priceCcy = sec?.priceCurrency ?? tradeCcy
   const prices = input.prices.get(symbol)
@@ -421,7 +430,7 @@ export function computeHoldingDetail(input: {
     if (ccy === BASE_CURRENCY) return 1
     const pts = input.fx.get(ccy)
     const hit = latestOn(pts, date) ?? pts?.[0]
-    if (!hit) { warnings.add(`No ${ccy}→${BASE_CURRENCY} exchange rates — refresh prices`); return 0 }
+    if (!hit) { warn({ code: "noFx", currency: ccy }); return 0 }
     return hit.value
   }
   // Convert an amount into the listing's currency (via CHF) on a date.
@@ -494,7 +503,7 @@ export function computeHoldingDetail(input: {
   const held = units > 1e-9
   const market = latestOn(prices, input.today)
   const price = market?.value ?? lastTradeQuoted
-  if (held && !market) warnings.add("No market price — valued at the last trade price")
+  if (held && !market) warn({ code: "noMarketPrice" })
   const value = held && price != null ? units * price * fxOn(priceCcy, input.today) : 0
   const costBasis = held ? costChf : 0
   const unrealized = value - costBasis
@@ -532,6 +541,6 @@ export function computeHoldingDetail(input: {
     series: series.length > 800 ? series.filter((p, i) => i % 7 === 0 || i === series.length - 1 || p.buy != null || p.sell != null) : series,
     trades,
     dividends,
-    warnings: [...warnings],
+    warnings: [...warnings.values()],
   }
 }

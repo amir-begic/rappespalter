@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageLoading } from "@/components/page-loading"
 import { RuleSuggestion } from "@/components/rule-suggestion"
 import { OneOffToggle } from "@/components/one-off-toggle"
+import { useT } from "@/lib/i18n/provider"
 
 interface Category { id: number; name: string; color: string }
 
@@ -31,11 +32,6 @@ interface Group {
   guessed:      Category | null // the parser's fallback category, if that's why it's here
 }
 
-const fmt = (n: number) =>
-  n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString("de-CH", { day: "2-digit", month: "short", year: "2-digit" })
-
 function groupBy(transactions: Transaction[]): Group[] {
   const map = new Map<string, Group>()
   for (const t of transactions) {
@@ -50,6 +46,9 @@ function groupBy(transactions: Transaction[]): Group[] {
 }
 
 export default function ReviewPage() {
+  const { t, rich, f } = useT()
+  const fmt = (n: number) => f.decimal(n)
+  const fmtDate = (d: string) => f.date(d, { day: "2-digit", month: "short", year: "2-digit" })
   const [transactions, setTransactions] = useState<Transaction[] | null>(null)
   const [categories, setCategories]     = useState<Category[]>([])
   const [recentSince, setRecentSince]   = useState<string>("")
@@ -72,11 +71,13 @@ export default function ReviewPage() {
         // Nothing recent: start on everything, so the page isn't empty for no reason.
         if (!review.recent && review.total) setScope("all")
       })
-      .catch(e => setError(e instanceof Error ? e.message : "Failed to load"))
+      .catch(e => setError(e instanceof Error ? e.message : t("review.loadFailed")))
   }
+  // Loads once; `load` and t are only read here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [])
 
-  const remove = (ids: number[]) => setTransactions(ts => ts?.filter(t => !ids.includes(t.id)) ?? null)
+  const remove = (ids: number[]) => setTransactions(ts => ts?.filter(x => !ids.includes(x.id)) ?? null)
 
   async function post(key: string, body: object) {
     setBusy(key)
@@ -85,10 +86,10 @@ export default function ReviewPage() {
       const res = await fetch("/api/review", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       })
-      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to save")
+      if (!res.ok) throw new Error((await res.json()).error ?? t("common.saveFailed"))
       return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save")
+      setError(e instanceof Error ? e.message : t("common.saveFailed"))
       return false
     } finally {
       setBusy(null)
@@ -96,7 +97,7 @@ export default function ReviewPage() {
   }
 
   async function assign(g: Group, categoryId: number) {
-    const ids = g.items.map(t => t.id)
+    const ids = g.items.map(x => x.id)
     if (await post(g.counterparty, { ids, categoryId })) {
       remove(ids)
       setSuggestion({ pattern: g.counterparty, categoryId, amount: g.items[0].amount })
@@ -104,31 +105,29 @@ export default function ReviewPage() {
   }
 
   async function confirm(g: Group) {
-    const ids = g.items.map(t => t.id)
+    const ids = g.items.map(x => x.id)
     if (await post(g.counterparty, { ids })) remove(ids)
   }
 
   // Clears what's on screen: the last 90 days, or everything under All.
   async function confirmShown() {
-    const ids = inScope.map(t => t.id)
-    if (!window.confirm(`Mark these ${ids.length} transactions as reviewed? They keep their current category.`)) return
+    const ids = inScope.map(x => x.id)
+    if (!window.confirm(t("review.confirmShown", { count: ids.length }))) return
     if (await post("__all__", { ids })) remove(ids)
   }
 
-  const inScope = (transactions ?? []).filter(t => scope === "all" || t.date >= recentSince)
+  const inScope = (transactions ?? []).filter(x => scope === "all" || x.date >= recentSince)
   const groups = groupBy(inScope)
-  const recentCount = (transactions ?? []).filter(t => t.date >= recentSince).length
+  const recentCount = (transactions ?? []).filter(x => x.date >= recentSince).length
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
 
       <div className="mb-8">
-        <p className="text-xs uppercase text-muted-foreground mb-2">Data</p>
-        <h1>Review</h1>
+        <p className="text-xs uppercase text-muted-foreground mb-2">{t("nav.section.data")}</p>
+        <h1>{t("nav.page.review")}</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Transactions nobody has checked the category of: uncategorized ones, and imports the bank
-          filed under a category the app doesn&apos;t know, which got a guess. Pick a category for a
-          counterparty, or confirm what&apos;s there.
+          {t("review.intro")}
         </p>
       </div>
 
@@ -140,13 +139,13 @@ export default function ReviewPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Tabs value={scope} onValueChange={v => setScope(v as "recent" | "all")}>
               <TabsList>
-                <TabsTrigger value="recent">Last 90 days ({recentCount})</TabsTrigger>
-                <TabsTrigger value="all">All ({transactions.length})</TabsTrigger>
+                <TabsTrigger value="recent">{t("review.scopeRecent", { count: recentCount })}</TabsTrigger>
+                <TabsTrigger value="all">{t("review.scopeAll", { count: transactions.length })}</TabsTrigger>
               </TabsList>
             </Tabs>
             {inScope.length > 0 && (
               <Button variant="outline" size="sm" className="ml-auto" disabled={!!busy} onClick={confirmShown}>
-                Mark {inScope.length} as reviewed
+                {t("review.markShown", { count: inScope.length })}
               </Button>
             )}
           </div>
@@ -155,7 +154,7 @@ export default function ReviewPage() {
             <RuleSuggestion
               key={`${suggestion.pattern}:${suggestion.categoryId}`}
               suggestion={suggestion}
-              categoryName={categories.find(c => c.id === suggestion.categoryId)?.name ?? "this category"}
+              categoryName={categories.find(c => c.id === suggestion.categoryId)?.name ?? t("review.thisCategory")}
               onDone={changed => { setSuggestion(null); if (changed) load() }}
             />
           )}
@@ -163,9 +162,9 @@ export default function ReviewPage() {
           {groups.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center space-y-1">
-                <p>Nothing to review</p>
+                <p>{t("review.nothing")}</p>
                 <p className="text-sm text-muted-foreground">
-                  {transactions.length ? "Older items are under All." : "Every category has been checked."}
+                  {transactions.length ? t("review.olderUnderAll") : t("review.allChecked")}
                 </p>
               </CardContent>
             </Card>
@@ -183,9 +182,11 @@ export default function ReviewPage() {
                       >
                         <span className="block truncate">{g.counterparty}</span>
                         <span className="block text-xs text-muted-foreground">
-                          {g.items.length === 1 ? fmtDate(g.latest) : `${g.items.length} payments · latest ${fmtDate(g.latest)}`}
+                          {g.items.length === 1 ? fmtDate(g.latest) : t("review.payments", { count: g.items.length, date: fmtDate(g.latest) })}
                           {" · "}
-                          {g.guessed ? <>guessed <strong className="font-medium">{g.guessed.name}</strong></> : "uncategorized"}
+                          {g.guessed
+                            ? rich("review.guessed", { b: text => <strong className="font-medium">{text}</strong> }, { name: g.guessed.name })
+                            : t("review.uncategorized")}
                         </span>
                       </button>
                       <span className={`font-mono text-sm ${g.total < 0 ? "text-negative" : "text-positive"}`}>
@@ -195,34 +196,34 @@ export default function ReviewPage() {
                         value=""
                         disabled={busy === g.counterparty}
                         onChange={e => e.target.value && assign(g, Number(e.target.value))}
-                        aria-label={`Category for ${g.counterparty}`}
+                        aria-label={t("review.categoryFor", { name: g.counterparty })}
                         className="text-sm rounded-xl border border-input px-2 py-1 bg-card text-foreground w-44"
                       >
-                        <option value="">Set category…</option>
+                        <option value="">{t("review.setCategory")}</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                       <Button size="sm" variant="ghost" disabled={busy === g.counterparty} onClick={() => confirm(g)}>
-                        Looks right
+                        {t("review.looksRight")}
                       </Button>
                     </div>
 
                     {open === g.counterparty && (
                       <ul className="mt-3 space-y-1.5 border-l border-border pl-3">
-                        {g.items.map(t => (
-                          <li key={t.id} className="group flex items-center gap-3 text-xs">
-                            <span className="w-20 shrink-0 text-muted-foreground">{fmtDate(t.date)}</span>
+                        {g.items.map(tx => (
+                          <li key={tx.id} className="group flex items-center gap-3 text-xs">
+                            <span className="w-20 shrink-0 text-muted-foreground">{fmtDate(tx.date)}</span>
                             <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                              {t.bookingText?.split("\n").slice(1).join(" · ") || t.account}
+                              {tx.bookingText?.split("\n").slice(1).join(" · ") || tx.account}
                             </span>
                             <OneOffToggle
-                              id={t.id}
-                              value={t.mark?.oneOff ?? false}
+                              id={tx.id}
+                              value={tx.mark?.oneOff ?? false}
                               onChange={oneOff => setTransactions(ts => ts?.map(x =>
-                                x.id === t.id ? { ...x, mark: { categorySource: null, ...x.mark, oneOff } } : x
+                                x.id === tx.id ? { ...x, mark: { categorySource: null, ...x.mark, oneOff } } : x
                               ) ?? null)}
                             />
-                            <span className={`w-24 shrink-0 text-right font-mono ${t.amount < 0 ? "text-negative" : "text-positive"}`}>
-                              Fr. {fmt(t.amount)}
+                            <span className={`w-24 shrink-0 text-right font-mono ${tx.amount < 0 ? "text-negative" : "text-positive"}`}>
+                              Fr. {fmt(tx.amount)}
                             </span>
                           </li>
                         ))}

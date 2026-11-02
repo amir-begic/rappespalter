@@ -8,16 +8,24 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import type { DriftResult, DriftRow } from "@/lib/budget-drift"
+import { useT } from "@/lib/i18n/provider"
+import type { Locale } from "@/lib/i18n/locales"
 
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
-const fmtSigned = (n: number) => `${n > 0.5 ? "+" : n < -0.5 ? "−" : ""}Fr. ${fmtR(Math.abs(n))}`
 const fmtPct = (n: number | null) => n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.round(Math.abs(n) * 100)}%`
 const tone = (n: number) => n > 0.5 ? "text-negative" : n < -0.5 ? "text-positive" : ""
-const monthLabel = (m: string) =>
-  new Date(m + "-01T00:00:00Z").toLocaleDateString("de-CH", { month: "short", year: "2-digit", timeZone: "UTC" })
 
-const dayLabel = (d: string) =>
-  new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+// Number and date writing in the current language.
+function useFormats() {
+  const { f, locale } = useT()
+  return {
+    fmtR: f.int,
+    fmtSigned: (n: number) => `${n > 0.5 ? "+" : n < -0.5 ? "−" : ""}Fr. ${f.int(Math.abs(n))}`,
+    monthLabel: (m: string) => monthLabel(locale, m),
+    dayLabel: (d: string) => f.date(d + "T00:00:00Z", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+  }
+}
+const monthLabel = (locale: Locale, m: string) =>
+  new Date(m + "-01T00:00:00Z").toLocaleDateString(locale, { month: "short", year: "2-digit", timeZone: "UTC" })
 
 const WINDOWS = [3, 6, 12] as const
 
@@ -27,6 +35,8 @@ export function BudgetDrift({ version, onUseAverage }: {
   version: number
   onUseAverage: (categoryId: number, amount: number) => void
 }) {
+  const { t } = useT()
+  const { fmtR, fmtSigned, monthLabel, dayLabel } = useFormats()
   const [months, setMonths] = useState<number>(6)
   const [result, setResult] = useState<{ key: string; data?: DriftResult; error?: string } | null>(null)
   const key = `${months}:${version}`
@@ -36,22 +46,26 @@ export function BudgetDrift({ version, onUseAverage }: {
     fetch(`/api/budgets/drift?months=${months}`)
       .then(async r => {
         const d = await r.json()
-        if (!r.ok) throw new Error(d.error ?? "Failed to load")
+        if (!r.ok) throw new Error(d.error ?? t("budgets.drift.loadFailed"))
         if (!stale) setResult({ key, data: d })
       })
-      .catch(e => { if (!stale) setResult({ key, error: e instanceof Error ? e.message : "Failed to load" }) })
+      .catch(e => { if (!stale) setResult({ key, error: e instanceof Error ? e.message : t("budgets.drift.loadFailed") }) })
     return () => { stale = true }
+    // Reloads when the window or the budgets change; t is only read on failure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [months, key])
 
   const loading = result?.key !== key
   const d = result?.data
-  const t = d?.totals
+  const totals = d?.totals
 
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm text-muted-foreground">
-          Plan vs. actual{d?.months.length ? ` · ${monthLabel(d.months[0])} – ${monthLabel(d.months.at(-1)!)}` : ""}
+          {d?.months.length
+            ? t("budgets.drift.titleRange", { from: monthLabel(d.months[0]), to: monthLabel(d.months.at(-1)!) })
+            : t("budgets.drift.title")}
         </CardTitle>
         <Tabs value={String(months)} onValueChange={v => setMonths(Number(v))}>
           <TabsList>
@@ -63,26 +77,26 @@ export function BudgetDrift({ version, onUseAverage }: {
         {result?.error ? (
           <p className="text-sm text-destructive">{result.error}</p>
         ) : !d ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Loading…</p>
+          <p className="text-sm text-muted-foreground py-6 text-center">{t("common.loading")}</p>
         ) : d.months.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            Not enough history yet — drift needs at least one complete month of imported transactions.
+            {t("budgets.drift.notEnough")}
           </p>
         ) : d.rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Set a budget below to compare it with what you spend.</p>
+          <p className="text-sm text-muted-foreground py-6 text-center">{t("budgets.drift.setBudget")}</p>
         ) : (
           <div className={loading ? "opacity-60 transition-opacity" : ""}>
-            {t && (
+            {totals && (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
-                <Figure label="Planned" value={`Fr. ${fmtR(t.budget)}`} sub="per month" />
-                <Figure label="Spent" value={`Fr. ${fmtR(t.avg)}`} sub={`average of ${d.months.length} month${d.months.length === 1 ? "" : "s"}`} />
+                <Figure label={t("budgets.drift.planned")} value={`Fr. ${fmtR(totals.budget)}`} sub={t("common.perMonth")} />
+                <Figure label={t("budgets.drift.spent")} value={`Fr. ${fmtR(totals.avg)}`} sub={t("budgets.drift.avgOf", { count: d.months.length })} />
                 <Figure
-                  label="Drift" value={fmtSigned(t.drift)} valueClass={tone(t.drift)}
-                  sub={`${fmtPct(t.driftPct)} · over in ${t.monthsOver} of ${d.months.length}`}
+                  label={t("budgets.drift.drift")} value={fmtSigned(totals.drift)} valueClass={tone(totals.drift)}
+                  sub={t("budgets.drift.driftSub", { pct: fmtPct(totals.driftPct), over: totals.monthsOver, total: d.months.length })}
                 />
                 <Figure
-                  label="Not budgeted" value={`Fr. ${fmtR(d.unbudgeted.avg)}`}
-                  sub={d.unbudgeted.categories.slice(0, 2).map(u => u.name).join(", ") || "per month"}
+                  label={t("budgets.drift.notBudgeted")} value={`Fr. ${fmtR(d.unbudgeted.avg)}`}
+                  sub={d.unbudgeted.categories.slice(0, 2).map(u => u.name).join(", ") || t("common.perMonth")}
                 />
               </div>
             )}
@@ -91,12 +105,12 @@ export function BudgetDrift({ version, onUseAverage }: {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Budget</TableHead>
-                    <TableHead className="text-right">Avg. spent</TableHead>
-                    <TableHead className="text-right">Drift</TableHead>
-                    <TableHead>By month</TableHead>
-                    <TableHead><span className="sr-only">Actions</span></TableHead>
+                    <TableHead>{t("dashboard.drill.category")}</TableHead>
+                    <TableHead className="text-right">{t("budgets.drift.budget")}</TableHead>
+                    <TableHead className="text-right">{t("budgets.drift.avgSpent")}</TableHead>
+                    <TableHead className="text-right">{t("budgets.drift.drift")}</TableHead>
+                    <TableHead>{t("budgets.drift.byMonth")}</TableHead>
+                    <TableHead><span className="sr-only">{t("budgets.drift.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -108,9 +122,9 @@ export function BudgetDrift({ version, onUseAverage }: {
                           <span className="text-sm">{r.name}</span>
                         </div>
                         <p className="text-xs text-muted-foreground pl-4.5">
-                          over in {r.monthsOver} of {r.months.length}
+                          {t("budgets.drift.overIn", { over: r.monthsOver, total: r.months.length })}
                           {r.trend != null && Math.abs(r.trend) >= Math.max(10, r.budget * 0.05) && (
-                            <> · {r.trend > 0 ? "rising" : "falling"}</>
+                            <> · {r.trend > 0 ? t("budgets.drift.rising") : t("budgets.drift.falling")}</>
                           )}
                         </p>
                       </TableCell>
@@ -125,10 +139,10 @@ export function BudgetDrift({ version, onUseAverage }: {
                         {Math.abs(r.suggested - r.budget) >= 10 && (
                           <Button
                             size="sm" variant="ghost" className="h-7 text-xs"
-                            title={`Set the budget field to Fr. ${fmtR(r.suggested)} (save to apply)`}
+                            title={t("budgets.drift.useTitle", { amount: fmtR(r.suggested) })}
                             onClick={() => onUseAverage(r.categoryId, r.suggested)}
                           >
-                            Use {fmtR(r.suggested)}
+                            {t("budgets.drift.use", { amount: fmtR(r.suggested) })}
                           </Button>
                         )}
                       </TableCell>
@@ -139,10 +153,9 @@ export function BudgetDrift({ version, onUseAverage }: {
             </div>
             <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
               {d.importedThrough
-                ? `Your latest import is from ${dayLabel(d.importedThrough)}, so ${monthLabel(d.current)} isn't complete — import a newer export to include it. `
-                : `Complete months only — ${monthLabel(d.current)} is left out until it's over. `}
-              Every month is compared with today&apos;s budget, since earlier budgets aren&apos;t stored.
-              Spending counts like the dashboard: outgoing payments, without savings and transfers.
+                ? t("budgets.drift.footerImported", { date: dayLabel(d.importedThrough), month: monthLabel(d.current) })
+                : t("budgets.drift.footerComplete", { month: monthLabel(d.current) })}{" "}
+              {t("budgets.drift.footerMore")}
             </p>
           </div>
         )}
@@ -163,6 +176,8 @@ function Figure({ label, value, sub, valueClass = "" }: { label: string; value: 
 
 // One small bar per month, scaled to the row; the dashed line is the budget.
 function MonthBars({ row }: { row: DriftRow }) {
+  const { t } = useT()
+  const { fmtR, monthLabel } = useFormats()
   const H = 28
   const max = Math.max(row.budget, ...row.months.map(m => m.actual), 1)
   const budgetY = H - (row.budget / max) * H
@@ -173,7 +188,7 @@ function MonthBars({ row }: { row: DriftRow }) {
         return (
           <span
             key={m.month}
-            title={`${monthLabel(m.month)}: Fr. ${fmtR(m.actual)} of ${fmtR(row.budget)}`}
+            title={t("budgets.drift.barTitle", { month: monthLabel(m.month), spent: fmtR(m.actual), budget: fmtR(row.budget) })}
             className={`w-2.5 rounded-t-[3px] ${over ? "bg-negative/80" : "bg-muted-foreground/35"}`}
             style={{ height: Math.max(1, (m.actual / max) * H) }}
           />

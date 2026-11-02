@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { BUDGETABLE_TYPES as BUDGETABLE } from "@/lib/categories"
 import { BudgetDrift } from "./drift"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
 
 interface Category {
   id:     number
@@ -16,10 +17,8 @@ interface Category {
   budget: { monthlyLimit: number } | null
 }
 
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
-
-
 export default function BudgetsPage() {
+  const { t, f } = useT()
   const [cats, setCats]       = useState<Category[] | null>(null)
   const [limits, setLimits]   = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(true)
@@ -38,10 +37,12 @@ export default function BudgetsPage() {
         setCats(list)
         setLimits(Object.fromEntries(list.map(c => [c.id, c.budget ? String(c.budget.monthlyLimit) : ""])))
       })
-      .catch(() => setError("Failed to load categories"))
+      .catch(() => setError(t("budgets.loadFailed")))
       .finally(() => setLoading(false))
   }
 
+  // Loads once; `load` and t are only read here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [])
 
   function setLimit(id: number, value: string) {
@@ -68,7 +69,7 @@ export default function BudgetsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ budgets: toSet }),
         })
-        if (!res.ok) throw new Error((await res.json()).error ?? "Save failed")
+        if (!res.ok) throw new Error((await res.json()).error ?? t("common.saveFailed"))
       }
 
       await Promise.all(
@@ -79,7 +80,7 @@ export default function BudgetsPage() {
       setVersion(v => v + 1)
       load() // refresh from server so budget/null state is accurate
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed")
+      setError(e instanceof Error ? e.message : t("common.saveFailed"))
     } finally {
       setSaving(false)
     }
@@ -94,23 +95,21 @@ export default function BudgetsPage() {
 
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase text-muted-foreground mb-2">Budgets</p>
-          <h1>Monthly Budgets</h1>
+          <p className="text-xs uppercase text-muted-foreground mb-2">{t("budgets.label")}</p>
+          <h1>{t("budgets.title")}</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Set a monthly limit per category. Leave a field blank to remove its budget.
-            The dashboard compares each month&apos;s spending against these; below you can see
-            how far recent months drifted from the plan.
+            {t("budgets.intro")}
           </p>
         </div>
         <Button onClick={save} disabled={saving || loading}>
-          {saving ? "Saving…" : "Save budgets"}
+          {saving ? t("common.saving") : t("budgets.save")}
         </Button>
       </div>
 
       {loading && !cats && <PageLoading />}
 
       {error && <div className="text-sm text-destructive py-4 text-center">{error}</div>}
-      {saved && <div className="text-sm text-positive py-2">Budgets saved.</div>}
+      {saved && <div className="text-sm text-positive py-2">{t("budgets.saved")}</div>}
 
       <div className="mb-4">
         <BudgetDrift version={version} onUseAverage={(id, amount) => setLimit(id, String(amount))} />
@@ -121,9 +120,9 @@ export default function BudgetsPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm text-muted-foreground">
-                {cats.length} categories
+                {t("budgets.categories", { count: cats.length })}
               </CardTitle>
-              <span className="text-sm font-mono">Total: Fr. {fmtR(total)}/mo</span>
+              <span className="text-sm font-mono">{t("budgets.total", { amount: f.int(total) })}</span>
             </div>
           </CardHeader>
           <CardContent>
@@ -132,7 +131,7 @@ export default function BudgetsPage() {
                 <div key={c.id} className="flex items-center gap-3 py-2.5">
                   <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: c.color }} />
                   <span className="flex-1 text-sm">{c.name}</span>
-                  <span className="text-xs uppercase text-muted-foreground w-20">{c.type}</span>
+                  <span className="text-xs uppercase text-muted-foreground w-20">{c.type === "fixed" ? t("dashboard.type.fixed") : t("dashboard.type.variable")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Fr.</span>
                     <Input

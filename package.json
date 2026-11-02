@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "i18n:check": "node --experimental-strip-types scripts/check-i18n.mjs",
     "electron:dev": "ELECTRON_DEV=1 electron .",
     "build:desktop": "next build && node scripts/assemble-standalone.mjs",
     "dist": "pnpm build:desktop && electron-builder"

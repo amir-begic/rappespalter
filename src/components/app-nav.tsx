@@ -7,50 +7,52 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useUpdates } from "@/lib/updates"
 import { saveAppearance } from "@/lib/appearance"
+import { useT } from "@/lib/i18n/provider"
+import type { MessageKey } from "@/locales"
 
-type NavItem = { href: string; label: string }
-type Section = { title: string; color: string; ink: string; dot: string; items: NavItem[] }
+type NavItem = { href: string; label: MessageKey }
+type Section = { id: string; title: MessageKey; color: string; ink: string; dot: string; items: NavItem[] }
 
 // Two tiers: the sections across the top bar, the current section's pages in a
 // row below. Each section has a colour from the palette; its current page is a
 // pill in it (`ink` is the text colour that reads on it).
 const SECTIONS: Section[] = [
   {
-    title: "Money",
+    id: "money", title: "nav.section.money",
     color: "bg-pop-blue", ink: "text-white", dot: "bg-pop-blue",
     items: [
-      { href: "/dashboard", label: "Dashboard" },
-      { href: "/trends",    label: "Trends" },
-      { href: "/income",    label: "Income" },
-      { href: "/budgets",   label: "Budgets" },
-      { href: "/recurring", label: "Recurring" },
+      { href: "/dashboard", label: "nav.page.dashboard" },
+      { href: "/trends",    label: "nav.page.trends" },
+      { href: "/income",    label: "nav.page.income" },
+      { href: "/budgets",   label: "nav.page.budgets" },
+      { href: "/recurring", label: "nav.page.recurring" },
     ],
   },
   {
-    title: "Wealth",
+    id: "wealth", title: "nav.section.wealth",
     color: "bg-pop-green", ink: "text-white", dot: "bg-pop-green",
     items: [
-      { href: "/networth",  label: "Net Worth" },
-      { href: "/assets",    label: "Assets" },
-      { href: "/portfolio", label: "Portfolio" },
+      { href: "/networth",  label: "nav.page.networth" },
+      { href: "/assets",    label: "nav.page.assets" },
+      { href: "/portfolio", label: "nav.page.portfolio" },
     ],
   },
   {
-    title: "Planning",
+    id: "planning", title: "nav.section.planning",
     color: "bg-pop-yellow", ink: "text-[oklch(0.2_0.012_280)]", dot: "bg-pop-yellow",
     items: [
-      { href: "/goal",        label: "Goals" },
-      { href: "/projections", label: "Projections" },
-      { href: "/tax",         label: "Tax" },
+      { href: "/goal",        label: "nav.page.goals" },
+      { href: "/projections", label: "nav.page.projections" },
+      { href: "/tax",         label: "nav.page.tax" },
     ],
   },
   {
-    title: "Data",
+    id: "data", title: "nav.section.data",
     color: "bg-pop-red", ink: "text-white", dot: "bg-pop-red",
     items: [
-      { href: "/import",   label: "Import" },
-      { href: "/review",   label: "Review" },
-      { href: "/data",     label: "Data" },
+      { href: "/import",   label: "nav.page.import" },
+      { href: "/review",   label: "nav.page.review" },
+      { href: "/data",     label: "nav.page.data" },
     ],
   },
 ]
@@ -70,7 +72,7 @@ function useCurrentSection(): Section | null {
   const pathname = usePathname()
   const section = SECTIONS.find(s => s.items.some(i => isUnder(pathname, i.href))) ?? null
   useEffect(() => {
-    if (section) lastVisited.set(section.title, section.items.find(i => isUnder(pathname, i.href))!.href)
+    if (section) lastVisited.set(section.id, section.items.find(i => isUnder(pathname, i.href))!.href)
   }, [section, pathname])
   return section
 }
@@ -92,15 +94,17 @@ function useReviewCount() {
 }
 
 function ReviewCount({ count }: { count: number }) {
+  const { t } = useT()
   return (
-    <span className="min-w-4 rounded-full bg-pop-red px-1 text-center text-[0.625rem] leading-4 text-white" aria-label={`${count} to review`}>
+    <span className="min-w-4 rounded-full bg-pop-red px-1 text-center text-[0.625rem] leading-4 text-white" aria-label={t("nav.toReview", { count })}>
       {count > 99 ? "99+" : count}
     </span>
   )
 }
 
 function UpdateDot({ className }: { className?: string }) {
-  return <span className={cn("size-1.5 rounded-full bg-pop-yellow", className)} aria-label="Update available" />
+  const { t } = useT()
+  return <span className={cn("size-1.5 rounded-full bg-pop-yellow", className)} aria-label={t("nav.updateAvailable")} />
 }
 
 // The mark from the app icon: a coin split in two, the halves knocked slightly apart.
@@ -127,6 +131,7 @@ const ICON_BUTTON = "flex size-9 shrink-0 items-center justify-center rounded-fu
 // Light (the default) or dark, saved with the other appearance settings (Settings →
 // Appearance); the page switches at once. The theme lives on <html>, so CSS picks the icon.
 function ThemeToggle() {
+  const { t } = useT()
   const toggle = () => {
     const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark"
     saveAppearance({ theme: next }).catch(err => console.error(err))
@@ -136,8 +141,8 @@ function ThemeToggle() {
       type="button"
       onClick={toggle}
       className={ICON_BUTTON}
-      aria-label="Switch between dark and light theme"
-      title="Dark / light"
+      aria-label={t("nav.themeSwitch")}
+      title={t("nav.themeTitle")}
     >
       <Sun className="size-4 hidden dark:block" strokeWidth={1.5} />
       <Moon className="size-4 dark:hidden" strokeWidth={1.5} />
@@ -148,6 +153,7 @@ function ThemeToggle() {
 // Settings sits outside the sections, as a gear next to the theme toggle; a dot on
 // it while a newer version waits to be installed (Settings → Updates).
 function SettingsLink() {
+  const { t } = useT()
   const { state } = useUpdates()
   const active = useIsActive()("/settings")
   return (
@@ -155,8 +161,8 @@ function SettingsLink() {
       href="/settings"
       aria-current={active ? "page" : undefined}
       className={cn(ICON_BUTTON, "relative", active && "bg-accent text-foreground")}
-      aria-label="Settings"
-      title="Settings"
+      aria-label={t("nav.settings")}
+      title={t("nav.settings")}
     >
       <Settings className="size-4" strokeWidth={1.5} />
       {state?.available && <UpdateDot className="absolute top-1.5 right-1.5" />}
@@ -167,15 +173,16 @@ function SettingsLink() {
 // The sections, as tabs in the top bar. Badges of a section's pages show on the
 // section while you're elsewhere.
 function SectionTabs({ current, className }: { current: Section | null; className?: string }) {
+  const { t } = useT()
   const toReview = useReviewCount()
   return (
-    <nav aria-label="Sections" className={className}>
+    <nav aria-label={t("nav.sections")} className={className}>
       {SECTIONS.map(section => {
         const active = section === current
-        const href = lastVisited.get(section.title) ?? section.items[0].href
+        const href = lastVisited.get(section.id) ?? section.items[0].href
         return (
           <Link
-            key={section.title}
+            key={section.id}
             href={href}
             aria-current={active ? "true" : undefined}
             className={cn(
@@ -184,7 +191,7 @@ function SectionTabs({ current, className }: { current: Section | null; classNam
             )}
           >
             <span className={cn("size-2 rounded-full", section.dot)} aria-hidden="true" />
-            {section.title}
+            {t(section.title)}
             {!active && section.items.some(i => i.href === "/review") && toReview > 0 && <ReviewCount count={toReview} />}
           </Link>
         )
@@ -195,10 +202,11 @@ function SectionTabs({ current, className }: { current: Section | null; classNam
 
 // The current section's pages.
 function PageLinks({ section }: { section: Section }) {
+  const { t } = useT()
   const isActive = useIsActive()
   const toReview = useReviewCount()
   return (
-    <nav aria-label={section.title} className="mx-auto flex max-w-7xl items-center gap-0.5 overflow-x-auto px-3 pb-2 lg:px-5 [scrollbar-width:none]">
+    <nav aria-label={t(section.title)} className="mx-auto flex max-w-7xl items-center gap-0.5 overflow-x-auto px-3 pb-2 lg:px-5 [scrollbar-width:none]">
       {section.items.map(({ href, label }) => (
         <Link
           key={href}
@@ -211,7 +219,7 @@ function PageLinks({ section }: { section: Section }) {
               : "text-muted-foreground hover:bg-accent hover:text-foreground"
           )}
         >
-          {label}
+          {t(label)}
           {href === "/review" && toReview > 0 && !isActive(href) && <ReviewCount count={toReview} />}
         </Link>
       ))}

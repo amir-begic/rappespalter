@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import { COLLECTION_LABEL } from "@/lib/i18n/labels"
 import { AssetArt, assetColor } from "@/components/asset-art"
 import { LeaseVsBuy } from "@/components/lease-vs-buy"
 import {
@@ -18,7 +20,7 @@ import {
   type AssetDraft, type LiabilityDraft,
 } from "@/components/asset-editors"
 import {
-  ASSET_KINDS, LIABILITY_KINDS, assetValueAt, debtAt, gainOf, leasesOf, monthEnd, monthsBetween, ownedFrom, paymentOf,
+  assetValueAt, debtAt, gainOf, leasesOf, monthEnd, monthsBetween, ownedFrom, paymentOf,
   type Asset, type CarCost, type Liability,
 } from "@/lib/assets"
 import type { CarDeal } from "@/lib/car"
@@ -26,13 +28,27 @@ import type { CarDeal } from "@/lib/car"
 interface AssetsData { assets: Asset[]; liabilities: Liability[]; today: string }
 interface CostData { cost: CarCost; categories: { id: number; name: string; color: string; suggested: boolean }[] }
 
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
-const fmtDay = (d: string) =>
-  new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
-const fmtMonth = (m: string) =>
-  new Date(m + "-01T00:00:00Z").toLocaleDateString("de-CH", { month: "short", year: "2-digit", timeZone: "UTC" })
+// Number and date writing in the current language.
+function useFormats() {
+  const { f, locale } = useT()
+  return {
+    fmtR: f.int,
+    fmtDay: (d: string) => f.date(d + "T00:00:00Z", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+    fmtMonth: (m: string) => new Date(m + "-01T00:00:00Z").toLocaleDateString(locale, { month: "short", year: "2-digit", timeZone: "UTC" }),
+  }
+}
+
+// The collection's name (stored in English) or the kind's name.
+function useKindLabel() {
+  const { t } = useT()
+  return (a: Asset) => a.kind === "collectible" && a.subtype && COLLECTION_LABEL[a.subtype]
+    ? t(COLLECTION_LABEL[a.subtype]) : t(`as.kind.${a.kind}.label`)
+}
 
 export default function AssetPage() {
+  const { t } = useT()
+  const { fmtR } = useFormats()
+  const kindLabel = useKindLabel()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [data, setData]   = useState<AssetsData | null>(null)
@@ -44,8 +60,10 @@ export default function AssetPage() {
     fetch("/api/assets")
       .then(r => r.json())
       .then(d => d.error ? setError(d.error) : setData(d))
-      .catch(() => setError("Failed to load the asset"))
+      .catch(() => setError(t("as.loadOneFailed")))
   }
+  // Loads once; `load` and t are only read here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [])
 
   const asset = data?.assets.find(a => a.id === Number(id))
@@ -54,12 +72,12 @@ export default function AssetPage() {
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <Link href="/assets" className="inline-flex items-center gap-1 text-xs uppercase text-muted-foreground hover:text-foreground mb-4">
-        <ArrowLeft className="size-3" /> Assets
+        <ArrowLeft className="size-3" /> {t("as.back")}
       </Link>
 
       {!data && !error && <PageLoading />}
       {(error || (data && !asset)) && (
-        <div className="text-sm text-destructive py-20 text-center">{error ?? "This asset doesn't exist (any more)."}</div>
+        <div className="text-sm text-destructive py-20 text-center">{error ?? t("as.notFound")}</div>
       )}
 
       {data && asset && (
@@ -68,12 +86,12 @@ export default function AssetPage() {
             <AssetArt kind={asset.kind} subtype={asset.subtype} className="size-20 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-xs uppercase text-muted-foreground mb-2">
-                {asset.kind === "collectible" && asset.subtype ? asset.subtype : ASSET_KINDS[asset.kind].label}
+                {kindLabel(asset)}
               </p>
               <h1 className="truncate">{asset.name}</h1>
               {asset.notes && <p className="text-sm text-muted-foreground mt-2">{asset.notes}</p>}
             </div>
-            <Button variant="outline" onClick={() => setEdit(assetDraftOf(asset))}>Edit</Button>
+            <Button variant="outline" onClick={() => setEdit(assetDraftOf(asset))}>{t("common.edit")}</Button>
           </div>
 
           <div className="space-y-4">
@@ -83,28 +101,30 @@ export default function AssetPage() {
             <Valuations asset={asset} onChanged={load} />
             <Card>
               <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-                <CardTitle className="text-sm text-muted-foreground">Financing</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{t("as.fin.title")}</CardTitle>
                 <div className="flex gap-1.5">
                   {(asset.kind === "vehicle" ? ["loan", "lease"] as const : ["loan"] as const).map(k => (
-                    <Button key={k} size="sm" variant="outline" onClick={() => setLiability(newLiabilityDraft(k, asset))}>
-                      <Plus className="size-3" /> {LIABILITY_KINDS[k].label}
+                    <Button key={k} size="sm" variant="outline" onClick={() => setLiability(newLiabilityDraft(k, t(`as.liab.name.${k}`, { asset: asset.name }), asset))}>
+                      <Plus className="size-3" /> {t(`as.liabKind.${k}.label`)}
                     </Button>
                   ))}
                 </div>
               </CardHeader>
               <CardContent>
                 {mine.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Paid for — no loan or lease on it.</p>
+                  <p className="text-sm text-muted-foreground">{t("as.fin.none")}</p>
                 ) : (
                   <ul className="space-y-2 text-sm">
                     {mine.map(l => (
                       <li key={l.id} className="flex flex-wrap items-baseline gap-x-3">
                         <span>{l.name}</span>
-                        <span className="text-xs uppercase text-muted-foreground">{LIABILITY_KINDS[l.kind].label}</span>
+                        <span className="text-xs uppercase text-muted-foreground">{t(`as.liabKind.${l.kind}.label`)}</span>
                         <span className="ml-auto font-mono text-xs text-muted-foreground">
-                          Fr. {fmtR(paymentOf(l))}/month{l.kind !== "lease" && ` · Fr. ${fmtR(debtAt(l, data.today))} owed`}
+                          {l.kind !== "lease"
+                            ? t("as.fin.lineOwed", { payment: fmtR(paymentOf(l)), owed: fmtR(debtAt(l, data.today)) })
+                            : t("as.fin.line", { payment: fmtR(paymentOf(l)) })}
                         </span>
-                        <Button size="sm" variant="ghost" onClick={() => setLiability({ ...l })}>Edit</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setLiability({ ...l })}>{t("common.edit")}</Button>
                       </li>
                     ))}
                   </ul>
@@ -160,6 +180,8 @@ function dealFrom(a: Asset, liabilities: Liability[]): Partial<CarDeal> {
 }
 
 function Figures({ asset, liabilities, today }: { asset: Asset; liabilities: Liability[]; today: string }) {
+  const { t } = useT()
+  const { fmtR, fmtDay } = useFormats()
   const value = assetValueAt(asset, today)
   const gain = gainOf(asset, today)
   const leased = leasesOf(asset.id, liabilities, today).length > 0
@@ -171,14 +193,14 @@ function Figures({ asset, liabilities, today }: { asset: Asset; liabilities: Lia
       <div className="grid grid-cols-2 gap-4">
         <Card><CardContent className="pt-6">
           <p className="font-display text-3xl">Fr. {fmtR(asset.soldPrice ?? 0)}</p>
-          <p className="text-xs uppercase text-muted-foreground mt-1">Sold {fmtDay(asset.soldDate)}</p>
+          <p className="text-xs uppercase text-muted-foreground mt-1">{t("as.detail.sold", { date: fmtDay(asset.soldDate) })}</p>
         </CardContent></Card>
         {result != null && (
           <Card><CardContent className="pt-6">
             <p className={`font-display text-3xl ${result >= 0 ? "text-positive" : "text-negative"}`}>
               {result >= 0 ? "+" : "−"}Fr. {fmtR(Math.abs(result))}
             </p>
-            <p className="text-xs uppercase text-muted-foreground mt-1">Against the price paid</p>
+            <p className="text-xs uppercase text-muted-foreground mt-1">{t("as.detail.againstPaid")}</p>
           </CardContent></Card>
         )}
       </div>
@@ -190,7 +212,7 @@ function Figures({ asset, liabilities, today }: { asset: Asset; liabilities: Lia
       <Card><CardContent className="pt-6">
         <p className="font-display text-3xl text-positive">Fr. {fmtR(value)}</p>
         <p className="text-xs uppercase text-muted-foreground mt-1">
-          {leased ? "Worth — leased, not counted" : asset.valuation === "depreciation" ? "Worth now (estimated)" : "Worth"}
+          {leased ? t("as.detail.worthLeased") : asset.valuation === "depreciation" ? t("as.detail.worthEstimated") : t("as.detail.worth")}
         </p>
       </CardContent></Card>
       {gain != null && (
@@ -198,13 +220,13 @@ function Figures({ asset, liabilities, today }: { asset: Asset; liabilities: Lia
           <p className={`font-display text-3xl ${gain >= 0 ? "text-info" : "text-negative"}`}>
             {gain >= 0 ? "+" : "−"}Fr. {fmtR(Math.abs(gain))}
           </p>
-          <p className="text-xs uppercase text-muted-foreground mt-1">Since bought for Fr. {fmtR(asset.purchasePrice!)}</p>
+          <p className="text-xs uppercase text-muted-foreground mt-1">{t("as.detail.sinceBought", { price: fmtR(asset.purchasePrice!) })}</p>
         </CardContent></Card>
       )}
       {owed > 0 && (
         <Card><CardContent className="pt-6">
           <p className="font-display text-3xl text-highlight">Fr. {fmtR(value - owed)}</p>
-          <p className="text-xs uppercase text-muted-foreground mt-1">Yours after Fr. {fmtR(owed)} owed</p>
+          <p className="text-xs uppercase text-muted-foreground mt-1">{t("as.detail.yours", { owed: fmtR(owed) })}</p>
         </CardContent></Card>
       )}
     </div>
@@ -212,6 +234,8 @@ function Figures({ asset, liabilities, today }: { asset: Asset; liabilities: Lia
 }
 
 function ValueChart({ asset, liabilities, today }: { asset: Asset; liabilities: Liability[]; today: string }) {
+  const { t } = useT()
+  const { fmtR, fmtMonth } = useFormats()
   const points = useMemo(() => {
     const from = ownedFrom(asset)
     if (!from) return []
@@ -228,7 +252,7 @@ function ValueChart({ asset, liabilities, today }: { asset: Asset; liabilities: 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-muted-foreground">Value over time</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">{t("as.detail.chart")}</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={240}>
@@ -244,10 +268,10 @@ function ValueChart({ asset, liabilities, today }: { asset: Asset; liabilities: 
             <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Area
               type={asset.valuation === "depreciation" ? "monotone" : "stepAfter"}
-              dataKey="value" name="Value" stroke={color} fill={color} fillOpacity={0.4}
+              dataKey="value" name={t("as.detail.value")} stroke={color} fill={color} fillOpacity={0.4}
             />
             {points.some(p => "owed" in p) && (
-              <Line type="monotone" dataKey="owed" name="Owed" stroke="var(--foreground)" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+              <Line type="monotone" dataKey="owed" name={t("as.detail.owedLine")} stroke="var(--foreground)" strokeWidth={2} strokeDasharray="5 4" dot={false} />
             )}
           </ComposedChart>
         </ResponsiveContainer>
@@ -257,6 +281,8 @@ function ValueChart({ asset, liabilities, today }: { asset: Asset; liabilities: 
 }
 
 function Valuations({ asset, onChanged }: { asset: Asset; onChanged: () => void }) {
+  const { t } = useT()
+  const { fmtR, fmtDay } = useFormats()
   const [date, setDate]   = useState(todayKey())
   const [value, setValue] = useState("")
   const [busy, setBusy]   = useState(false)
@@ -280,13 +306,11 @@ function Valuations({ asset, onChanged }: { asset: Asset; onChanged: () => void 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-muted-foreground">Valuations</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">{t("as.val.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          {asset.valuation === "depreciation"
-            ? "The value follows the depreciation curve from the purchase price. A valuation — a dealer's quote, a comparable listing — resets it, and the curve carries on from there."
-            : "The latest valuation is what it's worth until you add a newer one. For collections, one value for the whole lot is enough."}
+          {asset.valuation === "depreciation" ? t("as.val.textDepreciation") : t("as.val.textManual")}
         </p>
         {asset.values.length > 0 && (
           <ul className="space-y-1 text-sm">
@@ -294,7 +318,7 @@ function Valuations({ asset, onChanged }: { asset: Asset; onChanged: () => void 
               <li key={v.id} className="flex items-center gap-3">
                 <span className="text-muted-foreground">{fmtDay(v.date)}</span>
                 <span className="ml-auto font-mono">Fr. {fmtR(v.value)}</span>
-                <button type="button" aria-label={`Delete the valuation of ${fmtDay(v.date)}`} onClick={() => remove(v.id)} className="text-muted-foreground hover:text-foreground">
+                <button type="button" aria-label={t("as.val.deleteAria", { date: fmtDay(v.date) })} onClick={() => remove(v.id)} className="text-muted-foreground hover:text-foreground">
                   <X className="size-4" />
                 </button>
               </li>
@@ -303,14 +327,14 @@ function Valuations({ asset, onChanged }: { asset: Asset; onChanged: () => void 
         )}
         <div className="flex flex-wrap items-end gap-2">
           <label className="block">
-            <span className="text-xs uppercase text-muted-foreground">On</span>
+            <span className="text-xs uppercase text-muted-foreground">{t("as.val.on")}</span>
             <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 h-9 w-40" />
           </label>
           <label className="block">
-            <span className="text-xs uppercase text-muted-foreground">Worth (Fr.)</span>
+            <span className="text-xs uppercase text-muted-foreground">{t("as.val.worth")}</span>
             <Input type="number" min={0} step={10} value={value} onChange={e => setValue(e.target.value)} className="mt-1 h-9 w-36" />
           </label>
-          <Button disabled={busy || !date || value === "" || Number(value) < 0} onClick={add}>Add valuation</Button>
+          <Button disabled={busy || !date || value === "" || Number(value) < 0} onClick={add}>{t("as.val.add")}</Button>
         </div>
       </CardContent>
     </Card>
@@ -321,6 +345,8 @@ function Valuations({ asset, onChanged }: { asset: Asset; onChanged: () => void 
 // chosen expense categories (src/lib/assets.ts carCost). Refetched whenever the page reloads its data (a new `asset` object), e.g. after
 // a loan or lease changes.
 function CarCostCard({ asset, onChanged }: { asset: Asset; onChanged: () => void }) {
+  const { t } = useT()
+  const { fmtR } = useFormats()
   const [data, setData] = useState<CostData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -333,8 +359,10 @@ function CarCostCard({ asset, onChanged }: { asset: Asset; onChanged: () => void
         if (d.error) setError(d.error)
         else setData(d)
       })
-      .catch(() => { if (!stale) setError("Failed to work out the costs") })
+      .catch(() => { if (!stale) setError(t("as.cost.failed")) })
     return () => { stale = true }
+    // Refetches when the asset reloads; t is only read if it fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asset])
 
   async function setCategories(ids: number[]) {
@@ -353,12 +381,12 @@ function CarCostCard({ asset, onChanged }: { asset: Asset; onChanged: () => void
   const name = (id: number) => categories.find(c => c.id === id)
 
   const rows: { label: string; amount: number; color: string; note?: string }[] = [
-    ...(cost.depreciation > 0 ? [{ label: "Losing value", amount: cost.depreciation, color: "var(--pop-pink)", note: "depreciation" }] : []),
-    ...cost.financing.map(f => ({
-      label: f.name, amount: f.amount, color: "var(--pop-yellow)",
-      note: f.kind === "lease" ? "lease payment" : "interest only — repaying the loan isn't a cost",
+    ...(cost.depreciation > 0 ? [{ label: t("as.cost.losingValue"), amount: cost.depreciation, color: "var(--pop-pink)", note: t("as.cost.depreciation") }] : []),
+    ...cost.financing.map(fin => ({
+      label: fin.name, amount: fin.amount, color: "var(--pop-yellow)",
+      note: fin.kind === "lease" ? t("as.cost.leasePayment") : t("as.cost.interestOnly"),
     })),
-    ...cost.running.map(r => ({ label: name(r.categoryId)?.name ?? "Category", amount: r.amount, color: name(r.categoryId)?.color ?? "var(--border)" })),
+    ...cost.running.map(r => ({ label: name(r.categoryId)?.name ?? t("as.cost.category"), amount: r.amount, color: name(r.categoryId)?.color ?? "var(--border)" })),
   ]
 
   return (
@@ -366,18 +394,18 @@ function CarCostCard({ asset, onChanged }: { asset: Asset; onChanged: () => void
       <Card>
         <CardContent className="pt-6">
           <p className="font-display text-3xl text-negative">Fr. {fmtR(cost.total)}</p>
-          <p className="text-xs uppercase text-muted-foreground mt-1">This car costs you a month</p>
+          <p className="text-xs uppercase text-muted-foreground mt-1">{t("as.cost.title")}</p>
           <p className="text-xs text-muted-foreground mt-3">
-            Fr. {fmtR(cost.total * 12)} a year
+            {t("as.cost.perYear", { amount: fmtR(cost.total * 12) })}
             {cost.months.length > 0 && asset.costCategories.length > 0 &&
-              ` · running costs averaged over ${cost.months.length} complete ${cost.months.length === 1 ? "month" : "months"}, one-offs left out`}
+              ` · ${t("as.cost.averaged", { count: cost.months.length })}`}
           </p>
         </CardContent>
       </Card>
 
       <Card className="sm:col-span-2">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground">Where it goes</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">{t("as.cost.whereTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {rows.length > 0 && (
@@ -400,14 +428,14 @@ function CarCostCard({ asset, onChanged }: { asset: Asset; onChanged: () => void
 
           <div className="border-t border-border pt-3 text-xs text-muted-foreground">
             <p className="mb-2">
-              Running costs come from these expense categories (fuel, insurance, parking, motor-vehicle tax, service…):
+              {t("as.cost.categories")}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {asset.costCategories.map(id => (
                 <button
                   key={id} type="button" onClick={() => setCategories(asset.costCategories.filter(c => c !== id))}
                   className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-foreground hover:bg-muted"
-                  aria-label={`Stop counting ${name(id)?.name ?? "this category"}`}
+                  aria-label={t("as.cost.stopAria", { name: name(id)?.name ?? t("review.thisCategory") })}
                 >
                   <span className="size-2 rounded-sm" style={{ background: name(id)?.color }} />
                   {name(id)?.name ?? `#${id}`} <X className="size-3" />
@@ -417,14 +445,14 @@ function CarCostCard({ asset, onChanged }: { asset: Asset; onChanged: () => void
                 value=""
                 onChange={e => e.target.value && setCategories([...asset.costCategories, Number(e.target.value)])}
                 className="rounded-full border border-input bg-card px-2.5 py-1 text-foreground"
-                aria-label="Add a category"
+                aria-label={t("as.cost.addAria")}
               >
-                <option value="">+ Add a category</option>
+                <option value="">{t("as.cost.addOption")}</option>
                 {categories.filter(c => !chosen.has(c.id)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               {suggested.length > 0 && (
                 <Button size="sm" variant="outline" onClick={() => setCategories([...asset.costCategories, ...suggested.map(c => c.id)])}>
-                  Add {suggested.map(c => c.name).join(", ")}
+                  {t("as.cost.addSuggested", { names: suggested.map(c => c.name).join(", ") })}
                 </Button>
               )}
             </div>

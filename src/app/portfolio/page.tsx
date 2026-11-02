@@ -19,23 +19,35 @@ import type { PortfolioSummary } from "@/lib/portfolio/store"
 import { PriceSources } from "./price-sources"
 import { Allocation } from "./allocation"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import { warningText } from "@/lib/i18n/labels"
+import type { MessageKey } from "@/locales"
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
-const fmtR   = (n: number) => Math.round(n).toLocaleString("de-CH")
-const fmt2   = (n: number) => n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtQty = (n: number) => n.toLocaleString("de-CH", { maximumFractionDigits: 4 })
-const fmtPct = (n: number | null, signed = true) =>
-  n == null ? "—" : `${signed && n > 0 ? "+" : ""}${(n * 100).toFixed(2)}%`
-const fmtSigned = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}Fr. ${fmtR(Math.abs(n))}`
 const tone = (n: number | null) => n == null || Math.abs(n) < 1e-9 ? "" : n > 0 ? "text-positive" : "text-negative"
 const fmtK = (n: number) => Math.abs(n) >= 1000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`
-const monthLabel = (m: string) =>
-  new Date(m + "-01T00:00:00Z").toLocaleDateString("de-CH", { month: "short", year: "2-digit", timeZone: "UTC" })
-const dayLabel = (d: string) =>
-  new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "2-digit", timeZone: "UTC" })
+
+// Number and date writing in the current language.
+function useFormats() {
+  const { f, locale } = useT()
+  const fmtR = f.int
+  return {
+    fmtR,
+    fmt2: (n: number) => f.decimal(n),
+    fmtQty: (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 4 }),
+    fmtPct: (n: number | null, signed = true) =>
+      n == null ? "—" : `${signed && n > 0 ? "+" : ""}${(n * 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+    fmtSigned: (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}Fr. ${fmtR(Math.abs(n))}`,
+    monthLabel: (m: string) => new Date(m + "-01T00:00:00Z").toLocaleDateString(locale, { month: "short", year: "2-digit", timeZone: "UTC" }),
+    dayLabel: (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString(locale, { day: "numeric", month: "short", year: "2-digit", timeZone: "UTC" }),
+  }
+}
 
 const RANGES = { "3M": 91, "6M": 182, "1Y": 365, "All": Infinity } as const
+const RANGE_LABEL: Record<keyof typeof RANGES, MessageKey> = {
+  "3M": "pf.range.3M", "6M": "pf.range.6M", "1Y": "pf.range.1Y", "All": "pf.range.All",
+}
 type Range = keyof typeof RANGES
 type KindFilter = "all" | "etf" | "stock"
 
@@ -45,9 +57,11 @@ const holdingHref = (symbol: string) => `/portfolio/${encodeURIComponent(symbol)
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function PortfolioPage() {
+  const { t, rich, locale } = useT()
+  const { fmtR, fmt2, fmtQty, fmtPct, fmtSigned, monthLabel, dayLabel } = useFormats()
   const [data, setData]       = useState<PortfolioSummary | null>(null)
   const [error, setError]     = useState<string | null>(null)
-  const [busy, setBusy]       = useState<string | null>(null) // status text while working
+  const [busy, setBusy]       = useState<MessageKey | null>(null) // what's being done, shown while working
   const [notice, setNotice]   = useState<{ text: string; tone: "ok" | "warn" } | null>(null)
   const [range, setRange]     = useState<Range>("All")
   const [kind, setKind]       = useState<KindFilter>("all")
@@ -58,36 +72,36 @@ export default function PortfolioPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/portfolio")
     const d = await res.json()
-    if (!res.ok) throw new Error(d.error ?? "Failed to load portfolio")
+    if (!res.ok) throw new Error(d.error ?? t("pf.loadFailed"))
     setData(d)
     return d as PortfolioSummary
-  }, [])
+  }, [t])
 
   // `auto` lets the server skip the refresh if one ran in the last few hours;
   // it runs silently in the background. Manual refreshes always run.
   const refresh = useCallback(async ({ quiet = false, auto = false } = {}) => {
-    if (!auto) setBusy("Updating prices…")
+    if (!auto) setBusy("pf.busy.prices")
     try {
       const res = await fetch(`/api/portfolio/refresh${auto ? "?auto=1" : ""}`, { method: "POST" })
       const r = await res.json()
-      if (!res.ok) throw new Error(r.error ?? "Refresh failed")
+      if (!res.ok) throw new Error(r.error ?? t("pf.refreshFailed"))
       if (r.skipped) return
       await load()
       if (r.failed?.length) {
         const failed: { symbol: string; error: string }[] = r.failed
         const limited = failed.find(f => /limiting requests/.test(f.error))
         setNotice({ tone: "warn", text: limited
-          ? `${limited.error}. Showing the last saved prices.`
-          : `Some prices couldn't be updated: ${failed.map(f => f.symbol).join(", ")}. See Price sources below.` })
+          ? t("pf.rateLimited", { error: limited.error })
+          : t("pf.someFailed", { symbols: failed.map(f => f.symbol).join(", ") }) })
       } else if (!quiet) {
-        setNotice({ tone: "ok", text: r.matched?.length ? `Prices updated. Matched ${r.matched.join(", ")}.` : "Prices updated." })
+        setNotice({ tone: "ok", text: r.matched?.length ? t("pf.updatedMatched", { symbols: r.matched.join(", ") }) : t("pf.updated") })
       }
     } catch (e) {
-      setNotice({ tone: "warn", text: `Couldn't reach the price service — showing the last saved prices. (${e instanceof Error ? e.message : e})` })
+      setNotice({ tone: "warn", text: t("pf.unreachable", { error: e instanceof Error ? e.message : String(e) }) })
     } finally {
       setBusy(null)
     }
-  }, [load])
+  }, [load, t])
 
   // Load, then ask for a background top-up; the server skips it if prices were
   // checked recently, so frequent visits don't hammer the price service.
@@ -104,22 +118,22 @@ export default function PortfolioPage() {
 
   async function importFile(file: File) {
     setNotice(null)
-    setBusy("Importing…")
+    setBusy("pf.busy.importing")
     try {
       const form = new FormData()
       form.append("file", file)
       const res = await fetch("/api/portfolio/import", { method: "POST", body: form })
       const r = await res.json()
-      if (!res.ok) throw new Error(r.error ?? "Import failed")
+      if (!res.ok) throw new Error(r.error ?? t("pf.importFailed"))
       await refresh({ quiet: true })
       const extra = [
-        r.skipped  ? `${r.skipped} already imported` : "",
-        r.rejected ? `${r.rejected} rejected orders ignored` : "",
-        r.unknown?.length ? `unrecognised: ${r.unknown.join(", ")}` : "",
+        r.skipped  ? t("pf.alreadyImported", { count: r.skipped }) : "",
+        r.rejected ? t("import.rejected", { count: r.rejected }) : "",
+        r.unknown?.length ? t("pf.unrecognised", { types: r.unknown.join(", ") }) : "",
       ].filter(Boolean).join(" · ")
-      setNotice({ tone: r.unknown?.length ? "warn" : "ok", text: `Imported ${r.imported} activities${extra ? ` (${extra})` : ""}.` })
+      setNotice({ tone: r.unknown?.length ? "warn" : "ok", text: extra ? t("pf.importedExtra", { count: r.imported, extra }) : t("pf.imported", { count: r.imported }) })
     } catch (e) {
-      setNotice({ tone: "warn", text: e instanceof Error ? e.message : "Import failed" })
+      setNotice({ tone: "warn", text: e instanceof Error ? e.message : t("pf.importFailed") })
     } finally {
       setBusy(null)
       if (fileInput.current) fileInput.current.value = ""
@@ -127,15 +141,15 @@ export default function PortfolioPage() {
   }
 
   async function deleteAll() {
-    if (!confirm("Delete all portfolio data? Imported activities, price sources and cached prices are removed. Your bank data is not affected.")) return
-    setBusy("Deleting…")
+    if (!confirm(t("pf.deleteConfirm"))) return
+    setBusy("pf.busy.deleting")
     try {
       const res = await fetch("/api/portfolio", { method: "DELETE" })
-      if (!res.ok) throw new Error((await res.json()).error ?? "Delete failed")
+      if (!res.ok) throw new Error((await res.json()).error ?? t("pf.deleteFailed"))
       await load()
-      setNotice({ tone: "ok", text: "Portfolio data deleted." })
+      setNotice({ tone: "ok", text: t("pf.deleted") })
     } catch (e) {
-      setNotice({ tone: "warn", text: e instanceof Error ? e.message : "Delete failed" })
+      setNotice({ tone: "warn", text: e instanceof Error ? e.message : t("pf.deleteFailed") })
     } finally {
       setBusy(null)
     }
@@ -157,20 +171,20 @@ export default function PortfolioPage() {
     .filter(h => kind === "all" || (kind === "etf" ? isEtf(h.kind) : !isEtf(h.kind))), [data, kind])
 
   const hasStocks = data?.holdings.some(h => h.units > 0 && !isEtf(h.kind))
-  const t = data?.totals
+  const tot = data?.totals
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
       {/* Header */}
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase text-muted-foreground mb-2">Portfolio</p>
-          <h1>Investments</h1>
+          <p className="text-xs uppercase text-muted-foreground mb-2">{t("nav.page.portfolio")}</p>
+          <h1>{t("pf.title")}</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Performance, dividends and holdings from your Yuh exports, valued at daily market prices.
-            {data?.lastPriceDate && <> Prices as of {dayLabel(data.lastPriceDate)}</>}
-            {data?.lastRefreshAt && <>, checked {new Date(data.lastRefreshAt).toLocaleString("de-CH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</>}
-            {data?.lastPriceDate && "."}
+            {t("pf.intro")}
+            {data?.lastPriceDate && (data.lastRefreshAt
+              ? <> {t("pf.pricesChecked", { date: dayLabel(data.lastPriceDate), time: new Date(data.lastRefreshAt).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })}</>
+              : <> {t("pf.pricesAsOf", { date: dayLabel(data.lastPriceDate) })}</>)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -180,18 +194,18 @@ export default function PortfolioPage() {
           />
           {!!data?.activityCount && (
             <Button variant="outline" asChild>
-              <Link href="/portfolio/look-through"><Layers /> Look-through</Link>
+              <Link href="/portfolio/look-through"><Layers /> {t("pf.lookThrough")}</Link>
             </Button>
           )}
           {!!data?.activityCount && (
             <Button variant="outline" onClick={() => refresh()} disabled={!!busy}>
-              <RefreshCw className={busy === "Updating prices…" ? "animate-spin" : ""} />
-              Refresh prices
+              <RefreshCw className={busy === "pf.busy.prices" ? "animate-spin" : ""} />
+              {t("pf.refresh")}
             </Button>
           )}
           <Button onClick={() => fileInput.current?.click()} disabled={!!busy}>
             <Upload />
-            Import Yuh CSV
+            {t("pf.importCsv")}
           </Button>
         </div>
       </div>
@@ -202,7 +216,7 @@ export default function PortfolioPage() {
             : notice?.tone === "ok" ? "border-positive/30 bg-positive/10"
             : "border-highlight/40 bg-highlight/10"
         }`}>
-          {busy ?? notice?.text}
+          {busy ? t(busy) : notice?.text}
         </div>
       )}
 
@@ -213,50 +227,50 @@ export default function PortfolioPage() {
       ) : data.activityCount === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-3">
-            <p >No investments imported yet</p>
+            <p>{t("pf.empty.title")}</p>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Export your activities from Yuh as a CSV file and import it here. Holdings are matched to
-              market prices automatically. Import newer exports any time — activities already imported are skipped.
+              {t("pf.empty.text")}
             </p>
             <Button onClick={() => fileInput.current?.click()} disabled={!!busy}>
               <Upload />
-              Import Yuh CSV
+              {t("pf.importCsv")}
             </Button>
           </CardContent>
         </Card>
-      ) : t && (
+      ) : tot && (
         <div className="space-y-4">
           {data.warnings.length > 0 && (
             <ul className="rounded-lg border border-highlight/40 bg-highlight/10 px-4 py-2.5 text-sm space-y-0.5">
-              {data.warnings.map(w => <li key={w}>{w}</li>)}
+              {data.warnings.map(w => <li key={JSON.stringify(w)}>{warningText(t, w)}</li>)}
             </ul>
           )}
 
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Value">
-              <p className="font-display text-3xl">Fr. {fmtR(t.value)}</p>
+            <Stat label={t("pf.stat.value")}>
+              <p className="font-display text-3xl">Fr. {fmtR(tot.value)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Securities {fmtR(t.securities)} · Cash {fmtR(t.cash)}
+                {t("pf.stat.valueSub", { securities: fmtR(tot.securities), cash: fmtR(tot.cash) })}
               </p>
             </Stat>
-            <Stat label="Gain vs. deposits">
-              <p className={`font-display text-3xl ${tone(t.gain)}`}>{fmtSigned(t.gain)}</p>
+            <Stat label={t("pf.stat.gain")}>
+              <p className={`font-display text-3xl ${tone(tot.gain)}`}>{fmtSigned(tot.gain)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                <span className={tone(t.gainPct)}>{fmtPct(t.gainPct)}</span> on Fr. {fmtR(t.netDeposits)} deposited
+                {rich("pf.stat.gainSub", { c: text => <span className={tone(tot.gainPct)}>{text}</span> }, { pct: fmtPct(tot.gainPct), deposited: fmtR(tot.netDeposits) })}
               </p>
             </Stat>
-            <Stat label="Dividends received">
-              <p className="font-display text-3xl text-info">Fr. {fmt2(t.dividends)}</p>
+            <Stat label={t("pf.stat.dividends")}>
+              <p className="font-display text-3xl text-info">Fr. {fmt2(tot.dividends)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                net · Fr. {fmt2(t.withholdingTax)} withholding tax
+                {t("pf.stat.dividendsSub", { tax: fmt2(tot.withholdingTax) })}
               </p>
             </Stat>
-            <Stat label="Return">
-              <p className={`font-display text-3xl ${tone(t.twr)}`}>{fmtPct(t.twrAnnualized ?? t.twr)}</p>
+            <Stat label={t("pf.stat.return")}>
+              <p className={`font-display text-3xl ${tone(tot.twr)}`}>{fmtPct(tot.twrAnnualized ?? tot.twr)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                time-weighted{t.twrAnnualized != null ? " p.a." : ` since ${data.start ? dayLabel(data.start) : "start"}`}
-                {" · "}money-weighted <span className={tone(t.irr)}>{fmtPct(t.irr)}</span> p.a.
+                {tot.twrAnnualized != null
+                  ? rich("pf.stat.returnAnnual", { c: text => <span className={tone(tot.irr)}>{text}</span> }, { irr: fmtPct(tot.irr) })
+                  : rich("pf.stat.returnSince", { c: text => <span className={tone(tot.irr)}>{text}</span> }, { date: data.start ? dayLabel(data.start) : t("pf.stat.start"), irr: fmtPct(tot.irr) })}
               </p>
             </Stat>
           </div>
@@ -264,10 +278,10 @@ export default function PortfolioPage() {
           {/* Value over time */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm text-muted-foreground">Value over time</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pf.chart.title")}</CardTitle>
               <Tabs value={range} onValueChange={v => setRange(v as Range)}>
                 <TabsList>
-                  {(Object.keys(RANGES) as Range[]).map(r => <TabsTrigger key={r} value={r}>{r}</TabsTrigger>)}
+                  {(Object.keys(RANGES) as Range[]).map(r => <TabsTrigger key={r} value={r}>{t(RANGE_LABEL[r])}</TabsTrigger>)}
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -291,7 +305,7 @@ export default function PortfolioPage() {
                   />
                   <Tooltip
                     labelFormatter={l => dayLabel(String(l))}
-                    formatter={(v, name) => [`Fr. ${fmtR(Number(v))}`, name === "value" ? "Value" : "Deposited"]}
+                    formatter={(v, name) => [`Fr. ${fmtR(Number(v))}`, name === "value" ? t("pf.chart.value") : t("pf.chart.deposited")]}
                     contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                   />
                   <Area type="monotone" dataKey="value" stroke="var(--chart-1)" strokeWidth={2} fill="url(#grad-value)" />
@@ -299,8 +313,8 @@ export default function PortfolioPage() {
                 </ComposedChart>
               </ResponsiveContainer>
               <div className="flex gap-4 mt-2 justify-center text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-chart-1" /> Value</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 border-t border-dashed border-muted-foreground" /> Net deposits</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-chart-1" /> {t("pf.chart.value")}</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 border-t border-dashed border-muted-foreground" /> {t("pf.chart.netDeposits")}</span>
               </div>
             </CardContent>
           </Card>
@@ -308,13 +322,13 @@ export default function PortfolioPage() {
           {/* Holdings */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm text-muted-foreground">Holdings</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pf.holdings.title")}</CardTitle>
               {hasStocks && (
                 <Tabs value={kind} onValueChange={v => setKind(v as KindFilter)}>
                   <TabsList>
-                    <TabsTrigger value="all">All</TabsTrigger>
-                    <TabsTrigger value="etf">ETFs</TabsTrigger>
-                    <TabsTrigger value="stock">Stocks</TabsTrigger>
+                    <TabsTrigger value="all">{t("pf.holdings.all")}</TabsTrigger>
+                    <TabsTrigger value="etf">{t("pf.holdings.etfs")}</TabsTrigger>
+                    <TabsTrigger value="stock">{t("pf.holdings.stocks")}</TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
@@ -323,14 +337,14 @@ export default function PortfolioPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Holding</TableHead>
-                    <TableHead className="text-right">Units</TableHead>
-                    <TableHead className="text-right">Avg. cost</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                    <TableHead className="text-right">Gain</TableHead>
-                    <TableHead className="text-right">Weight</TableHead>
-                    <TableHead className="w-6"><span className="sr-only">Details</span></TableHead>
+                    <TableHead>{t("pf.holdings.holding")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.units")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.avgCost")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.price")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.value")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.gain")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.weight")}</TableHead>
+                    <TableHead className="w-6"><span className="sr-only">{t("pf.holdings.details")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,7 +355,7 @@ export default function PortfolioPage() {
                           <Link href={holdingHref(h.symbol)} className="font-mono text-xs hover:underline" onClick={e => e.stopPropagation()}>
                             {h.symbol}
                           </Link>
-                          {h.kind && <Badge variant="outline" className="text-[10px]">{isEtf(h.kind) ? "ETF" : "Stock"}</Badge>}
+                          {h.kind && <Badge variant="outline" className="text-[10px]">{isEtf(h.kind) ? t("pf.kind.etf") : t("pf.kind.stock")}</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{h.name}</p>
                       </TableCell>
@@ -349,7 +363,7 @@ export default function PortfolioPage() {
                       <TableCell className="text-right font-mono">{fmt2(h.avgCost)}</TableCell>
                       <TableCell className="text-right font-mono">
                         {h.price != null ? `${fmt2(h.price)} ${h.priceCurrency}` : "—"}
-                        {h.priceIsTrade && <p className="text-[10px] text-highlight">last trade price</p>}
+                        {h.priceIsTrade && <p className="text-[10px] text-highlight">{t("pf.holdings.lastTrade")}</p>}
                       </TableCell>
                       <TableCell className="text-right font-mono">{fmtR(h.value)}</TableCell>
                       <TableCell className={`text-right font-mono ${tone(h.gain)}`}>
@@ -363,8 +377,7 @@ export default function PortfolioPage() {
                 </TableBody>
               </Table>
               <p className="text-xs text-muted-foreground mt-3">
-                Click a holding for its price history, trades and returns. Amounts in CHF; cost includes fees. Realised from sales: <span className={tone(t.realizedGain)}>{fmtSigned(t.realizedGain)}</span>
-                {" · "}Trading &amp; exchange fees paid: Fr. {fmt2(t.fees)}
+                {rich("pf.holdings.note", { c: text => <span className={tone(tot.realizedGain)}>{text}</span> }, { realised: fmtSigned(tot.realizedGain), fees: fmt2(tot.fees) })}
               </p>
             </CardContent>
           </Card>
@@ -374,11 +387,11 @@ export default function PortfolioPage() {
           {/* Dividends */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Dividends</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pf.dividends.title")}</CardTitle>
             </CardHeader>
             <CardContent>
               {data.dividends.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No dividends received yet.</p>
+                <p className="text-sm text-muted-foreground">{t("pf.dividends.none")}</p>
               ) : (
                 <div className="grid gap-6 lg:grid-cols-2">
                   <ResponsiveContainer width="100%" height={220}>
@@ -388,7 +401,7 @@ export default function PortfolioPage() {
                       <YAxis width={36} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
                       <Tooltip
                         labelFormatter={l => monthLabel(String(l))}
-                        formatter={(v, name) => [`Fr. ${fmt2(Number(v))}`, name === "net" ? "Received (net)" : "Withholding tax"]}
+                        formatter={(v, name) => [`Fr. ${fmt2(Number(v))}`, name === "net" ? t("pf.dividends.received") : t("pf.dividends.withholding")]}
                         contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                         cursor={{ fill: "var(--muted)" }}
                       />
@@ -399,10 +412,10 @@ export default function PortfolioPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Holding</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead className="text-right">Last 12 mo.</TableHead>
-                        <TableHead className="text-right">Yield on cost</TableHead>
+                        <TableHead>{t("pf.holdings.holding")}</TableHead>
+                        <TableHead className="text-right">{t("pf.dividends.total")}</TableHead>
+                        <TableHead className="text-right">{t("pf.dividends.last12")}</TableHead>
+                        <TableHead className="text-right">{t("pf.dividends.yield")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -431,12 +444,10 @@ export default function PortfolioPage() {
           {/* Footnotes + delete */}
           <div className="flex flex-wrap items-start justify-between gap-4 pb-4">
             <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
-              Time-weighted return measures the investments themselves, ignoring when you deposited.
-              Money-weighted return (IRR) is your personal return including timing; annualising it over
-              less than a year can exaggerate it. Prices: Yahoo Finance · Exchange rates: European Central Bank.
+              {t("pf.footnote")}
             </p>
             <Button variant="ghost" size="sm" className="text-destructive" onClick={deleteAll} disabled={!!busy}>
-              Delete portfolio data
+              {t("pf.deleteButton")}
             </Button>
           </div>
         </div>

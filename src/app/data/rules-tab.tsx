@@ -8,6 +8,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table"
 import { DIRECTIONS, MATCH_TYPES } from "@/lib/rules"
+import { useT } from "@/lib/i18n/provider"
 
 interface CategoryOption { id: number; name: string; color: string }
 
@@ -23,8 +24,9 @@ interface RuleRow {
 }
 
 const selectClass = "text-sm rounded-xl border border-input px-2 py-1.5 bg-card text-foreground"
-const label = (list: readonly { value: string; label: string }[], v: string) => list.find(x => x.value === v)?.label ?? v
 
+// Throws the server's message, or an empty one when it sent none (callers show a
+// translated fallback).
 export async function createRule(body: {
   pattern: string; matchType?: string; direction?: string; categoryId: number; apply: boolean
 }): Promise<{ applied: number }> {
@@ -32,13 +34,16 @@ export async function createRule(body: {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   })
   const d = await res.json()
-  if (!res.ok) throw new Error(d.error ?? "Failed to create rule")
+  if (!res.ok) throw new Error(d.error ?? "")
   return { applied: d.applied ?? 0 }
 }
 
 // Manage auto-categorization rules. New imports use them automatically; the
 // "Apply" buttons re-categorize transactions already in the database.
 export function RulesTab() {
+  const { t } = useT()
+  const matchLabel = (v: string) => (MATCH_TYPES.some(m => m.value === v) ? t(`rules.match.${v as (typeof MATCH_TYPES)[number]["value"]}`) : v)
+  const dirLabel = (v: string) => (DIRECTIONS.some(d => d.value === v) ? t(`rules.dir.${v as (typeof DIRECTIONS)[number]["value"]}`) : v)
   const [rules, setRules]           = useState<RuleRow[] | null>(null)
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [notice, setNotice]         = useState<string | null>(null)
@@ -71,7 +76,7 @@ export function RulesTab() {
       setNotice(await work())
       await reload()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong")
+      setError(e instanceof Error && e.message ? e.message : t("rules.wentWrong"))
     } finally {
       setBusy(false)
     }
@@ -82,19 +87,19 @@ export function RulesTab() {
     run(async () => {
       const { applied } = await createRule({ pattern, matchType, direction, categoryId: Number(categoryId), apply })
       setPattern("")
-      return apply ? `Rule added — ${applied} existing transaction${applied === 1 ? "" : "s"} re-categorized.` : "Rule added."
+      return apply ? t("rules.addedApplied", { count: applied }) : t("rules.added")
     })
   }
 
   const applyRules = (ruleId?: number, count = 0) => {
-    if (!confirm(`Re-categorize ${count} transaction${count === 1 ? "" : "s"}? This overwrites categories you set by hand on them.`)) return
+    if (!confirm(t("rules.applyConfirm", { count }))) return
     run(async () => {
       const res = await fetch("/api/rules/apply", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ruleId }),
       })
       const d = await res.json()
-      if (!res.ok) throw new Error(d.error ?? "Failed to apply")
-      return `${d.updated} transaction${d.updated === 1 ? "" : "s"} re-categorized.`
+      if (!res.ok) throw new Error(d.error ?? t("rules.applyFailed"))
+      return t("rules.applied", { count: d.updated })
     })
   }
 
@@ -102,16 +107,16 @@ export function RulesTab() {
     const res = await fetch("/api/rules", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...data }),
     })
-    if (!res.ok) throw new Error((await res.json()).error ?? "Failed to update rule")
-    return "Rule updated."
+    if (!res.ok) throw new Error((await res.json()).error ?? t("rules.updateFailed"))
+    return t("rules.updated")
   })
 
   const remove = (r: RuleRow) => {
-    if (!confirm(`Delete the rule “${r.pattern}”? Transactions keep their current category.`)) return
+    if (!confirm(t("rules.deleteConfirm", { pattern: r.pattern }))) return
     run(async () => {
       const res = await fetch(`/api/rules?id=${r.id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to delete rule")
-      return "Rule deleted."
+      if (!res.ok) throw new Error((await res.json()).error ?? t("rules.deleteFailed"))
+      return t("rules.deleted")
     })
   }
 
@@ -120,34 +125,33 @@ export function RulesTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Rules categorize transactions by their counterparty. Every import applies them before the bank&apos;s own
-        categories; when several match, the longest text wins (“Coop Pronto” beats “Coop”).
+        {t("rules.intro")}
       </p>
 
       <Card>
         <CardContent className="pt-6">
           <form onSubmit={add} className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Counterparty</span>
-            <select aria-label="Match type" value={matchType} onChange={e => setMatchType(e.target.value)} className={selectClass}>
-              {MATCH_TYPES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            <span className="text-sm text-muted-foreground">{t("rules.counterparty")}</span>
+            <select aria-label={t("rules.matchTypeAria")} value={matchType} onChange={e => setMatchType(e.target.value)} className={selectClass}>
+              {MATCH_TYPES.map(m => <option key={m.value} value={m.value}>{matchLabel(m.value)}</option>)}
             </select>
             <Input
-              aria-label="Text to match" placeholder="e.g. Migros" value={pattern}
+              aria-label={t("rule.suggest.textAria")} placeholder={t("rules.example")} value={pattern}
               onChange={e => setPattern(e.target.value)} className="h-8 w-44"
             />
-            <select aria-label="Direction" value={direction} onChange={e => setDirection(e.target.value)} className={selectClass}>
-              {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            <select aria-label={t("rules.directionAria")} value={direction} onChange={e => setDirection(e.target.value)} className={selectClass}>
+              {DIRECTIONS.map(d => <option key={d.value} value={d.value}>{dirLabel(d.value)}</option>)}
             </select>
             <span className="text-sm text-muted-foreground">→</span>
-            <select aria-label="Category" value={categoryId} onChange={e => setCategoryId(e.target.value)} className={selectClass} required>
-              <option value="">Category…</option>
+            <select aria-label={t("dashboard.drill.category")} value={categoryId} onChange={e => setCategoryId(e.target.value)} className={selectClass} required>
+              <option value="">{t("rules.categoryOption")}</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={apply} onChange={e => setApply(e.target.checked)} />
-              also re-categorize existing
+              {t("rules.alsoExisting")}
             </label>
-            <Button type="submit" size="sm" disabled={busy || pattern.trim().length < 2 || !categoryId}>Add rule</Button>
+            <Button type="submit" size="sm" disabled={busy || pattern.trim().length < 2 || !categoryId}>{t("rules.add")}</Button>
           </form>
         </CardContent>
       </Card>
@@ -156,11 +160,10 @@ export function RulesTab() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {!rules ? (
-        <p className="text-sm text-muted-foreground py-10 text-center">Loading…</p>
+        <p className="text-sm text-muted-foreground py-10 text-center">{t("common.loading")}</p>
       ) : rules.length === 0 ? (
         <p className="text-sm text-muted-foreground py-10 text-center">
-          No rules yet. Add one above, or change a transaction&apos;s category on the Transactions tab — you&apos;ll be
-          offered a rule for it.
+          {t("rules.none")}
         </p>
       ) : (
         <Card>
@@ -168,35 +171,35 @@ export function RulesTab() {
             {pendingTotal > 0 && (
               <div className="flex items-center justify-between gap-2 mb-3 text-sm">
                 <span className="text-muted-foreground">
-                  {pendingTotal} transaction{pendingTotal === 1 ? "" : "s"} don&apos;t match their rule&apos;s category yet.
+                  {t("rules.pending", { count: pendingTotal })}
                 </span>
                 <Button size="sm" variant="outline" disabled={busy} onClick={() => applyRules(undefined, pendingTotal)}>
-                  Apply all rules
+                  {t("rules.applyAll")}
                 </Button>
               </div>
             )}
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Rule</TableHead>
-                  <TableHead className="w-48">Category</TableHead>
-                  <TableHead className="text-right">Matches</TableHead>
-                  <TableHead><span className="sr-only">Actions</span></TableHead>
+                  <TableHead>{t("rules.th.rule")}</TableHead>
+                  <TableHead className="w-48">{t("dashboard.drill.category")}</TableHead>
+                  <TableHead className="text-right">{t("rules.th.matches")}</TableHead>
+                  <TableHead><span className="sr-only">{t("data.cat.actions")}</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rules.map(r => (
                   <TableRow key={r.id}>
                     <TableCell>
-                      <span className="text-muted-foreground text-xs">{label(MATCH_TYPES, r.matchType)} </span>
-                      <span >“{r.pattern}”</span>
-                      {r.direction !== "any" && <span className="text-muted-foreground text-xs"> · {label(DIRECTIONS, r.direction)}</span>}
+                      <span className="text-muted-foreground text-xs">{matchLabel(r.matchType)} </span>
+                      <span>“{r.pattern}”</span>
+                      {r.direction !== "any" && <span className="text-muted-foreground text-xs"> · {dirLabel(r.direction)}</span>}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: r.category?.color ?? "transparent" }} />
                         <select
-                          aria-label={`Category for “${r.pattern}”`} value={r.categoryId} disabled={busy}
+                          aria-label={t("rules.categoryAria", { pattern: r.pattern })} value={r.categoryId} disabled={busy}
                           onChange={e => patch(r.id, { categoryId: Number(e.target.value) })}
                           className={`${selectClass} flex-1 min-w-0`}
                         >
@@ -208,11 +211,11 @@ export function RulesTab() {
                     <TableCell className="text-right whitespace-nowrap">
                       {r.pending > 0 && (
                         <Button size="sm" variant="outline" className="h-7 text-xs mr-1" disabled={busy} onClick={() => applyRules(r.id, r.pending)}>
-                          Apply to {r.pending}
+                          {t("rules.applyTo", { count: r.pending })}
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" disabled={busy} onClick={() => remove(r)}>
-                        Delete
+                        {t("common.delete")}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -220,7 +223,7 @@ export function RulesTab() {
               </TableBody>
             </Table>
             <p className="text-xs text-muted-foreground mt-3">
-              Matches counts the transactions each rule decides. Applying overwrites categories set by hand on those transactions.
+              {t("rules.note")}
             </p>
           </CardContent>
         </Card>

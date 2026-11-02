@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/store"
 import { readFileSync, rmSync } from "node:fs"
 import { NextResponse } from "next/server"
 import { snapshot, tempPath } from "@/lib/backup"
@@ -18,7 +19,7 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Backup error:", error)
-    return NextResponse.json({ error: "Failed to create the backup" }, { status: 500 })
+    return NextResponse.json({ error: (await getT()).t("err.backupFailed") }, { status: 500 })
   } finally {
     rmSync(file, { force: true })
   }

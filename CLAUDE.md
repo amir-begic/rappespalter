@@ -24,6 +24,7 @@ A local-first personal finance dashboard for tracking monthly spending, savings,
 ```
 src/
   app/
+    locales/                 — messages per language (en-CH is the source; de-CH, fr-CH, it-CH checked against it)
     page.tsx                 — entry: /welcome until the first-start setup is done, else /dashboard
     welcome/page.tsx         — first-start setup: birth date, monthly saving, balances, bank import
     dashboard/page.tsx       — monthly spending overview
@@ -54,6 +55,7 @@ src/
       goals/route.ts         — goals CRUD, balances + savings pace per asset, PATCH category → asset
       assets/                — assets CRUD (+ values/, month-ends/ for Net Worth, car/ = a vehicle's monthly cost)
       liabilities/route.ts   — loans, mortgages, leases CRUD
+      language/route.ts      — the UI language (GET; PUT { language })
       onboarding/route.ts    — first-start setup state (GET; PUT { state, step })
       settings/route.ts      — user-editable settings (projection inputs)
       appearance/route.ts    — theme + motion preference
@@ -75,6 +77,9 @@ src/
                                lease commitments, month-end totals, car cost (assets-store.ts: tables + loading)
     car.ts                   — pure lease-vs-buy comparison + a lease's effective interest rate
     blob.ts                  — blob outlines shared by the page blobs and the goal illustrations
+    i18n/                    — locales.ts (languages, Accept-Language matching), translate.ts (pure lookup,
+                               plurals, <tags>), format.ts (Swiss numbers/dates), store.ts (saved language,
+                               getT for server code), provider.tsx (useT, useSetLanguage)
     onboarding.ts            — first-start setup state + "is this a fresh database?" check
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
@@ -277,6 +282,23 @@ done. Every step can be skipped; `onboarding.step` resumes where the user left.
 The nav shows only the wordmark and theme toggle there. Settings has "Run the setup
 again".
 
+## Languages
+English, German, French and Italian (`en-CH`, `de-CH`, `fr-CH`, `it-CH`; full notes,
+glossary and review points in [docs/I18N.md](docs/I18N.md)). The language is a Setting
+(`language`), else the window's Accept-Language, else English; the root layout reads it
+per request and `<I18nProvider>` gives client components `useT()` → `{ t, rich, f }`
+(`f` formats numbers and dates in the language's Swiss locale — never hard-code
+`"de-CH"` in new code). **Every user-visible string goes through `t()`**: add the key to
+`src/locales/en-CH.ts` and to the other three files (TypeScript fails if one is
+missing), then run `pnpm i18n:check` (placeholders, tags, plural forms). Plurals are
+`x#one` / `x#other` keys asked for as `x` with `{ count }`. Data stays as it is (category names, counterparties, bank names).
+Everything user-visible is translated; the exceptions are your data (category names…),
+developer-facing API validation errors, and native widgets (see "Coverage" in the doc).
+Libs keep identifiers and English fallbacks; the words come from `src/locales` (goal /
+asset / liability kinds, category types, rule options, portfolio warnings via
+`warningText`). Errors a person can hit in a route use `getT()` (`err.*`); lib code
+throws typed errors (`BackupError`, `YuhFormatError`) instead of wording them.
+
 ## Backup & restore
 Settings → Backup & restore (`src/lib/backup.ts`, `src/components/backup-card.tsx`).
 Backups are manual only and always ask where to save: `GET /api/backup` returns a
@@ -466,6 +488,7 @@ DATABASE_URL="file:./prisma/dev.db"
   amounts use `text-positive` / `text-negative` / `text-info` / `text-highlight`,
   not raw Tailwind hues; in Recharts use `var(--border)` etc. (tokens are oklch,
   so never wrap them in `hsl()`)
+- Text: use `useT()` — no hard-coded English in components (see "Languages")
 - Navigation lives in src/components/app-nav.tsx — add new pages to `SECTIONS`.
   Two tiers: sections (Money, Wealth, Planning, Data) in the top bar, the current
   section's pages in a row below; a section tab returns to the page last visited in

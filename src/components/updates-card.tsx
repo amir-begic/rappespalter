@@ -4,11 +4,7 @@ import { useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useUpdates } from "@/lib/updates"
-
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString("de-CH", { dateStyle: "medium", timeStyle: "short" })
-
-const fmtMb = (bytes: number) => (bytes / 1024 / 1024).toLocaleString("de-CH", { maximumFractionDigits: 1 })
+import { useT } from "@/lib/i18n/provider"
 
 function Spinner() {
   return <div className="h-4 w-4 shrink-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -17,6 +13,9 @@ function Spinner() {
 // Settings → Updates: the running version, checking the promoted release and
 // installing it (electron/updater.js + installUpdate in electron/main.js).
 export function UpdatesCard() {
+  const { t, rich, locale } = useT()
+  const fmtTime = (iso: string) => new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })
+  const fmtMb = (bytes: number) => (bytes / 1024 / 1024).toLocaleString(locale, { maximumFractionDigits: 1 })
   const { supported, state, check, install } = useUpdates()
   const checkedOnOpen = useRef(false)
 
@@ -34,21 +33,21 @@ export function UpdatesCard() {
   return (
     <Card id="updates">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-muted-foreground">Updates</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">{t("updates.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {!supported ? (
           <p className="text-xs text-muted-foreground">
-            Updates come with the installed desktop app.
+            {t("updates.desktopOnly")}
           </p>
         ) : !state ? null : (
           <>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-              <dt className="text-muted-foreground">Running</dt>
+              <dt className="text-muted-foreground">{t("updates.running")}</dt>
               <dd>Rappespalter {state.current}</dd>
               {state.lastCheck && (
                 <>
-                  <dt className="text-muted-foreground">Last checked</dt>
+                  <dt className="text-muted-foreground">{t("updates.lastChecked")}</dt>
                   <dd>{fmtTime(state.lastCheck)}</dd>
                 </>
               )}
@@ -56,62 +55,62 @@ export function UpdatesCard() {
 
             {!state.configured ? (
               <p className="text-xs text-muted-foreground">
-                Updates aren&apos;t set up for this copy. The Windows installer sets them up; a development copy has none.
+                {t("updates.notConfigured")}
               </p>
             ) : (
               <>
                 {status?.state === "failed" && (
                   <p className="text-xs text-negative">
-                    The update to {status.version ?? "the new version"} didn&apos;t work: {status.message}
+                    {t("updates.failed", { version: status.version ?? t("updates.newVersion"), message: status.message ?? "" })}
                   </p>
                 )}
                 {status?.state === "succeeded" && status.version === state.current && status.time && (
                   <p className="text-xs text-positive">
-                    ✓ Updated from {status.from} to {status.version} on {fmtTime(status.time)}.
-                    {status.backup && <> Your database from before is in <code className="break-all">{status.backup}</code>.</>}
+                    {t("updates.succeeded", { from: status.from ?? "", version: status.version ?? "", time: fmtTime(status.time) })}
+                    {status.backup && <>{" "}{rich("updates.backupNote", { path: text => <code className="break-all">{text}</code> }, { path: status.backup })}</>}
                   </p>
                 )}
 
                 {state.download ? (
                   <div className="flex items-center gap-3 text-xs text-muted-foreground" role="status">
                     <Spinner />
-                    Downloading {state.available?.version}…{" "}
+                    {t("updates.downloading", { version: state.available?.version ?? "" })}{" "}
                     {state.download.total > 0 &&
-                      `${fmtMb(state.download.received)} of ${fmtMb(state.download.total)} MB`}
+                      t("updates.progress", { received: fmtMb(state.download.received), total: fmtMb(state.download.total) })}
                   </div>
                 ) : state.installing ? (
                   <div className="flex items-center gap-3 text-xs text-muted-foreground" role="status">
                     <Spinner />
-                    Installing. Rappespalter closes and starts again in a moment.
+                    {t("updates.installing")}
                   </div>
                 ) : state.available ? (
                   <div className="rounded-md border border-border p-3 space-y-2">
-                    <p >Rappespalter {state.available.version} is available</p>
+                    <p>{t("updates.available", { version: state.available.version })}</p>
                     {state.available.notes && (
                       <p className="text-xs text-muted-foreground whitespace-pre-line">{state.available.notes}</p>
                     )}
                     <div className="flex items-center gap-3">
-                      <Button size="sm" onClick={() => install()}>Install update</Button>
+                      <Button size="sm" onClick={() => install()}>{t("updates.install")}</Button>
                       {state.available.page && (
                         <a href={state.available.page} target="_blank" rel="noreferrer"
                            className="text-xs text-muted-foreground underline underline-offset-4">
-                          Release page
+                          {t("updates.releasePage")}
                         </a>
                       )}
                     </div>
                   </div>
                 ) : state.upToDate ? (
-                  <p className="text-xs text-muted-foreground">Rappespalter is up to date.</p>
+                  <p className="text-xs text-muted-foreground">{t("updates.upToDate")}</p>
                 ) : null}
 
                 {state.unreachable && (
-                  <p className="text-xs text-highlight">Couldn&apos;t reach the update server. Is this computer online?</p>
+                  <p className="text-xs text-highlight">{t("updates.unreachable")}</p>
                 )}
                 {state.error && <p className="text-xs text-destructive">{state.error}</p>}
 
                 {!busy && (
                   <Button variant="outline" size="sm" onClick={() => check()} disabled={state.checking}>
-                    {state.checking ? "Checking..." : "Check for updates"}
+                    {state.checking ? t("updates.checking") : t("updates.check")}
                   </Button>
                 )}
               </>

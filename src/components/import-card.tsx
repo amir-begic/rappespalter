@@ -5,6 +5,8 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useT } from "@/lib/i18n/provider"
+import type { MessageKey } from "@/locales"
 
 // One upload card per supported export (bank, broker), used on Data → Import and
 // in the first-start setup (/welcome).
@@ -20,71 +22,64 @@ export interface ImportResult {
 
 export interface Source {
   id:           string
-  name:         string
-  purpose:      string
-  description:  string
+  name:         string // the bank / broker's own name, never translated
+  purpose:      MessageKey
+  description:  MessageKey
   extension:    string // e.g. ".xlsx"
   endpoint:     string
-  loadingText:  string
-  result:       { href: string; label: string }
-  instructions: { title: string; steps: string[] }
+  loadingText:  MessageKey
+  result:       { href: string; label: MessageKey }
+  instructions: { title: MessageKey; steps: MessageKey[] }
   // Optional work after a successful upload; returns extra notes to show.
-  afterImport?: (data: Record<string, unknown>) => Promise<string[]>
+  afterImport?: (data: Record<string, unknown>, t: Translate) => Promise<string[]>
 }
+
+type Translate = ReturnType<typeof useT>["t"]
 
 export const IMPORT_SOURCES: Source[] = [
   {
     id:          "raiffeisen",
     name:        "Raiffeisen",
-    purpose:     "Bank transactions",
-    description: "Spending, income and savings from Raiffeisen Finanzassistent. Feeds the dashboard, budgets, trends and income pages.",
+    purpose:     "import.raiffeisen.purpose",
+    description: "import.raiffeisen.description",
     extension:   ".xlsx",
     endpoint:    "/api/import",
-    loadingText: "Parsing and importing transactions…",
-    result:      { href: "/dashboard", label: "View dashboard" },
+    loadingText: "import.raiffeisen.loading",
+    result:      { href: "/dashboard", label: "import.raiffeisen.result" },
     instructions: {
-      title: "How to export from Raiffeisen",
-      steps: [
-        "Open Raiffeisen e-banking or the Finanzassistent app",
-        "Go to Transactions and set your date range",
-        "Click Export → Excel (.xlsx)",
-        "Upload the downloaded file here",
-      ],
+      title: "import.raiffeisen.how",
+      steps: ["import.raiffeisen.step1", "import.raiffeisen.step2", "import.raiffeisen.step3", "import.raiffeisen.step4"],
     },
-    afterImport: async data => [
-      ...(Number(data.byRule) ? [`${data.byRule} categorized by your rules (Data → Rules)`] : []),
-      ...(Number(data.toReview) ? [`${data.toReview} got a guessed category — check them on Data → Review`] : []),
+    afterImport: async (data, t) => [
+      ...(Number(data.byRule) ? [t("import.byRule", { count: Number(data.byRule) })] : []),
+      ...(Number(data.toReview) ? [t("import.toReview", { count: Number(data.toReview) })] : []),
     ],
   },
   {
     id:          "yuh",
     name:        "Yuh",
-    purpose:     "Investments",
-    description: "Trades, dividends and fees from your Yuh account. Feeds the Portfolio page only — deposits are already counted on the bank side.",
+    purpose:     "import.yuh.purpose",
+    description: "import.yuh.description",
     extension:   ".csv",
     endpoint:    "/api/portfolio/import",
-    loadingText: "Importing activities and fetching market prices…",
-    result:      { href: "/portfolio", label: "View portfolio" },
+    loadingText: "import.yuh.loading",
+    result:      { href: "/portfolio", label: "import.yuh.result" },
     instructions: {
-      title: "How to export from Yuh",
-      steps: [
-        "In the Yuh app, export your account activities as a CSV file",
-        "The file is named like Activities_2026_09_24…CSV",
-        "Upload it here — newer exports can be added any time",
-      ],
+      title: "import.yuh.how",
+      steps: ["import.yuh.step1", "import.yuh.step2", "import.yuh.step3"],
     },
-    afterImport: async data => {
+    afterImport: async (data, t) => {
       const notes: string[] = []
-      if (Number(data.rejected)) notes.push(`${data.rejected} rejected orders ignored`)
-      if (Array.isArray(data.unknown) && data.unknown.length) notes.push(`Unrecognised activity types: ${data.unknown.join(", ")}`)
+      if (Number(data.rejected)) notes.push(t("import.rejected", { count: Number(data.rejected) }))
+      if (Array.isArray(data.unknown) && data.unknown.length) notes.push(t("import.unknownTypes", { types: data.unknown.join(", ") }))
       try {
         const res = await fetch("/api/portfolio/refresh", { method: "POST" })
         const r = await res.json()
         if (!res.ok) throw new Error(r.error)
-        if (r.matched?.length) notes.push(`Matched ${r.matched.join(", ")}`)
-        if (r.failed?.length) notes.push(`Couldn't price ${r.failed.map((f: { symbol: string }) => f.symbol).join(", ")} — fix on the Portfolio page`)
+        if (r.matched?.length) notes.push(t("import.matched", { symbols: r.matched.join(", ") }))
+        if (r.failed?.length) notes.push(t("import.unpriced", { symbols: r.failed.map((f: { symbol: string }) => f.symbol).join(", ") }))
       } catch {
-        notes.push("Couldn't reach the price service — prices will update when you open the Portfolio page")
+        notes.push(t("import.priceUnreachable"))
       }
       return notes
     },
@@ -93,6 +88,7 @@ export const IMPORT_SOURCES: Source[] = [
 
 // `onImported` runs after a successful upload (the setup uses it to move on).
 export function ImportCard({ source, onImported }: { source: Source; onImported?: (r: ImportResult) => void }) {
+  const { t } = useT()
   const [status, setStatus]         = useState<ImportStatus>("idle")
   const [result, setResult]         = useState<ImportResult | null>(null)
   const [error, setError]           = useState<string | null>(null)
@@ -102,7 +98,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith(source.extension)) {
-      setError(`Please upload a ${source.extension} file exported from ${source.name}.`)
+      setError(t("import.wrongType", { extension: source.extension, name: source.name }))
       setStatus("error")
       return
     }
@@ -124,18 +120,18 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error ?? "Import failed.")
+        setError(data.error ?? t("import.failed"))
         setStatus("error")
         return
       }
 
-      const notes = source.afterImport ? await source.afterImport(data) : []
+      const notes = source.afterImport ? await source.afterImport(data, t) : []
       const r = { imported: data.imported, skipped: data.skipped, total: data.total, notes }
       setResult(r)
       setStatus("success")
       onImported?.(r)
     } catch {
-      setError("Could not reach the server.")
+      setError(t("import.unreachable"))
       setStatus("error")
     }
   }
@@ -171,16 +167,16 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <CardTitle id={`${source.id}-title`} className="text-base">{source.name}</CardTitle>
-            <Badge variant="outline">{source.purpose}</Badge>
+            <Badge variant="outline">{t(source.purpose)}</Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{source.description}</p>
+          <p className="text-sm text-muted-foreground">{t(source.description)}</p>
         </CardHeader>
         <CardContent>
           {/* Drop zone */}
           <div
             role="button"
             tabIndex={0}
-            aria-label={`Upload ${source.name} ${source.extension} file`}
+            aria-label={t("import.uploadAria", { name: source.name, extension: source.extension })}
             onDrop={onDrop}
             onDragOver={onDragOver}
             onDragLeave={() => setIsDragging(false)}
@@ -197,10 +193,10 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
           >
             <div className="text-3xl mb-3">📂</div>
             <p className="text-sm break-all">
-              {fileName ?? `Drop your ${source.extension} file here`}
+              {fileName ?? t("import.dropHere", { extension: source.extension })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              or click to browse
+              {t("import.orBrowse")}
             </p>
             <input
               ref={fileInputRef}
@@ -219,7 +215,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              {source.loadingText}
+              {t(source.loadingText)}
             </div>
           </CardContent>
         </Card>
@@ -230,7 +226,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              Import complete
+              {t("import.complete")}
               <Badge variant="secondary" className="text-positive">
                 ✓
               </Badge>
@@ -240,7 +236,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
                 <p className="text-xs uppercase text-muted-foreground mb-1">
-                  Imported
+                  {t("import.imported")}
                 </p>
                 <p className="font-display text-3xl text-positive">
                   {result.imported}
@@ -248,7 +244,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
               </div>
               <div>
                 <p className="text-xs uppercase text-muted-foreground mb-1">
-                  Skipped
+                  {t("import.skipped")}
                 </p>
                 <p className="font-display text-3xl text-muted-foreground">
                   {result.skipped}
@@ -256,7 +252,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
               </div>
               <div>
                 <p className="text-xs uppercase text-muted-foreground mb-1">
-                  Total
+                  {t("import.total")}
                 </p>
                 <p className="font-display text-3xl">
                   {result.total}
@@ -270,10 +266,10 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
             )}
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={reset}>
-                Import another
+                {t("import.another")}
               </Button>
               <Button size="sm" asChild>
-                <Link href={source.result.href}>{source.result.label}</Link>
+                <Link href={source.result.href}>{t(source.result.label)}</Link>
               </Button>
             </div>
           </CardContent>
@@ -288,7 +284,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
               {error}
             </p>
             <Button variant="outline" size="sm" onClick={reset}>
-              Try again
+              {t("import.tryAgain")}
             </Button>
           </CardContent>
         </Card>
@@ -299,12 +295,12 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground font-normal">
-              {source.instructions.title}
+              {t(source.instructions.title)}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
-              {source.instructions.steps.map(step => <li key={step}>{step}</li>)}
+              {source.instructions.steps.map(step => <li key={step}>{t(step)}</li>)}
             </ol>
           </CardContent>
         </Card>

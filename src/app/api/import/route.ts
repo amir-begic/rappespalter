@@ -4,22 +4,24 @@ import { parseRaiffeisenXLSX } from "@/lib/parser"
 import { findRule } from "@/lib/rules"
 import { ensureRuleTable } from "@/lib/rules-store"
 import { ensureMarkTable } from "@/lib/marks"
+import { getT } from "@/lib/i18n/store"
 
 export async function POST(req: NextRequest) {
+  const { t } = await getT()
   try {
     const formData = await req.formData()
     const file = formData.get("file") as File | null
 
     if (!file) {
       return NextResponse.json(
-        { error: "No file provided" },
+        { error: t("err.noFile") },
         { status: 400 }
       )
     }
 
     if (!file.name.endsWith(".xlsx")) {
       return NextResponse.json(
-        { error: "File must be a .xlsx export from Raiffeisen" },
+        { error: t("err.notXlsx") },
         { status: 400 }
       )
     }
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     if (parsed.length === 0) {
       return NextResponse.json(
-        { error: "No transactions found in file" },
+        { error: t("err.noTransactions") },
         { status: 400 }
       )
     }
@@ -113,7 +115,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Import error:", error)
     return NextResponse.json(
-      { error: "Failed to process file" },
+      { error: t("err.processFailed") },
       { status: 500 }
     )
   }

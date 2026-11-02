@@ -16,26 +16,41 @@ import {
 } from "@/components/ui/table"
 import type { HoldingDetailSummary } from "@/lib/portfolio/store"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import { warningText } from "@/lib/i18n/labels"
+import type { MessageKey } from "@/locales"
 
-const fmtR   = (n: number) => Math.round(n).toLocaleString("de-CH")
-const fmt2   = (n: number) => n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtQty = (n: number) => n.toLocaleString("de-CH", { maximumFractionDigits: 4 })
-const fmtPct = (n: number | null) => n == null ? "—" : `${n > 0 ? "+" : ""}${(n * 100).toFixed(2)}%`
-const fmtSigned = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}Fr. ${fmt2(Math.abs(n))}`
 const tone = (n: number | null) => n == null || Math.abs(n) < 1e-9 ? "" : n > 0 ? "text-positive" : "text-negative"
-const dayLabel = (d: string) =>
-  new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "2-digit", timeZone: "UTC" })
+
+// Number and date writing in the current language.
+function useFormats() {
+  const { f, locale } = useT()
+  const fmt2 = (n: number) => f.decimal(n)
+  return {
+    fmtR: f.int,
+    fmt2,
+    fmtQty: (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 4 }),
+    fmtPct: (n: number | null) => n == null ? "—" : `${n > 0 ? "+" : ""}${(n * 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`,
+    fmtSigned: (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}Fr. ${fmt2(Math.abs(n))}`,
+    dayLabel: (d: string) => f.date(d + "T00:00:00Z", { day: "numeric", month: "short", year: "2-digit", timeZone: "UTC" }),
+  }
+}
 
 const RANGES = { "3M": 91, "6M": 182, "1Y": 365, "All": Infinity } as const
+const RANGE_LABEL: Record<keyof typeof RANGES, MessageKey> = {
+  "3M": "pf.range.3M", "6M": "pf.range.6M", "1Y": "pf.range.1Y", "All": "pf.range.All",
+}
 type Range = keyof typeof RANGES
 type View = "price" | "position"
 
-const SERIES_LABELS: Record<string, string> = {
-  price: "Market price", avgCost: "Your average cost", buy: "Bought at", sell: "Sold at",
-  value: "Position value", cost: "Cost basis",
+const SERIES_LABELS: Record<string, MessageKey> = {
+  price: "pos.series.price", avgCost: "pos.series.avgCost", buy: "pos.series.buy", sell: "pos.series.sell",
+  value: "pos.series.value", cost: "pos.series.cost",
 }
 
 export default function HoldingPage() {
+  const { t, rich } = useT()
+  const { fmtR, fmt2, fmtQty, fmtPct, fmtSigned, dayLabel } = useFormats()
   const { symbol } = useParams<{ symbol: string }>()
   const [data, setData]   = useState<HoldingDetailSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -46,10 +61,12 @@ export default function HoldingPage() {
     fetch(`/api/portfolio/holdings/${encodeURIComponent(symbol)}`)
       .then(async r => {
         const d = await r.json()
-        if (!r.ok) throw new Error(d.error ?? "Failed to load holding")
+        if (!r.ok) throw new Error(d.error ?? t("pos.loadFailed"))
         setData(d)
       })
       .catch(e => setError(e.message))
+    // Reloads per holding; t is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol])
 
   const series = useMemo(() => {
@@ -69,7 +86,7 @@ export default function HoldingPage() {
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
       <Link href="/portfolio" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="size-4" /> Portfolio
+        <ArrowLeft className="size-4" /> {t("nav.page.portfolio")}
       </Link>
 
       {error ? (
@@ -82,19 +99,19 @@ export default function HoldingPage() {
           <div className="mb-4">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="font-mono text-xs uppercase text-muted-foreground">{data.symbol}</span>
-              {data.kind && <Badge variant="outline">{data.kind === "ETF" || data.kind === "MUTUALFUND" ? "ETF" : "Stock"}</Badge>}
+              {data.kind && <Badge variant="outline">{data.kind === "ETF" || data.kind === "MUTUALFUND" ? t("pf.kind.etf") : t("pf.kind.stock")}</Badge>}
               {data.source?.priceSource === "manual"
-                ? <Badge variant="secondary">Manual prices</Badge>
-                : data.source?.priceSymbol && <Badge variant="outline">Priced from {data.source.priceSymbol}</Badge>}
-              {s.units === 0 && <Badge variant="secondary">Position closed</Badge>}
+                ? <Badge variant="secondary">{t("pf.src.manual")}</Badge>
+                : data.source?.priceSymbol && <Badge variant="outline">{t("pos.pricedFrom", { symbol: data.source.priceSymbol })}</Badge>}
+              {s.units === 0 && <Badge variant="secondary">{t("pos.closed")}</Badge>}
             </div>
             <h1>{data.name}</h1>
             {s.price != null && (
               <p className="text-sm text-muted-foreground mt-2">
                 <span className="font-mono text-foreground">{fmt2(s.price)} {ccy}</span>
-                {s.priceDate && <> · {s.priceIsTrade ? "last trade" : "close"} {dayLabel(s.priceDate)}</>}
+                {s.priceDate && <> · {t(s.priceIsTrade ? "pos.lastTradeOn" : "pos.closeOn", { date: dayLabel(s.priceDate) })}</>}
                 {s.priceChangeSinceFirstBuy != null && (
-                  <> · <span className={tone(s.priceChangeSinceFirstBuy)}>{fmtPct(s.priceChangeSinceFirstBuy)}</span> since your first buy</>
+                  <> · {rich("pos.sinceFirstBuy", { c: text => <span className={tone(s.priceChangeSinceFirstBuy)}>{text}</span> }, { pct: fmtPct(s.priceChangeSinceFirstBuy) })}</>
                 )}
               </p>
             )}
@@ -102,39 +119,38 @@ export default function HoldingPage() {
 
           {data.warnings.length > 0 && (
             <ul className="rounded-lg border border-highlight/40 bg-highlight/10 px-4 py-2.5 text-sm space-y-0.5">
-              {data.warnings.map(w => <li key={w}>{w}</li>)}
+              {data.warnings.map(w => <li key={JSON.stringify(w)}>{warningText(t, w)}</li>)}
             </ul>
           )}
 
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Position">
+            <Stat label={t("pos.stat.position")}>
               <p className="font-display text-3xl">Fr. {fmtR(s.value)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{fmtQty(s.units)} units</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("pos.stat.units", { count: s.units, units: fmtQty(s.units) })}</p>
             </Stat>
-            <Stat label="Average cost">
+            <Stat label={t("pos.stat.avgCost")}>
               <p className="font-display text-3xl">{s.avgCost != null ? `${fmt2(s.avgCost)} ${ccy}` : "—"}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                per unit, fees included{s.avgCostChf != null && ccy !== "CHF" ? ` · Fr. ${fmt2(s.avgCostChf)}` : ""}
+                {s.avgCostChf != null && ccy !== "CHF" ? t("pos.stat.avgCostSubChf", { chf: fmt2(s.avgCostChf) }) : t("pos.stat.avgCostSub")}
               </p>
             </Stat>
-            <Stat label="Unrealised gain">
+            <Stat label={t("pos.stat.unrealised")}>
               <p className={`font-display text-3xl ${tone(s.unrealized)}`}>{fmtSigned(s.unrealized)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                <span className={tone(s.unrealizedPct)}>{fmtPct(s.unrealizedPct)}</span> on Fr. {fmtR(s.costBasis)} cost
+                {rich("pos.stat.unrealisedSub", { c: text => <span className={tone(s.unrealizedPct)}>{text}</span> }, { pct: fmtPct(s.unrealizedPct), cost: fmtR(s.costBasis) })}
               </p>
             </Stat>
-            <Stat label="Total return">
+            <Stat label={t("pos.stat.totalReturn")}>
               <p className={`font-display text-3xl ${tone(s.totalReturn)}`}>{fmtSigned(s.totalReturn)}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                <span className={tone(s.totalReturnPct)}>{fmtPct(s.totalReturnPct)}</span> of Fr. {fmtR(s.totalBought)} bought
+                {rich("pos.stat.totalReturnSub", { c: text => <span className={tone(s.totalReturnPct)}>{text}</span> }, { pct: fmtPct(s.totalReturnPct), bought: fmtR(s.totalBought) })}
               </p>
             </Stat>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Total return = unrealised {fmtSigned(s.unrealized)} + realised from sales {fmtSigned(s.realized)} + dividends {fmtSigned(s.dividends)}.
-            {" "}Fees paid: Fr. {fmt2(s.fees)}.
+            {t("pos.totalNote", { unrealised: fmtSigned(s.unrealized), realised: fmtSigned(s.realized), dividends: fmtSigned(s.dividends), fees: fmt2(s.fees) })}
           </p>
 
           {/* Chart */}
@@ -142,13 +158,13 @@ export default function HoldingPage() {
             <CardHeader className="pb-2 flex flex-row flex-wrap items-center justify-between gap-2">
               <Tabs value={view} onValueChange={v => setView(v as View)}>
                 <TabsList>
-                  <TabsTrigger value="price">Price &amp; trades</TabsTrigger>
-                  <TabsTrigger value="position">Position value</TabsTrigger>
+                  <TabsTrigger value="price">{t("pos.tab.priceTrades")}</TabsTrigger>
+                  <TabsTrigger value="position">{t("pos.tab.positionValue")}</TabsTrigger>
                 </TabsList>
               </Tabs>
               <Tabs value={range} onValueChange={v => setRange(v as Range)}>
                 <TabsList>
-                  {(Object.keys(RANGES) as Range[]).map(r => <TabsTrigger key={r} value={r}>{r}</TabsTrigger>)}
+                  {(Object.keys(RANGES) as Range[]).map(r => <TabsTrigger key={r} value={r}>{t(RANGE_LABEL[r])}</TabsTrigger>)}
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -175,7 +191,7 @@ export default function HoldingPage() {
                     labelFormatter={l => dayLabel(String(l))}
                     formatter={(v, name) => [
                       view === "price" ? `${fmt2(Number(v))} ${ccy}` : `Fr. ${fmtR(Number(v))}`,
-                      SERIES_LABELS[String(name)] ?? name,
+                      String(name) in SERIES_LABELS ? t(SERIES_LABELS[String(name)]) : name,
                     ]}
                     contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                   />
@@ -197,15 +213,15 @@ export default function HoldingPage() {
               <div className="flex flex-wrap gap-4 mt-2 justify-center text-xs text-muted-foreground">
                 {view === "price" ? (
                   <>
-                    <Legend line>Market price ({ccy})</Legend>
-                    <Legend dashed>Your average cost</Legend>
-                    <Legend dot="var(--positive)">Buy</Legend>
-                    {data.trades.some(t => t.type === "sell") && <Legend dot="var(--negative)">Sell</Legend>}
+                    <Legend line>{t("pos.legend.price", { currency: ccy })}</Legend>
+                    <Legend dashed>{t("pos.series.avgCost")}</Legend>
+                    <Legend dot="var(--positive)">{t("pos.legend.buy")}</Legend>
+                    {data.trades.some(tr => tr.type === "sell") && <Legend dot="var(--negative)">{t("pos.legend.sell")}</Legend>}
                   </>
                 ) : (
                   <>
-                    <Legend line>Position value (CHF)</Legend>
-                    <Legend dashed>Cost basis</Legend>
+                    <Legend line>{t("pos.legend.valueChf")}</Legend>
+                    <Legend dashed>{t("pos.series.cost")}</Legend>
                   </>
                 )}
               </div>
@@ -215,38 +231,38 @@ export default function HoldingPage() {
           {/* Trades */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Trades</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("pos.trades.title")}</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Units</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Fee</TableHead>
-                    <TableHead className="text-right">vs. today</TableHead>
+                    <TableHead>{t("dashboard.drill.date")}</TableHead>
+                    <TableHead>{t("pos.trades.type")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.units")}</TableHead>
+                    <TableHead className="text-right">{t("pf.holdings.price")}</TableHead>
+                    <TableHead className="text-right">{t("pos.trades.amount")}</TableHead>
+                    <TableHead className="text-right">{t("pos.trades.fee")}</TableHead>
+                    <TableHead className="text-right">{t("pos.trades.vsToday")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[...data.trades].reverse().map((t, i) => {
-                    const vsToday = s.price != null && t.priceQuoted ? s.price / t.priceQuoted - 1 : null
+                  {[...data.trades].reverse().map((tr, i) => {
+                    const vsToday = s.price != null && tr.priceQuoted ? s.price / tr.priceQuoted - 1 : null
                     return (
-                      <TableRow key={`${t.date}-${i}`}>
-                        <TableCell className="whitespace-nowrap">{dayLabel(t.date)}</TableCell>
+                      <TableRow key={`${tr.date}-${i}`}>
+                        <TableCell className="whitespace-nowrap">{dayLabel(tr.date)}</TableCell>
                         <TableCell>
-                          <span className={t.type === "buy" ? "text-positive" : "text-negative"}>
-                            {t.type === "buy" ? "Buy" : "Sell"}
+                          <span className={tr.type === "buy" ? "text-positive" : "text-negative"}>
+                            {tr.type === "buy" ? t("pos.legend.buy") : t("pos.legend.sell")}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right font-mono">{fmtQty(t.quantity)}</TableCell>
-                        <TableCell className="text-right font-mono whitespace-nowrap">{fmt2(t.price)} {t.currency}</TableCell>
-                        <TableCell className="text-right font-mono whitespace-nowrap">{fmt2(Math.abs(t.amount))} {t.currency}</TableCell>
-                        <TableCell className="text-right font-mono">{fmt2(t.fee)}</TableCell>
-                        <TableCell className={`text-right font-mono ${t.type === "buy" ? tone(vsToday) : ""}`}>
-                          {t.type === "buy" ? fmtPct(vsToday) : "—"}
+                        <TableCell className="text-right font-mono">{fmtQty(tr.quantity)}</TableCell>
+                        <TableCell className="text-right font-mono whitespace-nowrap">{fmt2(tr.price)} {tr.currency}</TableCell>
+                        <TableCell className="text-right font-mono whitespace-nowrap">{fmt2(Math.abs(tr.amount))} {tr.currency}</TableCell>
+                        <TableCell className="text-right font-mono">{fmt2(tr.fee)}</TableCell>
+                        <TableCell className={`text-right font-mono ${tr.type === "buy" ? tone(vsToday) : ""}`}>
+                          {tr.type === "buy" ? fmtPct(vsToday) : "—"}
                         </TableCell>
                       </TableRow>
                     )
@@ -254,7 +270,7 @@ export default function HoldingPage() {
                 </TableBody>
               </Table>
               <p className="text-xs text-muted-foreground mt-3">
-                &ldquo;vs. today&rdquo; is the price change since each buy, before fees.
+                {t("pos.trades.note")}
               </p>
             </CardContent>
           </Card>
@@ -263,16 +279,16 @@ export default function HoldingPage() {
           {data.dividends.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Dividends</CardTitle>
+                <CardTitle className="text-sm text-muted-foreground">{t("pf.dividends.title")}</CardTitle>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Received (net)</TableHead>
-                      <TableHead className="text-right">Withholding tax</TableHead>
-                      <TableHead className="text-right">In CHF</TableHead>
+                      <TableHead>{t("dashboard.drill.date")}</TableHead>
+                      <TableHead className="text-right">{t("pos.div.received")}</TableHead>
+                      <TableHead className="text-right">{t("pf.dividends.withholding")}</TableHead>
+                      <TableHead className="text-right">{t("pos.div.inChf")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -287,7 +303,7 @@ export default function HoldingPage() {
                   </TableBody>
                 </Table>
                 <p className="text-xs text-muted-foreground mt-3">
-                  Total Fr. {fmt2(s.dividends)} net · Fr. {fmt2(s.withholdingTax)} withheld
+                  {t("pos.div.total", { amount: fmt2(s.dividends), tax: fmt2(s.withholdingTax) })}
                 </p>
               </CardContent>
             </Card>

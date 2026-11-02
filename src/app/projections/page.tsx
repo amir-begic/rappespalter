@@ -14,6 +14,8 @@ import {
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
+import { ACCOUNT_LABEL } from "@/lib/i18n/labels"
 
 interface Snapshot {
   id:        number
@@ -53,34 +55,22 @@ const monthKey = (d: string) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
 }
 
-const fmtMonth = (m: string) => {
-  const [y, mo] = m.split("-").map(Number)
-  return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "short", year: "2-digit" })
+// Number, month and account-name writing in the current language.
+function useFormats() {
+  const { t, f, locale } = useT()
+  const fmtR = f.int
+  return {
+    fmtR,
+    fmtMonth: f.monthShort,
+    fmtMonthLong: f.monthLong,
+    fmtSigned: (n: number) => `${Math.round(n) >= 0 ? "+" : "−"}Fr. ${fmtR(Math.abs(n))}`,
+    fmtPct: (r: number) => f.percent(r, 2),
+    fmtM: (n: number) => n >= 1_000_000
+      ? `Fr. ${(n / 1_000_000).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`
+      : `Fr. ${Math.round(n / 1000)}k`,
+    assetLabel: (k: keyof typeof ACCOUNT_LABEL) => t(ACCOUNT_LABEL[k]),
+  }
 }
-
-const ASSET_LABELS: Record<(typeof ASSET_KEYS)[number], string> = {
-  etf:      "ETF portfolio",
-  savings:  "Savings account",
-  pillar3a: "Säule 3a",
-  pillar2:  "2. Säule",
-}
-
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
-
-const fmtSigned = (n: number) =>
-  `${Math.round(n) >= 0 ? "+" : "−"}Fr. ${fmtR(Math.abs(n))}`
-
-const fmtMonthLong = (m: string) => {
-  const [y, mo] = m.split("-").map(Number)
-  return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" })
-}
-
-const fmtPct = (r: number) => `${(r * 100).toLocaleString("de-CH", { maximumFractionDigits: 2 })}%`
-
-const fmtM = (n: number) =>
-  n >= 1_000_000
-    ? `Fr. ${(n / 1_000_000).toFixed(2)}M`
-    : `Fr. ${Math.round(n / 1000)}k`
 
 const COLORS = {
   pillar2:  "#8ab4d4",
@@ -90,6 +80,8 @@ const COLORS = {
 }
 
 export default function ProjectionsPage() {
+  const { t, rich, f } = useT()
+  const { fmtR, fmtMonth, fmtMonthLong, fmtSigned, fmtPct, fmtM, assetLabel } = useFormats()
   const [snapshots, setSnapshots]   = useState<Snapshot[]>([])
   const [loading, setLoading]       = useState(true)
   const [settings, setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
@@ -183,17 +175,15 @@ export default function ProjectionsPage() {
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs uppercase text-muted-foreground mb-2">
-          Projections
+          {t("nav.page.projections")}
         </p>
         <h1>
-          Forecast to retirement
+          {t("proj.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Where your assets are heading until you&apos;re {scenario.retirementAge}, from your latest balances and monthly
-          contributions. Try other returns and amounts in the calculator below.{" "}
-          <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">
-            Edit inputs
-          </Link>
+          {rich("proj.intro", {
+            link: text => <Link href="/settings" className="underline underline-offset-2 hover:text-foreground">{text}</Link>,
+          }, { age: scenario.retirementAge })}
         </p>
       </div>
 
@@ -208,10 +198,10 @@ export default function ProjectionsPage() {
               <Card key={p.month} className="text-center">
                 <CardContent className="px-1 pt-4 pb-3">
                   <p className="text-xs uppercase text-muted-foreground mb-1">
-                    {i === 0 ? "Now" : `Age ${p.age}`}
+                    {i === 0 ? t("proj.now") : t("proj.ageN", { age: p.age })}
                   </p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    {i === 0 ? `Age ${ageOn(birthDate)}` : p.month.slice(0, 4)}
+                    {i === 0 ? t("proj.ageN", { age: ageOn(birthDate) }) : p.month.slice(0, 4)}
                   </p>
                   <p className="text-sm font-mono whitespace-nowrap">{fmtM(p.total)}</p>
                 </CardContent>
@@ -223,9 +213,9 @@ export default function ProjectionsPage() {
           <Card>
             <CardHeader className="pb-2 flex flex-row items-baseline justify-between gap-2">
               <CardTitle className="text-sm text-muted-foreground">
-                Total assets until age {scenario.retirementAge}{real && " · in today's francs"}
+                {t(real ? "proj.chartTitleReal" : "proj.chartTitle", { age: scenario.retirementAge })}
               </CardTitle>
-              {changed && <span className="text-xs text-info">What-if from the calculator</span>}
+              {changed && <span className="text-xs text-info">{t("proj.whatIf")}</span>}
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -254,8 +244,8 @@ export default function ProjectionsPage() {
                     width={70}
                   />
                   <Tooltip
-                    labelFormatter={(age, payload) => `Age ${age} · ${payload?.[0]?.payload?.month ? fmtMonth(payload[0].payload.month) : ""}`}
-                    formatter={(value, name) => [`Fr. ${fmtR(Number(value))}`, ASSET_LABELS[name as AssetKey] ?? name]}
+                    labelFormatter={(age, payload) => t("proj.tooltipAge", { age: String(age), month: payload?.[0]?.payload?.month ? fmtMonth(payload[0].payload.month) : "" })}
+                    formatter={(value, name) => [`Fr. ${fmtR(Number(value))}`, name != null && String(name) in ACCOUNT_LABEL ? assetLabel(name as AssetKey) : name]}
                     contentStyle={{
                       background: "var(--card)",
                       border: "1px solid var(--border)",
@@ -273,7 +263,7 @@ export default function ProjectionsPage() {
                 {ASSET_KEYS.map(key => (
                   <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <div className="w-2 h-2 rounded-sm" style={{ background: COLORS[key] }} />
-                    {ASSET_LABELS[key]}
+                    {assetLabel(key)}
                   </div>
                 ))}
               </div>
@@ -292,7 +282,7 @@ export default function ProjectionsPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">
-                At {scenario.retirementAge} · {fmtMonthLong(final.month)}
+                {t("proj.atRetirement", { age: scenario.retirementAge, month: fmtMonthLong(final.month) })}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -300,19 +290,20 @@ export default function ProjectionsPage() {
                 <div key={key} className="flex justify-between items-center py-2 border-b border-border text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-sm" style={{ background: COLORS[key] }} />
-                    <span className="text-muted-foreground">{ASSET_LABELS[key]}</span>
+                    <span className="text-muted-foreground">{assetLabel(key)}</span>
                   </div>
                   <span className="font-mono">Fr. {fmtR(final[key])}</span>
                 </div>
               ))}
               <div className="flex justify-between items-center pt-3 text-sm font-semibold">
-                <span>Total</span>
+                <span>{t("common.total")}</span>
                 <span className="font-mono">Fr. {fmtR(final.total)}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
-                {real && <>In today&apos;s francs, at {fmtPct(scenario.inflation)} inflation a year. </>}
-                Of that, Fr. {fmtR(totalOf(start.balances))} is what you have today, Fr. {fmtR(final.paidIn)} is what you
-                put in over {years} years, and Fr. {fmtR(growth)} comes from returns{real && " after inflation"}.
+                {real && <>{t("proj.summaryReal", { rate: fmtPct(scenario.inflation) })} </>}
+                {t(real ? "proj.summaryNet" : "proj.summary", {
+                  today: fmtR(totalOf(start.balances)), paidIn: fmtR(final.paidIn), count: years, growth: fmtR(growth),
+                })}
               </p>
             </CardContent>
           </Card>
@@ -321,11 +312,11 @@ export default function ProjectionsPage() {
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm text-muted-foreground">
-                Forecast vs. actual
+                {t("proj.fva.title")}
               </CardTitle>
               {comparison && (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  Forecast from
+                  {t("proj.fva.from")}
                   <select
                     value={base}
                     onChange={e => setBaseMonth(e.target.value)}
@@ -341,14 +332,12 @@ export default function ProjectionsPage() {
             <CardContent>
               {!comparison ? (
                 <p className="text-xs text-muted-foreground">
-                  Record snapshots in at least two months to compare the forecast with what actually happened.
+                  {t("proj.fva.none")}
                 </p>
               ) : (
                 <>
                   <p className="text-xs text-muted-foreground mb-3">
-                    What the forecast starting from your {fmtMonth(comparison.base)}{" "}snapshot expected, next to
-                    your snapshots since, and the forecast from your latest snapshot for the next 12 months.
-                    Totals are ETF, savings, 3a and 2. Säule (checking isn&apos;t forecast).
+                    {t("proj.fva.explain", { month: fmtMonth(comparison.base) })}
                   </p>
                   <ResponsiveContainer width="100%" height={280}>
                     <LineChart data={comparison.points} margin={{ left: 10, right: 10, top: 10, bottom: 0 }}>
@@ -385,12 +374,12 @@ export default function ProjectionsPage() {
                         x={comparison.latest}
                         stroke="var(--muted-foreground)"
                         strokeOpacity={0.5}
-                        label={{ value: "Latest snapshot", position: "insideTopRight", fontSize: 10, fill: "var(--muted-foreground)" }}
+                        label={{ value: t("proj.fva.latest"), position: "insideTopRight", fontSize: 10, fill: "var(--muted-foreground)" }}
                       />
                       <Line
                         type="monotone"
                         dataKey="plan"
-                        name={`Forecast from ${fmtMonth(comparison.base)}`}
+                        name={t("proj.fva.plan", { month: fmtMonth(comparison.base) })}
                         stroke="var(--info)"
                         strokeWidth={2}
                         strokeDasharray="6 4"
@@ -399,7 +388,7 @@ export default function ProjectionsPage() {
                       <Line
                         type="monotone"
                         dataKey="current"
-                        name="Forecast from now"
+                        name={t("proj.fva.fromNow")}
                         stroke="var(--highlight)"
                         strokeWidth={2}
                         strokeDasharray="2 3"
@@ -408,7 +397,7 @@ export default function ProjectionsPage() {
                       <Line
                         type="linear"
                         dataKey="actual"
-                        name="Actual"
+                        name={t("proj.fva.actual")}
                         stroke="var(--foreground)"
                         strokeWidth={2}
                         dot={{ r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--foreground)" }}
@@ -422,9 +411,9 @@ export default function ProjectionsPage() {
                       <thead>
                         <tr className="border-b border-border text-muted-foreground">
                           <th className="text-left pb-2 font-normal">{fmtMonth(comparison.latest)}</th>
-                          <th className="text-right pb-2 font-normal">Actual</th>
-                          <th className="text-right pb-2 font-normal">Forecast from {fmtMonth(comparison.base)}</th>
-                          <th className="text-right pb-2 font-normal">Difference</th>
+                          <th className="text-right pb-2 font-normal">{t("proj.fva.actual")}</th>
+                          <th className="text-right pb-2 font-normal">{t("proj.fva.plan", { month: fmtMonth(comparison.base) })}</th>
+                          <th className="text-right pb-2 font-normal">{t("proj.fva.difference")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -432,7 +421,7 @@ export default function ProjectionsPage() {
                           const diff = comparison.today.actual[k] - comparison.today.plan[k]
                           return (
                             <tr key={k} className="border-b border-border">
-                              <td className="py-2 text-muted-foreground">{ASSET_LABELS[k]}</td>
+                              <td className="py-2 text-muted-foreground">{assetLabel(k)}</td>
                               <td className="py-2 text-right font-mono">Fr. {fmtR(comparison.today.actual[k])}</td>
                               <td className="py-2 text-right font-mono">Fr. {fmtR(comparison.today.plan[k])}</td>
                               <td className={`py-2 text-right font-mono ${diff >= 0 ? "text-positive" : "text-negative"}`}>
@@ -442,7 +431,7 @@ export default function ProjectionsPage() {
                           )
                         })}
                         <tr >
-                          <td className="pt-2">Total</td>
+                          <td className="pt-2">{t("common.total")}</td>
                           <td className="pt-2 text-right font-mono">Fr. {fmtR(totalOf(comparison.today.actual))}</td>
                           <td className="pt-2 text-right font-mono">Fr. {fmtR(totalOf(comparison.today.plan))}</td>
                           <td className={`pt-2 text-right font-mono ${gap >= 0 ? "text-positive" : "text-negative"}`}>
@@ -453,9 +442,7 @@ export default function ProjectionsPage() {
                     </table>
                   </div>
                   <p className="text-xs text-muted-foreground mt-3">
-                    A difference comes from returns other than the assumed rates or from contributions other
-                    than your monthly settings, such as a one-off deposit. The earlier forecast uses today&apos;s
-                    settings, so changing them changes it too.
+                    {t("proj.fva.note")}
                   </p>
                 </>
               )}
@@ -466,16 +453,16 @@ export default function ProjectionsPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">
-                Record this month's balances
+                {t("proj.record.title")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground mb-4">
-                Update your actual asset balances each month to keep the projection accurate.
+                {t("proj.record.intro")}
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 mb-4">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Month</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">{t("proj.record.month")}</label>
                   <input
                     type="month"
                     value={formMonth}
@@ -483,24 +470,24 @@ export default function ProjectionsPage() {
                     className="w-full text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
                   />
                 </div>
-                {[
-                  { label: "ETF portfolio",    value: formEtf,      set: setFormEtf,      placeholder: "0"  },
-                  { label: "Savings account",  value: formSavings,  set: setFormSavings,  placeholder: "0" },
-                  { label: "Säule 3a",         value: form3a,       set: setForm3a,        placeholder: "0" },
-                  { label: "2. Säule",         value: formPillar2,  set: setFormPillar2,  placeholder: "0" },
-                  { label: "Checking account", value: formChecking, set: setFormChecking, placeholder: "0"  },
-                ].map(field => (
-                  <div key={field.label}>
+                {([
+                  { key: "etf",      value: formEtf,      set: setFormEtf,      placeholder: "0" },
+                  { key: "savings",  value: formSavings,  set: setFormSavings,  placeholder: "0" },
+                  { key: "pillar3a", value: form3a,       set: setForm3a,       placeholder: "0" },
+                  { key: "pillar2",  value: formPillar2,  set: setFormPillar2,  placeholder: "0" },
+                  { key: "checking", value: formChecking, set: setFormChecking, placeholder: "0" },
+                ] as const).map(field => (
+                  <div key={field.key}>
                     <label className="text-xs text-muted-foreground mb-1 flex items-center justify-between gap-2">
-                      {field.label}
-                      {field.label === "ETF portfolio" && tracker[formMonth] && (
+                      {assetLabel(field.key)}
+                      {field.key === "etf" && tracker[formMonth] && (
                         <button
                           type="button"
                           className="text-[11px] underline hover:text-foreground"
-                          title={`Your Yuh portfolio on ${tracker[formMonth].date}`}
+                          title={t("proj.record.yuhTitle", { date: tracker[formMonth].date })}
                           onClick={() => setFormEtf(String(Math.round(tracker[formMonth].value)))}
                         >
-                          Use portfolio: Fr. {fmtR(tracker[formMonth].value)}
+                          {t("proj.record.usePortfolio", { amount: fmtR(tracker[formMonth].value) })}
                         </button>
                       )}
                     </label>
@@ -520,11 +507,11 @@ export default function ProjectionsPage() {
                   disabled={saving}
                   className="text-sm px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {saving ? "Saving..." : "Save snapshot"}
+                  {saving ? t("common.saving") : t("proj.record.save")}
                 </button>
                 {saved && (
                   <span className="text-xs text-positive">
-                    ✓ Saved — projection updated
+                    {t("proj.record.saved")}
                   </span>
                 )}
               </div>
@@ -536,7 +523,7 @@ export default function ProjectionsPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground">
-                  Snapshot history
+                  {t("proj.history.title")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -544,21 +531,19 @@ export default function ProjectionsPage() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border text-muted-foreground">
-                        <th className="text-left pb-2 font-normal">Month</th>
-                        <th className="text-right pb-2 font-normal">ETF</th>
-                        <th className="text-right pb-2 font-normal">Savings</th>
-                        <th className="text-right pb-2 font-normal">3a</th>
-                        <th className="text-right pb-2 font-normal">2. Säule</th>
-                        <th className="text-right pb-2 font-normal">Total</th>
+                        <th className="text-left pb-2 font-normal">{t("proj.history.month")}</th>
+                        <th className="text-right pb-2 font-normal">{t("networth.series.etf")}</th>
+                        <th className="text-right pb-2 font-normal">{t("proj.history.savings")}</th>
+                        <th className="text-right pb-2 font-normal">{t("proj.history.pillar3a")}</th>
+                        <th className="text-right pb-2 font-normal">{t("account.pillar2")}</th>
+                        <th className="text-right pb-2 font-normal">{t("common.total")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {snapshots.slice().reverse().map(s => (
                         <tr key={s.id} className="border-b border-border last:border-0">
                           <td className="py-2 text-muted-foreground">
-                            {new Date(s.month).toLocaleDateString("de-CH", {
-                              month: "short", year: "numeric"
-                            })}
+                            {f.date(s.month, { month: "short", year: "numeric" })}
                           </td>
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.etf)}</td>
                           <td className="py-2 text-right font-mono">Fr. {fmtR(s.savings)}</td>
@@ -578,12 +563,12 @@ export default function ProjectionsPage() {
 
           {/* Assumptions */}
           <p className="text-xs text-muted-foreground text-center pb-4 leading-relaxed">
-            Returns a year: {ASSET_KEYS.map(k => `${ASSET_LABELS[k]} ${fmtPct(scenario.a.rates[k])}`).join(" · ")}, compounded monthly.
+            {t("proj.assumptions", { list: ASSET_KEYS.map(k => `${assetLabel(k)} ${fmtPct(scenario.a.rates[k])}`).join(" · ") })}
             {" "}{real
-              ? `Amounts in today's francs at ${fmtPct(scenario.inflation)} inflation a year; tax isn't taken into account.`
-              : "Nominal amounts: inflation and tax aren't taken into account."}
+              ? t("proj.assumptionsReal", { rate: fmtPct(scenario.inflation) })
+              : t("proj.assumptionsNominal")}
             <br />
-            Projections are estimates. Past performance does not guarantee future results.
+            {t("proj.disclaimer")}
           </p>
 
         </div>
@@ -619,56 +604,56 @@ function Calculator({ scenario, changed, onChange, onReset }: {
   scenario: Scenario; changed: boolean
   onChange: (s: Scenario) => void; onReset: () => void
 }) {
+  const { t, rich } = useT()
+  const { fmtR, fmtPct, assetLabel } = useFormats()
   const set = (part: "rates" | "monthly", key: AssetKey, value: number) =>
     onChange({ ...scenario, a: { ...scenario.a, [part]: { ...scenario.a[part], [key]: value } } })
 
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-sm text-muted-foreground">Play with the numbers</CardTitle>
-        {changed && <Button size="sm" variant="outline" onClick={onReset}>Back to my settings</Button>}
+        <CardTitle className="text-sm text-muted-foreground">{t("proj.calc.title")}</CardTitle>
+        {changed && <Button size="sm" variant="outline" onClick={onReset}>{t("proj.calc.reset")}</Button>}
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground mb-4">
-          Try other returns and savings — the forecast above follows. Nothing is saved; your plan stays as set
-          on <Link href="/settings" className="underline">Settings</Link>.
+          {rich("proj.calc.intro", { link: text => <Link href="/settings" className="underline">{text}</Link> })}
         </p>
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
           <div className="space-y-3">
-            <p className="text-xs uppercase text-muted-foreground">Return a year</p>
+            <p className="text-xs uppercase text-muted-foreground">{t("proj.calc.returns")}</p>
             {ASSET_KEYS.map(k => (
               <Slider
-                key={k} label={ASSET_LABELS[k]} value={scenario.a.rates[k]}
+                key={k} label={assetLabel(k)} value={scenario.a.rates[k]}
                 min={0} max={RETURN_MAX} step={0.0025} display={fmtPct(scenario.a.rates[k])}
                 onChange={v => set("rates", k, v)}
               />
             ))}
           </div>
           <div className="space-y-3">
-            <p className="text-xs uppercase text-muted-foreground">Added each month</p>
+            <p className="text-xs uppercase text-muted-foreground">{t("proj.calc.monthly")}</p>
             {ASSET_KEYS.map(k => (
               <Slider
-                key={k} label={ASSET_LABELS[k]} value={scenario.a.monthly[k]}
+                key={k} label={assetLabel(k)} value={scenario.a.monthly[k]}
                 min={0} max={MONTHLY_MAX[k]} step={MONTHLY_STEP[k]} display={`Fr. ${fmtR(scenario.a.monthly[k])}`}
                 onChange={v => set("monthly", k, v)}
               />
             ))}
           </div>
           <Slider
-            label="Retirement age" value={scenario.retirementAge}
+            label={t("proj.calc.retirementAge")} value={scenario.retirementAge}
             min={58} max={70} step={1} display={String(scenario.retirementAge)}
             onChange={v => onChange({ ...scenario, retirementAge: v })}
           />
           <div>
             <Slider
-              label="Inflation a year" value={scenario.inflation}
+              label={t("proj.calc.inflation")} value={scenario.inflation}
               min={0} max={0.04} step={0.0025}
-              display={scenario.inflation > 0 ? fmtPct(scenario.inflation) : "off"}
+              display={scenario.inflation > 0 ? fmtPct(scenario.inflation) : t("proj.calc.off")}
               onChange={v => onChange({ ...scenario, inflation: v })}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Above 0, every amount is shown in today&apos;s francs. The Swiss National Bank aims to keep inflation
-              below 2% a year.
+              {t("proj.calc.inflationHint")}
             </p>
           </div>
         </div>

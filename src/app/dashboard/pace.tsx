@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { PaceResult } from "@/lib/pace"
-
-const fmtR = (n: number) => Math.round(n).toLocaleString("de-CH")
-const dayLabel = (d: string) =>
-  new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "long", timeZone: "UTC" })
+import { useT } from "@/lib/i18n/provider"
 
 // Projection for the month in progress; renders nothing for a complete month.
 export function SpendingPace({ month }: { month: string }) {
+  const { t: tr, rich, f } = useT()
+  const fmtR = f.int
+  const dayLabel = (d: string) => f.date(d + "T00:00:00Z", { day: "numeric", month: "long", timeZone: "UTC" })
   const [result, setResult] = useState<{ month: string; data: PaceResult | null } | null>(null)
 
   useEffect(() => {
@@ -31,20 +31,22 @@ export function SpendingPace({ month }: { month: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <CardTitle className="text-sm text-muted-foreground">Month pace</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">{tr("pace.title")}</CardTitle>
           <span className="text-xs text-muted-foreground">
-            through {dayLabel(d.asOf)} · day {d.day} of {d.daysInMonth}
+            {tr("pace.through", { date: dayLabel(d.asOf), day: d.day, days: d.daysInMonth })}
           </span>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm">
-          On pace for <strong>Fr. {fmtR(t.projected)}</strong> in budgeted categories against a plan of Fr. {fmtR(t.budget)}
-          {" — "}
-          {t.over > 0.5
-            ? <span className="text-negative">Fr. {fmtR(t.over)} over</span>
-            : <span className="text-positive">Fr. {fmtR(-t.over)} to spare</span>}
-          . Spent so far: Fr. {fmtR(t.spent)}.
+          {rich(t.over > 0.5 ? "pace.summary.over" : "pace.summary.spare", {
+            b: text => <strong>{text}</strong>,
+            bad: text => <span className="text-negative">{text}</span>,
+            good: text => <span className="text-positive">{text}</span>,
+          }, {
+            projected: fmtR(t.projected), budget: fmtR(t.budget), spent: fmtR(t.spent),
+            over: fmtR(t.over), spare: fmtR(-t.over),
+          })}
         </p>
 
         <div className="space-y-2.5">
@@ -59,12 +61,14 @@ export function SpendingPace({ month }: { month: string }) {
                     {r.name}
                   </span>
                   <span className="font-mono text-muted-foreground">
-                    {fmtR(r.spent)} → <span className="text-foreground">{fmtR(r.projected)}</span> of {fmtR(r.budget)}
+                    {rich("pace.row", { b: text => <span className="text-foreground">{text}</span> }, {
+                      spent: fmtR(r.spent), projected: fmtR(r.projected), budget: fmtR(r.budget),
+                    })}
                     {over && <span className="text-negative"> · +{fmtR(r.over)}</span>}
                   </span>
                 </div>
                 {/* Spent so far (solid), projected rest (faint), budget (tick). */}
-                <div className="relative h-2 bg-muted rounded-full overflow-hidden" title={`Spent Fr. ${fmtR(r.spent)}, projected Fr. ${fmtR(r.projected)}, budget Fr. ${fmtR(r.budget)}`}>
+                <div className="relative h-2 bg-muted rounded-full overflow-hidden" title={tr("pace.barTitle", { spent: fmtR(r.spent), projected: fmtR(r.projected), budget: fmtR(r.budget) })}>
                   <div className={`absolute inset-y-0 left-0 rounded-full ${over ? "bg-negative/30" : "bg-positive/30"}`} style={{ width: `${r.projected / max * 100}%` }} />
                   <div className={`absolute inset-y-0 left-0 rounded-full ${over ? "bg-negative" : "bg-positive"}`} style={{ width: `${r.spent / max * 100}%` }} />
                   <div className="absolute inset-y-0 w-0.5 bg-foreground/60" style={{ left: `calc(${r.budget / max * 100}% - 1px)` }} />
@@ -76,10 +80,10 @@ export function SpendingPace({ month }: { month: string }) {
 
         <p className="text-xs text-muted-foreground leading-relaxed">
           {atRisk.length
-            ? `${atRisk.length} of ${d.rows.length} budgets on pace to go over. `
-            : `All ${d.rows.length} budgets on track; showing the closest. `}
-          Fixed costs are expected once at their usual amount; variable spending continues at your usual rate
-          {d.history.length ? ` (average of the last ${d.history.length} complete months)` : " (no history yet, so straight-line)"}.
+            ? tr("pace.atRisk", { count: atRisk.length, total: d.rows.length })
+            : tr("pace.allOnTrack", { total: d.rows.length })}{" "}
+          {tr("pace.method")}{" "}
+          {d.history.length ? tr("pace.history", { count: d.history.length }) : tr("pace.noHistory")}.
         </p>
       </CardContent>
     </Card>

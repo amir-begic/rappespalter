@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { useT } from "@/lib/i18n/provider"
 
 // Marks a transaction as one-off (an inheritance, a car): it stays in totals but
 // is left out of trends, averages and budget comparisons. Unless it's set, the
@@ -11,6 +12,7 @@ export function OneOffToggle({ id, value, onChange }: {
   value:    boolean
   onChange: (value: boolean) => void
 }) {
+  const { t } = useT()
   const [busy, setBusy] = useState(false)
 
   async function toggle() {
@@ -33,7 +35,7 @@ export function OneOffToggle({ id, value, onChange }: {
       onClick={toggle}
       disabled={busy}
       aria-pressed={value}
-      title="One-off payments stay in totals but are left out of trends, averages and budget comparisons."
+      title={t("oneoff.title")}
       className={cn(
         "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide transition-opacity disabled:opacity-50",
         value
@@ -41,7 +43,7 @@ export function OneOffToggle({ id, value, onChange }: {
           : "border-border text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
       )}
     >
-      {value ? "One-off" : "Mark one-off"}
+      {value ? t("oneoff.on") : t("oneoff.mark")}
     </button>
   )
 }

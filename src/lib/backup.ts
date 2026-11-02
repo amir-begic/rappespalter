@@ -22,9 +22,17 @@ const BEFORE_RESTORE_KEEP = 5
 // Tables every Rappespalter database has; the on-demand ones are created later.
 const REQUIRED_TABLES = ["Transaction", "Category"]
 
+// A backup problem the person can fix; `code` says which, so the route words it in
+// their language (the English message is for the log).
+export class BackupError extends Error {
+  constructor(public code: "needsLocal" | "notDatabase" | "damaged" | "notBackup", message: string) {
+    super(message)
+  }
+}
+
 export function databasePath() {
   const url = process.env.DATABASE_URL ?? ""
-  if (!url.startsWith("file:")) throw new Error("Backups need a local SQLite database (DATABASE_URL=file:…)")
+  if (!url.startsWith("file:")) throw new BackupError("needsLocal", "Backups need a local SQLite database (DATABASE_URL=file:…)")
   return resolve(url.slice("file:".length))
 }
 
@@ -47,17 +55,17 @@ export async function checkBackup(file: string) {
     closeSync(fd)
   }
   if (!header.toString("latin1").startsWith("SQLite format 3")) {
-    throw new Error("This isn't a database file. Choose a backup made with “Back up…”.")
+    throw new BackupError("notDatabase", "This isn't a database file. Choose a backup made with “Back up…”.")
   }
 
   const client = createClient({ url: `file:${file}` })
   try {
     const check = await client.execute("PRAGMA quick_check")
-    if (check.rows[0]?.[0] !== "ok") throw new Error("This backup is damaged and can't be restored.")
+    if (check.rows[0]?.[0] !== "ok") throw new BackupError("damaged", "This backup is damaged and can't be restored.")
     const tables = await client.execute(`SELECT name FROM sqlite_master WHERE type = 'table'`)
     const names = new Set(tables.rows.map(r => String(r[0])))
     const missing = REQUIRED_TABLES.filter(t => !names.has(t))
-    if (missing.length) throw new Error("This database isn't a Rappespalter backup.")
+    if (missing.length) throw new BackupError("notBackup", "This database isn't a Rappespalter backup.")
   } finally {
     client.close()
   }

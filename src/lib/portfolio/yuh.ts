@@ -50,6 +50,14 @@ const orderName = (s: string) => s.replace(/^[\d.,']+x\s+/, "")
 // "World (Vanguard …) Dividend" → "World (Vanguard …)"
 const DIVIDEND_RE = /\s+(dividend|capital gain|distribution)$/i
 
+// The file isn't a Yuh activity export; `missing` are the columns it lacks. The
+// import route words it in the user's language.
+export class YuhFormatError extends Error {
+  constructor(public missing: string[]) {
+    super(`Not a Yuh activity export (missing: ${missing.join(", ")})`)
+  }
+}
+
 export function parseYuhCSV(input: Buffer | string): ParseResult {
   const raw = (typeof input === "string" ? input : input.toString("utf8")).replace(/^﻿/, "")
   const wb  = XLSX.read(raw, { type: "string", FS: ";", raw: true })
@@ -59,9 +67,7 @@ export function parseYuhCSV(input: Buffer | string): ParseResult {
 
   const columns = rows.length ? Object.keys(rows[0]) : []
   const missing = REQUIRED_COLUMNS.filter(c => !columns.includes(c))
-  if (missing.length) {
-    throw new Error(`Not a Yuh activity export (missing column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")})`)
-  }
+  if (missing.length) throw new YuhFormatError(missing)
 
   const activities: ParsedActivity[] = []
   const securities = new Map<string, { name: string; currency: string }>()

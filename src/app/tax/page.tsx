@@ -4,6 +4,9 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageLoading } from "@/components/page-loading"
 import type { TaxDividend } from "@/lib/tax"
+import type { PortfolioWarning } from "@/lib/portfolio/engine"
+import { warningText } from "@/lib/i18n/labels"
+import { useT } from "@/lib/i18n/provider"
 
 interface TaxSummary {
   year:              number
@@ -23,18 +26,19 @@ interface TaxSummary {
     cash:      number
     value:     number
     dividends: TaxDividend[]
-    warnings:  string[]
+    warnings:  PortfolioWarning[]
   }
 }
 
-const fmt = (n: number) =>
-  n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtUnits = (n: number) => n.toLocaleString("de-CH", { maximumFractionDigits: 4 })
-const fmtDate = (d: string) =>
-  new Date(d.length === 10 ? d + "T00:00:00" : d).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })
-const fmtMonth = (m: string) => {
-  const [y, mo] = m.split("-").map(Number)
-  return new Date(y, mo - 1).toLocaleDateString("de-CH", { month: "long", year: "numeric" })
+// Number and date writing in the current language.
+function useFormats() {
+  const { f, locale } = useT()
+  return {
+    fmt: (n: number) => f.decimal(n),
+    fmtUnits: (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 4 }),
+    fmtDate: (d: string) => f.date(d.length === 10 ? d + "T00:00:00" : d, { day: "2-digit", month: "2-digit", year: "numeric" }),
+    fmtMonth: f.monthLong,
+  }
 }
 
 const selectClass = "text-sm rounded-xl border border-input px-3 py-2 bg-card text-foreground"
@@ -52,6 +56,7 @@ function Section({ title, aside, children }: { title: string; aside?: React.Reac
 }
 
 function Row({ label, value, strong }: { label: React.ReactNode; value: number; strong?: boolean }) {
+  const { fmt } = useFormats()
   return (
     <div className={`flex items-center justify-between py-2 border-b border-border last:border-0 text-sm ${strong ? "font-semibold" : ""}`}>
       <span className={strong ? "" : "text-muted-foreground"}>{label}</span>
@@ -61,6 +66,8 @@ function Row({ label, value, strong }: { label: React.ReactNode; value: number; 
 }
 
 export default function TaxPage() {
+  const { t } = useT()
+  const { fmt, fmtUnits, fmtDate, fmtMonth } = useFormats()
   const [data, setData]       = useState<TaxSummary | null>(null)
   const [error, setError]     = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,16 +85,18 @@ export default function TaxPage() {
         if (d.error) setError(d.error)
         else setData(d)
       })
-      .catch(() => { if (!stale) setError("Failed to load the tax summary") })
+      .catch(() => { if (!stale) setError(t("tax.loadFailed")) })
       .finally(() => { if (!stale) setLoading(false) })
     return () => { stale = true }
+    // Reloads per query; t is only read if loading fails.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
 
   const change = (q: typeof query) => { setLoading(true); setQuery(prev => ({ ...prev, ...q })) }
 
   const p = data?.portfolio
-  const divTotals = p?.dividends.reduce((t, d) => ({
-    gross: t.gross + d.grossChf, tax: t.tax + d.taxChf, net: t.net + d.netChf,
+  const divTotals = p?.dividends.reduce((acc, d) => ({
+    gross: acc.gross + d.grossChf, tax: acc.tax + d.taxChf, net: acc.net + d.netChf,
   }), { gross: 0, tax: 0, net: 0 })
 
   return (
@@ -95,19 +104,17 @@ export default function TaxPage() {
 
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase text-muted-foreground mb-2">Planning</p>
-          <h1>Tax return</h1>
+          <p className="text-xs uppercase text-muted-foreground mb-2">{t("nav.section.planning")}</p>
+          <h1>{t("tax.title")}</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-            What the app knows for one year&apos;s tax return, in one place. It doesn&apos;t apply tax
-            rules — check the figures against your official documents (salary certificate, 3a and bank
-            statements, the broker&apos;s tax report).
+            {t("tax.intro")}
           </p>
         </div>
         {data && data.years.length > 0 && (
           <select
             value={data.year}
             onChange={e => change({ year: Number(e.target.value) })}
-            aria-label="Tax year"
+            aria-label={t("tax.yearAria")}
             className={selectClass}
           >
             {data.years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -122,12 +129,12 @@ export default function TaxPage() {
         <div className={`space-y-4 transition-opacity ${loading ? "opacity-60 delay-300" : ""}`} aria-busy={loading}>
 
           <Section
-            title="Säule 3a contributions"
+            title={t("tax.p3a.title")}
             aside={data.savingsCategories.length > 1 && (
               <select
                 value={data.pillar3a?.category.id ?? ""}
                 onChange={e => change({ pillar3a: Number(e.target.value) })}
-                aria-label="Säule 3a category"
+                aria-label={t("tax.p3a.categoryAria")}
                 className="text-xs rounded-lg border border-input px-2 py-1 bg-card text-foreground"
               >
                 {data.savingsCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -135,23 +142,21 @@ export default function TaxPage() {
             )}
           >
             {!data.pillar3a ? (
-              <p className="text-sm text-muted-foreground">No savings category for Säule 3a — add one on Data → Categories.</p>
+              <p className="text-sm text-muted-foreground">{t("tax.p3a.none")}</p>
             ) : (
               <>
                 {/* Wrapped: a card leading with a .font-display figure becomes a coloured tile (globals.css). */}
                 <div><p className="font-display text-3xl">Fr. {fmt(data.pillar3a.total)}</p></div>
                 <p className="text-xs text-muted-foreground mt-1 mb-3">
-                  {data.pillar3a.payments.length} payment{data.pillar3a.payments.length === 1 ? "" : "s"} categorized
-                  as {data.pillar3a.category.name} in {data.year}. The deductible maximum is set each year — compare
-                  with your 3a provider&apos;s certificate.
+                  {t("tax.p3a.note", { count: data.pillar3a.payments.length, category: data.pillar3a.category.name, year: data.year })}
                 </p>
                 {data.pillar3a.payments.length > 0 && (
                   <ul className="divide-y divide-border text-xs">
-                    {data.pillar3a.payments.map(t => (
-                      <li key={t.id} className="flex items-center gap-3 py-1.5">
-                        <span className="w-24 shrink-0 text-muted-foreground">{fmtDate(t.date)}</span>
-                        <span className="min-w-0 flex-1 truncate">{t.counterparty}</span>
-                        <span className="font-mono">Fr. {fmt(-t.amount)}</span>
+                    {data.pillar3a.payments.map(pay => (
+                      <li key={pay.id} className="flex items-center gap-3 py-1.5">
+                        <span className="w-24 shrink-0 text-muted-foreground">{fmtDate(pay.date)}</span>
+                        <span className="min-w-0 flex-1 truncate">{pay.counterparty}</span>
+                        <span className="font-mono">Fr. {fmt(-pay.amount)}</span>
                       </li>
                     ))}
                   </ul>
@@ -160,40 +165,39 @@ export default function TaxPage() {
             )}
           </Section>
 
-          <Section title={`Balances at the end of ${data.year}`}>
+          <Section title={t("tax.balances.title", { year: data.year })}>
             {!data.snapshot ? (
               <p className="text-sm text-muted-foreground">
-                No snapshot from December {data.year} or January {data.year + 1}. Record your balances on
-                Projections to have them here.
+                {t("tax.balances.none", { year: data.year, next: data.year + 1 })}
               </p>
             ) : (
               <>
-                <p className="text-xs text-muted-foreground mb-2">From your {fmtMonth(data.snapshot.month)} snapshot.</p>
-                <Row label="Checking account" value={data.snapshot.checking} />
-                <Row label="Savings account"  value={data.snapshot.savings} />
-                <Row label="ETF portfolio"    value={data.snapshot.etf} />
-                <Row label="Säule 3a"         value={data.snapshot.pillar3a} />
-                <Row label="2. Säule"         value={data.snapshot.pillar2} />
+                <p className="text-xs text-muted-foreground mb-2">{t("tax.balances.from", { month: fmtMonth(data.snapshot.month) })}</p>
+                <Row label={t("welcome.balances.checking")} value={data.snapshot.checking} />
+                <Row label={t("welcome.balances.savings")}  value={data.snapshot.savings} />
+                <Row label={t("welcome.balances.etf")}      value={data.snapshot.etf} />
+                <Row label={t("welcome.balances.pillar3a")} value={data.snapshot.pillar3a} />
+                <Row label={t("welcome.balances.pillar2")}  value={data.snapshot.pillar2} />
                 <p className="text-xs text-muted-foreground mt-2">
-                  3a and 2. Säule aren&apos;t taxed as wealth; they&apos;re listed for completeness.
+                  {t("tax.balances.note")}
                 </p>
               </>
             )}
           </Section>
 
-          <Section title={`Securities on ${fmtDate(p!.asOf)}`}>
+          <Section title={t("tax.securities.title", { date: fmtDate(p!.asOf) })}>
             {!p!.hasData ? (
-              <p className="text-sm text-muted-foreground">No broker activity up to then — import your Yuh activities on Portfolio.</p>
+              <p className="text-sm text-muted-foreground">{t("tax.securities.none")}</p>
             ) : (
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-xs text-muted-foreground">
-                        <th className="pb-2 text-left font-normal">Security</th>
-                        <th className="pb-2 text-right font-normal">Units</th>
-                        <th className="pb-2 text-right font-normal">Price</th>
-                        <th className="pb-2 text-right font-normal">Value (CHF)</th>
+                        <th className="pb-2 text-left font-normal">{t("tax.securities.security")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.securities.units")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.securities.price")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.securities.value")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -206,45 +210,44 @@ export default function TaxPage() {
                           <td className="py-2 text-right font-mono">{fmtUnits(h.units)}</td>
                           <td className="py-2 text-right font-mono text-xs">
                             {h.price == null ? "—" : `${h.priceCurrency} ${fmt(h.price)}`}
-                            {h.priceDate && <span className="block text-muted-foreground">{h.priceIsTrade ? "last trade" : fmtDate(h.priceDate)}</span>}
+                            {h.priceDate && <span className="block text-muted-foreground">{h.priceIsTrade ? t("tax.securities.lastTrade") : fmtDate(h.priceDate)}</span>}
                           </td>
                           <td className="py-2 text-right font-mono">{fmt(h.value)}</td>
                         </tr>
                       ))}
                       <tr className="border-b border-border">
-                        <td className="py-2 text-muted-foreground" colSpan={3}>Cash at the broker</td>
+                        <td className="py-2 text-muted-foreground" colSpan={3}>{t("tax.securities.cash")}</td>
                         <td className="py-2 text-right font-mono">{fmt(p!.cash)}</td>
                       </tr>
                       <tr className="font-semibold">
-                        <td className="pt-2" colSpan={3}>Total</td>
+                        <td className="pt-2" colSpan={3}>{t("tax.securities.total")}</td>
                         <td className="pt-2 text-right font-mono">{fmt(p!.value)}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Closing prices on or before that day, converted at the ECB rate. The tax office values
-                  securities with its own year-end prices (ESTV list), so expect small differences.
+                  {t("tax.securities.note")}
                 </p>
               </>
             )}
-            {p!.warnings.length > 0 && <p className="text-xs text-negative mt-2">{p!.warnings.join(" · ")}</p>}
+            {p!.warnings.length > 0 && <p className="text-xs text-negative mt-2">{p!.warnings.map(w => warningText(t, w)).join(" · ")}</p>}
           </Section>
 
-          <Section title={`Dividends in ${data.year}`}>
+          <Section title={t("tax.dividends.title", { year: data.year })}>
             {p!.dividends.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No dividends booked in {data.year}.</p>
+              <p className="text-sm text-muted-foreground">{t("tax.dividends.none", { year: data.year })}</p>
             ) : (
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-xs text-muted-foreground">
-                        <th className="pb-2 text-left font-normal">Security</th>
-                        <th className="pb-2 text-right font-normal">Gross</th>
-                        <th className="pb-2 text-right font-normal">Withholding tax</th>
-                        <th className="pb-2 text-right font-normal">Gross (CHF)</th>
-                        <th className="pb-2 text-right font-normal">Withheld (CHF)</th>
+                        <th className="pb-2 text-left font-normal">{t("tax.securities.security")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.dividends.gross")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.dividends.withholding")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.dividends.grossChf")}</th>
+                        <th className="pb-2 text-right font-normal">{t("tax.dividends.withheldChf")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -252,7 +255,7 @@ export default function TaxPage() {
                         <tr key={d.symbol} className="border-b border-border">
                           <td className="py-2 pr-3">
                             <span className="block truncate max-w-[14rem]">{d.name}</span>
-                            <span className="text-xs text-muted-foreground">{d.payments} payment{d.payments === 1 ? "" : "s"}</span>
+                            <span className="text-xs text-muted-foreground">{t("recurring.payments", { count: d.payments })}</span>
                           </td>
                           <td className="py-2 text-right font-mono text-xs">{d.currency} {fmt(d.gross)}</td>
                           <td className="py-2 text-right font-mono text-xs">{d.currency} {fmt(d.tax)}</td>
@@ -261,7 +264,7 @@ export default function TaxPage() {
                         </tr>
                       ))}
                       <tr className="font-semibold">
-                        <td className="pt-2" colSpan={3}>Total</td>
+                        <td className="pt-2" colSpan={3}>{t("tax.securities.total")}</td>
                         <td className="pt-2 text-right font-mono">{fmt(divTotals!.gross)}</td>
                         <td className="pt-2 text-right font-mono">{fmt(divTotals!.tax)}</td>
                       </tr>
@@ -269,17 +272,15 @@ export default function TaxPage() {
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Gross dividends are taxable income. Withholding tax can partly be reclaimed or credited
-                  through the tax return, depending on where the security is domiciled — the broker&apos;s
-                  tax report has the details. CHF at each payment day&apos;s ECB rate.
+                  {t("tax.dividends.note")}
                 </p>
               </>
             )}
           </Section>
 
-          <Section title={`Income booked in ${data.year}`}>
+          <Section title={t("tax.income.title", { year: data.year })}>
             {data.income.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No income in {data.year}.</p>
+              <p className="text-sm text-muted-foreground">{t("tax.income.none", { year: data.year })}</p>
             ) : (
               <>
                 {data.income.map(r => (
@@ -289,10 +290,9 @@ export default function TaxPage() {
                     value={r.total}
                   />
                 ))}
-                <Row label="Total" value={data.income.reduce((s, r) => s + r.total, 0)} strong />
+                <Row label={t("tax.securities.total")} value={data.income.reduce((s, r) => s + r.total, 0)} strong />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Money in by category, excluding transfers. Your salary certificate is what counts for
-                  employment income; this is a cross-check, and shows other income to declare.
+                  {t("tax.income.note")}
                 </p>
               </>
             )}

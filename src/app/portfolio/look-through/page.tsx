@@ -13,24 +13,31 @@ import {
 } from "@/components/ui/table"
 import type { LookThroughSummary } from "@/lib/portfolio/store"
 import { PageLoading } from "@/components/page-loading"
+import { useT } from "@/lib/i18n/provider"
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
-const fmtR   = (n: number) => Math.round(n).toLocaleString("de-CH")
-const fmt2   = (n: number) => n.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtPct = (n: number | null, digits = 2) => n == null ? "—" : `${(n * 100).toFixed(digits)}%`
-const dayLabel = (d: string) =>
-  new Date(d + "T00:00:00Z").toLocaleDateString("de-CH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
-
-const regionNames = typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "region" }) : null
-const currencyNames = typeof Intl !== "undefined" ? new Intl.DisplayNames(["en"], { type: "currency" }) : null
-const currencyName = (code: string) => {
-  if (code === "Unknown") return code
-  try { return `${code} · ${currencyNames?.of(code) ?? code}` } catch { return code }
-}
-const countryName = (code: string) => {
-  if (code === "Unknown") return code
-  try { return regionNames?.of(code) ?? code } catch { return code }
+// Number, date and country / currency names in the current language.
+function useFormats() {
+  const { f, locale } = useT()
+  const names = (type: "region" | "currency") => typeof Intl !== "undefined" ? new Intl.DisplayNames([locale], { type }) : null
+  const regionNames = names("region")
+  const currencyNames = names("currency")
+  return {
+    fmtR: f.int,
+    fmt2: (n: number) => f.decimal(n),
+    fmtPct: (n: number | null, digits = 2) => n == null ? "—" : `${(n * 100).toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`,
+    fmtCount: (n: number) => n.toLocaleString(locale),
+    dayLabel: (d: string) => f.date(d + "T00:00:00Z", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+    currencyName: (code: string) => {
+      if (code === "Unknown") return code
+      try { return `${code} · ${currencyNames?.of(code) ?? code}` } catch { return code }
+    },
+    countryName: (code: string) => {
+      if (code === "Unknown") return code
+      try { return regionNames?.of(code) ?? code } catch { return code }
+    },
+  }
 }
 
 const PAGE = 20
@@ -42,6 +49,8 @@ type Breakdown = "countries" | "sectors" | "currencies"
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function LookThroughPage() {
+  const { t, rich } = useT()
+  const { fmtR, fmt2, fmtPct, fmtCount, countryName, currencyName } = useFormats()
   const [data, setData]     = useState<LookThroughSummary | null>(null)
   const [error, setError]   = useState<string | null>(null)
   const [notice, setNotice] = useState<{ text: string; tone: "ok" | "warn" } | null>(null)
@@ -52,9 +61,9 @@ export default function LookThroughPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/portfolio/lookthrough")
     const d = await res.json()
-    if (!res.ok) throw new Error(d.error ?? "Failed to load look-through")
+    if (!res.ok) throw new Error(d.error ?? t("lt.loadFailed"))
     return d as LookThroughSummary
-  }, [])
+  }, [t])
 
   useEffect(() => {
     load().then(setData).catch(e => setError(e.message))
@@ -72,15 +81,14 @@ export default function LookThroughPage() {
   return (
     <div className="max-w-5xl mx-auto py-10 px-4">
       <Link href="/portfolio" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6">
-        <ArrowLeft className="size-4" /> Portfolio
+        <ArrowLeft className="size-4" /> {t("nav.page.portfolio")}
       </Link>
 
       <div className="mb-8">
-        <p className="text-xs uppercase text-muted-foreground mb-2">Portfolio</p>
-        <h1>Look-through</h1>
+        <p className="text-xs uppercase text-muted-foreground mb-2">{t("nav.page.portfolio")}</p>
+        <h1>{t("pf.lookThrough")}</h1>
         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          The companies inside your ETFs, combined with the stocks you hold directly, valued at today&apos;s
-          prices. Weights come from the holdings files the fund companies publish.
+          {t("lt.intro")}
         </p>
       </div>
 
@@ -99,9 +107,9 @@ export default function LookThroughPage() {
       ) : data.total === 0 ? (
         <Card>
           <CardContent className="py-12 text-center space-y-2">
-            <p >No investments yet</p>
+            <p>{t("lt.noInvestments")}</p>
             <p className="text-sm text-muted-foreground">
-              Import your Yuh activities on the <Link href="/portfolio" className="underline">Portfolio</Link> page first.
+              {rich("lt.noInvestmentsText", { link: text => <Link href="/portfolio" className="underline">{text}</Link> })}
             </p>
           </CardContent>
         </Card>
@@ -109,35 +117,35 @@ export default function LookThroughPage() {
         <div className="space-y-4">
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Securities">
+            <Stat label={t("lt.stat.securities")}>
               <p className="font-display text-3xl">Fr. {fmtR(data.total)}</p>
-              <p className="text-xs text-muted-foreground mt-1">ETFs and stocks, excluding cash</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("lt.stat.securitiesSub")}</p>
             </Stat>
-            <Stat label="Looked through">
+            <Stat label={t("lt.stat.looked")}>
               <p className="font-display text-3xl">{fmtPct(coverage, 0)}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 {data.notLookedThrough.length
-                  ? `No holdings data yet: ${data.notLookedThrough.map(f => f.symbol).join(", ")}`
-                  : `${fundsWithData.length} ETF${fundsWithData.length === 1 ? "" : "s"} broken down`}
+                  ? t("lt.stat.lookedMissing", { symbols: data.notLookedThrough.map(fund => fund.symbol).join(", ") })
+                  : t("lt.stat.lookedFunds", { count: fundsWithData.length })}
               </p>
             </Stat>
-            <Stat label="Companies">
-              <p className="font-display text-3xl">{data.companies.length.toLocaleString("de-CH")}</p>
-              <p className="text-xs text-muted-foreground mt-1">in {data.countries.length} countries</p>
+            <Stat label={t("lt.stat.companies")}>
+              <p className="font-display text-3xl">{fmtCount(data.companies.length)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("lt.stat.companiesSub", { count: data.countries.length })}</p>
             </Stat>
-            <Stat label="Top 10 companies">
+            <Stat label={t("lt.stat.top10")}>
               <p className="font-display text-3xl">{fmtPct(data.top10Share, 1)}</p>
-              <p className="text-xs text-muted-foreground mt-1">of your company exposure</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("lt.stat.top10Sub")}</p>
             </Stat>
           </div>
 
           {/* Companies */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-sm text-muted-foreground">Companies</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("lt.companies.title")}</CardTitle>
               <Input
-                aria-label="Filter companies"
-                placeholder="Find a company…"
+                aria-label={t("lt.companies.filterAria")}
+                placeholder={t("lt.companies.find")}
                 value={query}
                 onChange={e => { setQuery(e.target.value); setShown(PAGE) }}
                 className="h-8 w-56 text-sm"
@@ -146,17 +154,17 @@ export default function LookThroughPage() {
             <CardContent className="overflow-x-auto">
               {companies.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
-                  {data.companies.length ? "No company matches." : "Upload a holdings file for one of your ETFs below to see its companies."}
+                  {data.companies.length ? t("lt.companies.noMatch") : t("lt.companies.empty")}
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-10 text-right">#</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                      <TableHead className="text-right">Share</TableHead>
-                      <TableHead>Via</TableHead>
+                      <TableHead>{t("lt.companies.company")}</TableHead>
+                      <TableHead className="text-right">{t("lt.companies.value")}</TableHead>
+                      <TableHead className="text-right">{t("lt.companies.share")}</TableHead>
+                      <TableHead>{t("lt.companies.via")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -186,11 +194,10 @@ export default function LookThroughPage() {
               )}
               <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
                 <p className="text-xs text-muted-foreground">
-                  Showing {Math.min(shown, companies.length).toLocaleString("de-CH")} of {companies.length.toLocaleString("de-CH")}.
-                  Share is of all your securities. A company held through several ETFs is combined into one line.
+                  {t("lt.companies.showing", { shown: fmtCount(Math.min(shown, companies.length)), total: fmtCount(companies.length) })}
                 </p>
                 {shown < companies.length && (
-                  <Button size="sm" variant="outline" onClick={() => setShown(s => s + PAGE * 2)}>Show more</Button>
+                  <Button size="sm" variant="outline" onClick={() => setShown(s => s + PAGE * 2)}>{t("lt.companies.showMore")}</Button>
                 )}
               </div>
             </CardContent>
@@ -200,13 +207,13 @@ export default function LookThroughPage() {
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-sm text-muted-foreground">
-                {breakdown === "countries" ? "By country" : breakdown === "sectors" ? "By sector" : "By currency"}
+                {breakdown === "countries" ? t("lt.by.country") : breakdown === "sectors" ? t("lt.by.sector") : t("lt.by.currency")}
               </CardTitle>
               <Tabs value={breakdown} onValueChange={v => setBreakdown(v as Breakdown)}>
                 <TabsList>
-                  <TabsTrigger value="countries">Countries</TabsTrigger>
-                  <TabsTrigger value="sectors">Sectors</TabsTrigger>
-                  <TabsTrigger value="currencies">Currencies</TabsTrigger>
+                  <TabsTrigger value="countries">{t("lt.tab.countries")}</TabsTrigger>
+                  <TabsTrigger value="sectors">{t("lt.tab.sectors")}</TabsTrigger>
+                  <TabsTrigger value="currencies">{t("lt.tab.currencies")}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -218,17 +225,17 @@ export default function LookThroughPage() {
                     ? data.sectors.map(b => ({ ...b, label: b.key }))
                     : data.currencies.map(b => ({ ...b, label: currencyName(b.key) }))}
                 extra={[
-                  { label: "Cash & other", value: data.cashOther },
-                  ...data.notLookedThrough.map(f => ({ label: `${f.symbol} (no holdings data)`, value: f.value })),
+                  { label: t("lt.cashOther"), value: data.cashOther },
+                  ...data.notLookedThrough.map(fund => ({ label: t("lt.noHoldingsFor", { symbol: fund.symbol }), value: fund.value })),
                 ].filter(r => r.value >= 0.5).map(r => ({ ...r, share: r.value / data.total }))}
               />
               <p className="text-xs text-muted-foreground mt-3">
                 {breakdown === "countries"
-                  ? "Country of each company as reported by the fund company (usually where it is listed or incorporated)."
+                  ? t("lt.note.countries")
                   : breakdown === "sectors"
-                    ? "Sectors are GICS. Vanguard classifies by ICB and is mapped onto GICS, so a few companies (e.g. Alphabet, Meta) appear under Information Technology rather than Communication Services."
-                    : `The currency each holding trades in — what moves its CHF value when exchange rates change, whatever currency the ETF itself is quoted in.${data.currencyEstimatedShare >= 0.005
-                      ? ` ${fmtPct(data.currencyEstimatedShare, 0)} is estimated from the company's country, because the file doesn't list currencies (Vanguard; or files uploaded before currencies were read — upload them again).`
+                    ? t("lt.note.sectors")
+                    : `${t("lt.note.currencies")}${data.currencyEstimatedShare >= 0.005
+                      ? ` ${t("lt.note.currenciesEstimated", { pct: fmtPct(data.currencyEstimatedShare, 0) })}`
                       : ""}`}
               </p>
             </CardContent>
@@ -241,9 +248,7 @@ export default function LookThroughPage() {
           }} />
 
           <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl pb-4">
-            Your position values are today&apos;s; the weights inside each ETF are from the date of its holdings file.
-            Weights drift slowly, so a file from the last few months is a good approximation. Companies are matched
-            across files by ISIN, ticker and name; a rare miss shows the same company on two lines.
+            {t("lt.footer")}
           </p>
         </div>
       )}
@@ -256,10 +261,12 @@ export default function LookThroughPage() {
 type BarRow = { label: string; value: number; share: number }
 
 function BarList({ rows, extra }: { rows: BarRow[]; extra: BarRow[] }) {
+  const { t } = useT()
+  const { fmtR, fmtPct } = useFormats()
   const top = rows.slice(0, BARS)
   const rest = rows.slice(BARS)
   const list = rest.length
-    ? [...top, { label: `${rest.length} more`, value: rest.reduce((s, r) => s + r.value, 0), share: rest.reduce((s, r) => s + r.share, 0) }]
+    ? [...top, { label: t("lt.more", { count: rest.length }), value: rest.reduce((s, r) => s + r.value, 0), share: rest.reduce((s, r) => s + r.share, 0) }]
     : top
   const max = Math.max(...list.map(r => r.share), ...extra.map(r => r.share), 0.0001)
 
@@ -276,7 +283,7 @@ function BarList({ rows, extra }: { rows: BarRow[]; extra: BarRow[] }) {
     </li>
   )
 
-  if (!list.length) return <p className="text-sm text-muted-foreground">No holdings data yet.</p>
+  if (!list.length) return <p className="text-sm text-muted-foreground">{t("lt.noData")}</p>
   return (
     <ul className="space-y-1.5">
       {list.map(r => bar(r))}
@@ -292,20 +299,18 @@ function Sources({ funds, onChanged }: {
   funds: Fund[]
   onChanged: (text: string, tone?: "ok" | "warn") => Promise<void>
 }) {
+  const { t, rich } = useT()
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-muted-foreground">ETF holdings data</CardTitle>
+        <CardTitle className="text-sm text-muted-foreground">{t("lt.src.title")}</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-xs text-muted-foreground mb-4">
-          Download the full holdings file from each fund&apos;s page on the fund company&apos;s website and upload
-          it to the matching ETF. Supported: iShares (<em>Holdings → Download Holdings</em>, CSV), Vanguard
-          (<em>Holdings details → Download</em>, XLSX) and Xtrackers (<em>Constituents</em> export, XLSX).
-          Xtrackers updates itself on every price refresh once uploaded; re-upload the others every few months.
+          {rich("lt.src.text", { em: text => <em>{text}</em> })}
         </p>
         {funds.length === 0 ? (
-          <p className="text-sm text-muted-foreground">You don&apos;t hold any ETFs.</p>
+          <p className="text-sm text-muted-foreground">{t("lt.src.none")}</p>
         ) : (
           <div className="divide-y divide-border">
             {funds.map(f => <FundRow key={f.symbol} fund={f} onChanged={onChanged} />)}
@@ -320,6 +325,8 @@ function FundRow({ fund, onChanged }: {
   fund: Fund
   onChanged: (text: string, tone?: "ok" | "warn") => Promise<void>
 }) {
+  const { t } = useT()
+  const { fmtR, fmtCount, dayLabel } = useFormats()
   const [busy, setBusy]   = useState(false)
   const [error, setError] = useState<string | null>(null)
   const s = fund.source
@@ -334,24 +341,24 @@ function FundRow({ fund, onChanged }: {
       form.append("symbol", fund.symbol)
       const res = await fetch("/api/portfolio/lookthrough", { method: "POST", body: form })
       const r = await res.json()
-      if (!res.ok) throw new Error(r.error ?? "Upload failed")
-      await onChanged(`${fund.symbol}: ${r.rows.toLocaleString("de-CH")} holdings from ${r.provider}, as of ${dayLabel(r.asOf)}.${r.auto ? " It will update itself from now on." : ""}`)
+      if (!res.ok) throw new Error(r.error ?? t("lt.src.uploadFailed"))
+      await onChanged(t(r.auto ? "lt.src.uploadedAuto" : "lt.src.uploaded", { symbol: fund.symbol, rows: fmtCount(r.rows), provider: r.provider, date: dayLabel(r.asOf) }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed")
+      setError(e instanceof Error ? e.message : t("lt.src.uploadFailed"))
     } finally {
       setBusy(false)
     }
   }
 
   async function remove() {
-    if (!confirm(`Remove the holdings data for ${fund.symbol}?`)) return
+    if (!confirm(t("lt.src.removeConfirm", { symbol: fund.symbol }))) return
     setBusy(true)
     try {
       const res = await fetch(`/api/portfolio/lookthrough?symbol=${encodeURIComponent(fund.symbol)}`, { method: "DELETE" })
-      if (!res.ok) throw new Error((await res.json()).error ?? "Delete failed")
-      await onChanged(`Holdings data for ${fund.symbol} removed.`)
+      if (!res.ok) throw new Error((await res.json()).error ?? t("pf.deleteFailed"))
+      await onChanged(t("lt.src.removed", { symbol: fund.symbol }))
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed")
+      setError(e instanceof Error ? e.message : t("pf.deleteFailed"))
     } finally {
       setBusy(false)
     }
@@ -365,12 +372,12 @@ function FundRow({ fund, onChanged }: {
         <span className="text-xs text-muted-foreground">Fr. {fmtR(fund.value)}</span>
         {s ? (
           <>
-            <Badge variant="outline">{s.provider} · as of {dayLabel(s.asOf)}</Badge>
-            {s.auto && <Badge variant="secondary">Updates automatically</Badge>}
-            {s.stale && <Badge variant="outline" className="border-highlight/50 text-highlight">{s.ageDays} days old — upload a newer file</Badge>}
+            <Badge variant="outline">{t("lt.src.asOf", { provider: s.provider, date: dayLabel(s.asOf) })}</Badge>
+            {s.auto && <Badge variant="secondary">{t("lt.src.auto")}</Badge>}
+            {s.stale && <Badge variant="outline" className="border-highlight/50 text-highlight">{t("lt.src.stale", { days: s.ageDays })}</Badge>}
           </>
         ) : (
-          <Badge variant="outline" className="border-highlight/50 text-highlight">No holdings data</Badge>
+          <Badge variant="outline" className="border-highlight/50 text-highlight">{t("lt.src.noData")}</Badge>
         )}
         <div className="flex items-center gap-1 sm:ml-auto">
           <input
@@ -378,17 +385,19 @@ function FundRow({ fund, onChanged }: {
             onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) upload(f) }}
           />
           <Button size="sm" variant="outline" disabled={busy} asChild>
-            <label htmlFor={inputId} className="cursor-pointer"><Upload /> {s ? "Replace file" : "Upload file"}</label>
+            <label htmlFor={inputId} className="cursor-pointer"><Upload /> {s ? t("lt.src.replace") : t("lt.src.upload")}</label>
           </Button>
-          {s && <Button size="sm" variant="ghost" disabled={busy} onClick={remove}>Remove</Button>}
+          {s && <Button size="sm" variant="ghost" disabled={busy} onClick={remove}>{t("lt.src.remove")}</Button>}
         </div>
       </div>
       {s && (
         <p className="text-xs text-muted-foreground">
-          {s.rows.toLocaleString("de-CH")} holdings{s.fundName ? ` · ${s.fundName}` : ""} · {s.fileName}
+          {s.fundName
+            ? t("lt.src.rowsFund", { rows: fmtCount(s.rows), fund: s.fundName, file: s.fileName })
+            : t("lt.src.rows", { rows: fmtCount(s.rows), file: s.fileName })}
         </p>
       )}
-      {s?.lastError && <p className="text-xs text-highlight">Last automatic update failed — using the saved file. {s.lastError}</p>}
+      {s?.lastError && <p className="text-xs text-highlight">{t("lt.src.lastError", { error: s.lastError })}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
