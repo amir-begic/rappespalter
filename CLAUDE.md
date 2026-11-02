@@ -154,7 +154,11 @@ The parser (src/lib/parser.ts) handles the Raiffeisen Finanzassistent export for
 - Filters some internal transfers via `INTERNAL_TRANSFER_PATTERNS` (Übertrag,
   Vorsorgekonto, Privatkonto, Sparkonto, "Ihre Zahlung - danke") to avoid double counting
 - Maps German category names (Gastronomie, Lebensmittel etc.) to app categories
-- Generates a sourceHash per transaction for deduplication on re-import
+- Some rows carry only the payment type as counterparty ("Dauerauftrag",
+  "Sammelzahlung", …) with the payee on line 2 of the booking text; the parser
+  appends the payee ("Dauerauftrag Muster AG") so rules can tell them apart
+- Generates a sourceHash per transaction for deduplication on re-import (from the
+  counterparty as exported, so the payee expansion doesn't change hashes)
 
 ### Credit-card settlements: double-count avoidance
 A Finanzassistent export can include a credit-card account (`VISA •••• XXXX`,

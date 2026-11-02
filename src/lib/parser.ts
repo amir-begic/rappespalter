@@ -59,6 +59,26 @@ const COUNTERPARTY_OVERRIDES: { pattern: RegExp; category: string }[] = [
   { pattern: /\bsalt\b/i,  category: "Mobile" },
 ]
 
+// Raiffeisen exports some payments with only the payment type as counterparty
+// ("Dauerauftrag") and the payee on the second line of the booking text:
+//   Dauerauftrag\nMuster AG\nMusterstrasse 1\n9000 St. Gallen\nCH\n…
+// The same standing order shows up in other months as "Dauerauftrag Muster
+// AG", so these labels get the payee appended to match that form.
+const GENERIC_COUNTERPARTIES = new Set([
+  "dauerauftrag",
+  "sammelzahlung",
+  "zahlung",
+  "instant-zahlung",
+  "gutschrift",
+])
+
+function resolveCounterparty(counterparty: string, bookingText: string): string {
+  if (!GENERIC_COUNTERPARTIES.has(counterparty.toLowerCase())) return counterparty
+  const [first, payee] = bookingText.split(/\r?\n/).map(line => line.trim())
+  if (first !== counterparty || !payee) return counterparty
+  return `${counterparty} ${payee}`
+}
+
 function isInternalTransfer(counterparty: string): boolean {
   return INTERNAL_TRANSFER_PATTERNS.some(pattern =>
     pattern.test(counterparty)
@@ -105,7 +125,7 @@ export function parseRaiffeisenXLSX(buffer: Buffer): ParsedTransaction[] {
     if (!row || !row[0]) continue
 
     const date        = row[0] as unknown as Date
-    const counterparty = String(row[1] ?? "").trim()
+    const rawCounterparty = String(row[1] ?? "").trim()
     const amount      = parseFloat(String(row[2] ?? "0"))
     const currency    = String(row[3] ?? "CHF").trim()
     const account     = String(row[4] ?? "").trim()
@@ -113,12 +133,16 @@ export function parseRaiffeisenXLSX(buffer: Buffer): ParsedTransaction[] {
     const bookingText = String(row[7] ?? "").trim()
 
     // Skip if missing critical fields
-    if (!counterparty || isNaN(amount) || !date) continue
+    if (!rawCounterparty || isNaN(amount) || !date) continue
+
+    const counterparty = resolveCounterparty(rawCounterparty, bookingText)
 
     // Skip internal transfers — they'd be double counted
     if (isInternalTransfer(counterparty)) continue
 
-    const sourceHash = generateHash(date, counterparty, amount)
+    // Hashed on the counterparty as exported, so rows imported before
+    // resolveCounterparty existed still deduplicate on re-import.
+    const sourceHash = generateHash(date, rawCounterparty, amount)
 
     transactions.push({
       date: date instanceof Date ? date : new Date(date),
