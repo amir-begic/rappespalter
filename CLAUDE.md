@@ -26,9 +26,12 @@ src/
   app/
     dashboard/page.tsx       — monthly spending overview
     import/page.tsx          — xlsx upload page
-    projections/page.tsx     — 15-year wealth forecast
+    projections/page.tsx     — forecast to retirement, calculator, forecast vs. actual
     portfolio/page.tsx       — standalone investment tracker (Yuh CSV + market prices)
     portfolio/look-through/  — ETFs broken down into companies / countries / sectors
+    assets/page.tsx          — other assets (gold, crypto, collectibles, vehicles) + loans & leases
+    assets/[id]/             — one asset: value history, valuations; vehicles: monthly cost + lease vs. buy
+    assets/lease-or-buy/     — the lease-vs-buy calculator on its own
     goal/page.tsx            — savings goals (home, travel, …) with assets allocated to each
     recurring/page.tsx       — recurring payments: coming up, changes, yearly cost
     review/page.tsx          — review inbox (uncategorized + guessed categories)
@@ -47,6 +50,8 @@ src/
       recurring/route.ts     — recurring series + upcoming payments
       tax/route.ts           — one year's 3a, balances, securities, dividends, income
       goals/route.ts         — goals CRUD, balances + savings pace per asset, PATCH category → asset
+      assets/                — assets CRUD (+ values/, month-ends/ for Net Worth, car/ = a vehicle's monthly cost)
+      liabilities/route.ts   — loans, mortgages, leases CRUD
       settings/route.ts      — user-editable settings (projection inputs)
       appearance/route.ts    — theme + motion preference
       backup/                — GET: database backup download; restore/: POST a backup to replace all data
@@ -63,6 +68,9 @@ src/
     tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
     goals.ts                 — pure goal maths: allocation, savings pace per asset, projection
                                (goals-store.ts: tables on demand + loading)
+    assets.ts                — pure asset maths: kind registry, valuation/depreciation, loan balances,
+                               lease commitments, month-end totals, car cost (assets-store.ts: tables + loading)
+    car.ts                   — pure lease-vs-buy comparison + a lease's effective interest rate
     blob.ts                  — blob outlines shared by the page blobs and the goal illustrations
     settings.ts              — setting keys + defaults from NEXT_PUBLIC_* env vars
     income.ts                — pure per-stream income analysis (monthly/yearly, YoY, 12-mo avg)
@@ -128,6 +136,9 @@ Tables:
   separate table, not Transaction columns, so older databases keep working; created
   on demand by `ensureMarkTable()` (src/lib/marks.ts) — call it before any query that
   touches `mark`.
+- **Asset / AssetValue / Liability** — other assets with their valuations, and
+  loans/leases (optionally against an asset); created on demand by
+  `ensureAssetTables()` (src/lib/assets-store.ts).
 - **PortfolioActivity / Security / SecurityPrice / FxRate / FundSource / FundConstituent** —
   portfolio tracker and ETF look-through (see below); `Security.ter` / `targetWeight`
   hold fund fees and allocation targets;
@@ -344,6 +355,23 @@ returns ignored. Which asset a savings category feeds defaults from its name and
 set on the page (Setting `goals.source.<categoryId>`). The old localStorage house
 goal is migrated into a Home goal on first load.
 
+## Assets & debts
+Wealth → Assets (`src/lib/assets.ts`, pure; full design and a worked "add a kind"
+example in [docs/ASSETS.md](docs/ASSETS.md)). Kinds live in `ASSET_KINDS` (gold,
+crypto, collectible, vehicle, other; collectibles are one umbrella with a sub-type);
+their illustrations in `components/asset-art.tsx`. Value = latest anchor (purchase
+or `AssetValue`) on or before the day, held flat (manual) or shrunk by declining-balance
+depreciation down to a residual (vehicles); nothing before it's owned or after it's
+sold. All valuation is manual for now (no price feeds). Loans/mortgages count with
+their annuity-schedule balance (a statement balance takes over from its date); a
+lease is a *commitment* (payments still to come), and its vehicle isn't counted while
+it runs. Net Worth adds other assets and subtracts debts per month end
+(`/api/assets/month-ends`); lease commitments only when ticked. A vehicle's monthly
+cost = depreciation (last year) + lease payments / loan interest + average spending in
+its chosen expense categories (last 12 complete months, one-offs and the lender's
+payments left out). Lease vs. buy (`src/lib/car.ts`) compares cash, loan and lease over
+the same years, counting returns the money would have earned and the resale value.
+
 ## Modelled finances
 The app models a typical Swiss personal-finance setup. All values are entered by the
 user (imports, snapshots, Settings) — nothing is hard-coded:
@@ -421,7 +449,10 @@ DATABASE_URL="file:./prisma/dev.db"
   amounts use `text-positive` / `text-negative` / `text-info` / `text-highlight`,
   not raw Tailwind hues; in Recharts use `var(--border)` etc. (tokens are oklch,
   so never wrap them in `hsl()`)
-- Navigation lives in src/components/app-nav.tsx — add new pages to `SECTIONS`
+- Navigation lives in src/components/app-nav.tsx — add new pages to `SECTIONS`.
+  Two tiers: sections (Money, Wealth, Planning, Data) in the top bar, the current
+  section's pages in a row below; a section tab returns to the page last visited in
+  it. Settings is a gear next to the theme toggle, outside the sections. Page headers' small label names the section
 - Pages are one root `<div>` whose children are the sections; content shown after
   loading goes in a `space-y-*` stack. globals.css fades these in top to bottom on
   every navigation (off under reduced motion). Show `<PageLoading />`

@@ -116,3 +116,18 @@ export type Goal = Prisma.GoalModel
  * 
  */
 export type GoalAllocation = Prisma.GoalAllocationModel
+/**
+ * Model Asset
+ * 
+ */
+export type Asset = Prisma.AssetModel
+/**
+ * Model AssetValue
+ * 
+ */
+export type AssetValue = Prisma.AssetValueModel
+/**
+ * Model Liability
+ * 
+ */
+export type Liability = Prisma.LiabilityModel

@@ -96,7 +96,7 @@ export default function RecurringPage() {
     <div className="max-w-4xl mx-auto py-10 px-4">
 
       <div className="mb-8">
-        <p className="text-xs uppercase text-muted-foreground mb-2">Overview</p>
+        <p className="text-xs uppercase text-muted-foreground mb-2">Money</p>
         <h1>Recurring</h1>
         <p className="text-sm text-muted-foreground mt-2">
           Standing orders, bills, subscriptions and income that come back on a regular rhythm, found in your

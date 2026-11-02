@@ -65,7 +65,10 @@ export const ModelName = {
   FundSource: 'FundSource',
   FundConstituent: 'FundConstituent',
   Goal: 'Goal',
-  GoalAllocation: 'GoalAllocation'
+  GoalAllocation: 'GoalAllocation',
+  Asset: 'Asset',
+  AssetValue: 'AssetValue',
+  Liability: 'Liability'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -273,6 +276,59 @@ export const GoalAllocationScalarFieldEnum = {
 } as const
 
 export type GoalAllocationScalarFieldEnum = (typeof GoalAllocationScalarFieldEnum)[keyof typeof GoalAllocationScalarFieldEnum]
+
+
+export const AssetScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  kind: 'kind',
+  subtype: 'subtype',
+  valuation: 'valuation',
+  quantity: 'quantity',
+  unit: 'unit',
+  purchaseDate: 'purchaseDate',
+  purchasePrice: 'purchasePrice',
+  depreciationRate: 'depreciationRate',
+  residualValue: 'residualValue',
+  soldDate: 'soldDate',
+  soldPrice: 'soldPrice',
+  costCategories: 'costCategories',
+  notes: 'notes',
+  createdAt: 'createdAt'
+} as const
+
+export type AssetScalarFieldEnum = (typeof AssetScalarFieldEnum)[keyof typeof AssetScalarFieldEnum]
+
+
+export const AssetValueScalarFieldEnum = {
+  id: 'id',
+  assetId: 'assetId',
+  date: 'date',
+  value: 'value'
+} as const
+
+export type AssetValueScalarFieldEnum = (typeof AssetValueScalarFieldEnum)[keyof typeof AssetValueScalarFieldEnum]
+
+
+export const LiabilityScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  kind: 'kind',
+  assetId: 'assetId',
+  principal: 'principal',
+  rate: 'rate',
+  startDate: 'startDate',
+  termMonths: 'termMonths',
+  monthlyPayment: 'monthlyPayment',
+  balloon: 'balloon',
+  balance: 'balance',
+  balanceDate: 'balanceDate',
+  counterparty: 'counterparty',
+  notes: 'notes',
+  createdAt: 'createdAt'
+} as const
+
+export type LiabilityScalarFieldEnum = (typeof LiabilityScalarFieldEnum)[keyof typeof LiabilityScalarFieldEnum]
 
 
 export const SortOrder = {

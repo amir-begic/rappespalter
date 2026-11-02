@@ -198,3 +198,62 @@ model GoalAllocation {
 
   @@index([goalId])
 }
+
+// Something you own besides the snapshot accounts: gold, crypto, collectibles, a
+// vehicle. Valued by hand (AssetValue rows) or, for vehicles, by depreciating
+// from the purchase price / latest valuation. See src/lib/assets.ts.
+model Asset {
+  id               Int          @id @default(autoincrement())
+  name             String
+  kind             String       @default("other") // ASSET_KINDS in src/lib/assets.ts
+  subtype          String?      // collectibles: "Pokémon cards", "Watches", …
+  valuation        String       @default("manual") // manual | depreciation
+  quantity         Float?       // informational: grams of gold, coins
+  unit             String?
+  purchaseDate     String?      // YYYY-MM-DD
+  purchasePrice    Float?       // CHF
+  depreciationRate Float?       // a year, declining balance: 0.15 = 15%
+  residualValue    Float?       // depreciation never goes below this (CHF)
+  soldDate         String?      // YYYY-MM-DD; worth nothing to you from then on
+  soldPrice        Float?
+  costCategories   String?      // JSON category ids whose spending is this asset's running cost
+  notes            String?
+  createdAt        DateTime     @default(now())
+  values           AssetValue[]
+  liabilities      Liability[]
+}
+
+// A valuation of an asset on a day (CHF). The latest one on or before a date wins.
+model AssetValue {
+  id      Int    @id @default(autoincrement())
+  assetId Int
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  date    String // YYYY-MM-DD
+  value   Float
+
+  @@index([assetId])
+}
+
+// A loan, mortgage or lease. Loans reduce net worth by their balance (from the
+// repayment schedule, or a statement balance); a lease is a commitment — the
+// remaining payments — and makes its vehicle not yours.
+model Liability {
+  id             Int     @id @default(autoincrement())
+  name           String
+  kind           String  @default("loan") // loan | lease | mortgage | other
+  assetId        Int?
+  asset          Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  principal      Float   @default(0)      // amount borrowed; for a lease the vehicle's price
+  rate           Float   @default(0)      // interest a year: 0.049 = 4.9%
+  startDate      String                   // YYYY-MM-DD, first payment one month later
+  termMonths     Int?                     // none: open-ended (e.g. a mortgage)
+  monthlyPayment Float?                   // none: annuity from principal, rate and term
+  balloon        Float   @default(0)      // final payment (loan) / buyout price (lease)
+  balance        Float?                   // balance from a statement…
+  balanceDate    String?                  // …on this day (YYYY-MM-DD)
+  counterparty   String?                  // payee of the payments in the bank export
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@index([assetId])
+}
