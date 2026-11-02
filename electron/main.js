@@ -24,9 +24,17 @@ const { createUpdater } = require("./updater")
 // package name. Must run before any app.getPath("userData") call.
 app.setName("Rappespalter")
 
+// One copy at a time: a second launch (e.g. a double click while the first is still
+// starting) just brings the existing window forward. Two copies would each start a
+// server on the same database.
+const isPrimary = app.requestSingleInstanceLock()
+if (!isPrimary) app.quit()
+
 const isDev = !app.isPackaged || process.env.ELECTRON_DEV === "1"
 const DEV_URL = "http://localhost:3000"
+const ICON = path.join(__dirname, "..", "resources", process.platform === "win32" ? "icon.ico" : "icon.png")
 
+let appUrl = null // where the window points once the server is up
 let serverProcess = null
 let mainWindow = null
 let logFile = null
@@ -125,6 +133,7 @@ function waitForServer(port, child, timeoutMs = 30000) {
 
 async function startServer() {
   const port = await getFreePort()
+  if (app.isQuitting) throw new Error("quitting") // don't leave a server behind
   const serverFile = path.join(process.resourcesPath, "standalone", "server.js")
   const dbPath = resolveDatabasePath()
 
@@ -162,24 +171,31 @@ async function startServer() {
   serverProcess.stderr.on("data", capture)
 
   serverProcess.on("error", (err) => log(`Server process error: ${err.message}`))
+  // A crash during startup is reported by the caller (waitForServer rejects); only a
+  // crash after that quits the app here.
+  let ready = false
   serverProcess.on("exit", (code) => {
     serverProcess = null
-    if (code && code !== 0 && !app.isQuitting && !isRestarting) {
+    if (ready && code && code !== 0 && !app.isQuitting && !isRestarting) {
       log(`Server exited with code ${code}`)
       app.quit()
     }
   })
 
   await waitForServer(port, serverProcess)
+  ready = true
   log("Server ready")
-  return `http://127.0.0.1:${port}`
+  appUrl = `http://127.0.0.1:${port}`
+  return appUrl
 }
 
+// Opens the window at `url`, or at the loading page while the server is starting.
 function createWindow(url) {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     title: "Rappespalter",
+    icon: ICON,
     // Match the page background (globals.css) so there is no flash on load.
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#121419" : "#f9fafb",
     webPreferences: {
@@ -195,7 +211,8 @@ function createWindow(url) {
     return { action: "deny" }
   })
 
-  mainWindow.loadURL(url)
+  if (url) mainWindow.loadURL(url)
+  else mainWindow.loadFile(path.join(__dirname, "loading.html"))
   mainWindow.on("closed", () => {
     mainWindow = null
   })
@@ -456,15 +473,30 @@ function buildMenu() {
 
 // --- lifecycle -----------------------------------------------------------
 
+// Start the server right away rather than after `ready`: it's most of the startup
+// time, and neither it nor the userData paths need the app to be ready.
+const serverStarting = isPrimary && !isDev ? startServer() : Promise.resolve(DEV_URL)
+serverStarting.catch(() => {}) // handled below; avoids an unhandled rejection before `ready`
+
+app.on("second-instance", () => {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
+
 app.whenReady().then(async () => {
+  if (!isPrimary) return
   buildMenu()
   updater = createUpdater({ log })
   updater.start()
   registerUpdateIpc()
+  createWindow()
   try {
-    const url = isDev ? DEV_URL : await startServer()
-    createWindow(url)
+    appUrl = await serverStarting
+    if (mainWindow) mainWindow.loadURL(appUrl)
   } catch (err) {
+    if (app.isQuitting) return // window closed while starting; the server was stopped
     log(`Failed to start: ${err && err.stack ? err.stack : err}`)
     dialog.showErrorBox(
       "Rappespalter failed to start",
@@ -476,10 +508,9 @@ app.whenReady().then(async () => {
     app.quit()
   }
 
+  // macOS keeps running with no windows; reopen at the server that's still up.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0 && !isDev) {
-      startServer().then(createWindow).catch((err) => log(String(err)))
-    }
+    if (BrowserWindow.getAllWindows().length === 0 && appUrl) createWindow(appUrl)
   })
 })
 

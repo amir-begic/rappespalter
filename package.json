@@ -68,6 +68,8 @@
     },
     "files": [
       "electron/**/*",
+      "resources/icon.png",
+      "resources/icon.ico",
       "package.json"
     ],
     "extraResources": [
@@ -84,12 +86,14 @@
       "target": [
         "AppImage"
       ],
-      "category": "Office"
+      "category": "Office",
+      "icon": "resources/icon.png"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "resources/icon.ico"
     },
     "nsis": {
       "artifactName": "Rappespalter-Setup.${ext}"
@@ -97,7 +101,8 @@
     "mac": {
       "target": [
         "dmg"
-      ]
+      ],
+      "icon": "resources/icon.png"
     }
   }
 }

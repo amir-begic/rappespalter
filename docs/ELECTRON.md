@@ -24,6 +24,19 @@ and points a window at it.
 No separate Node.js install is required on the target machine — Electron's own
 runtime executes the server.
 
+Starting the server is most of the startup time, so it begins before Electron's
+`ready` event, and the window opens straight away on a loading page
+([electron/loading.html](../electron/loading.html)) that is replaced once the server
+answers. Only one copy runs at a time (`app.requestSingleInstanceLock()`): launching
+it again, e.g. a second click while it's starting, focuses the existing window.
+
+### App icon
+
+The icon is [src/app/icon.svg](../src/app/icon.svg) (also the favicon), rendered to
+`resources/icon.png` (512 px; Linux, macOS, window icon) and `resources/icon.ico`
+(16–256 px; Windows exe, taskbar, installer). Both are committed; after changing the
+SVG, run `node scripts/make-icons.mjs` to regenerate them.
+
 ### Why the build is wired the way it is
 
 - **`output: "standalone"`** ([next.config.ts](../next.config.ts)) emits a
