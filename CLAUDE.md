@@ -122,6 +122,8 @@ Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 **Releases**: a pushed `vX.Y.Z` tag (must match package.json) is built by
 `release.yml` on one runner per system (Windows exe, macOS arm64 dmg + zip, Linux
 AppImage; native libsql, so no cross-builds) and published as a pre-release.
+The Mac app is Developer ID signed and notarized; the Mac job needs five secrets
+(listed in docs/ELECTRON.md, "Mac signing and notarization") and fails without them.
 **Updates** (all three, modelled on Aperture): the release carries `latest.json`
 (version, notes, per system the update package's URL/size/SHA-256); `promote.yml`
 makes one the latest release, the only one installed copies read. `electron/updater.js`

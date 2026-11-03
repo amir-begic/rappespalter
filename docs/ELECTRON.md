@@ -175,10 +175,36 @@ builds on its own runner because the libsql binary is native:
 | macOS (Apple silicon) | `macos-latest`   | `Rappespalter-mac-arm64.dmg` + `.zip` (for updates) |
 | Linux x64             | `ubuntu-latest`  | `Rappespalter-linux-x64.AppImage` |
 
-There is no Intel Mac build. The Mac app is only ad-hoc signed (`mac.identity: "-"`),
-not notarized, so macOS refuses the first launch of a downloaded copy: right-click
-the app → *Open*, or run `xattr -cr /Applications/Rappespalter.app`. The AppImage
-needs `chmod +x` before it runs.
+There is no Intel Mac build. The AppImage needs `chmod +x` before it runs.
+
+### Mac signing and notarization
+
+The Mac app is signed with a Developer ID certificate, with hardened runtime, and
+notarized by Apple (`mac.hardenedRuntime` / `mac.notarize` in package.json; electron-builder's
+default entitlements). An unsigned or ad-hoc signed app downloaded from GitHub gets
+"is damaged and can't be opened" on Apple silicon. The Mac job reads five repository secrets
+(Settings → Secrets and variables → Actions) and stops if one is missing:
+
+| Secret                        | What                                                                 |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `MAC_CERTIFICATE_P12`         | the *Developer ID Application* certificate + private key, `.p12`, base64 |
+| `MAC_CERTIFICATE_PASSWORD`    | the password the `.p12` was exported with                            |
+| `APPLE_ID`                    | the Apple Account email of the developer account                     |
+| `APPLE_APP_SPECIFIC_PASSWORD` | an app-specific password for it (account.apple.com → Sign-In and Security) |
+| `APPLE_TEAM_ID`               | the 10-character Team ID (developer.apple.com → Account → Membership) |
+
+Getting the certificate (on a Mac): Keychain Access → Certificate Assistant → *Request a
+Certificate From a Certificate Authority*, saved to disk; developer.apple.com →
+Certificates → + → *Developer ID Application* (G2 Sub-CA), upload the request, download
+the `.cer` and double-click it. In Keychain Access → login → My Certificates, export
+"Developer ID Application: … (TEAMID)" (with its private key) as `.p12`, then
+`base64 -i cert.p12 | pbcopy` for the secret. Keep the `.p12` somewhere safe; the
+certificate is valid for 5 years.
+
+Check a build on a Mac:
+`spctl -a -vvv -t install /Applications/Rappespalter.app` should say
+`accepted, source=Notarized Developer ID`. Copies installed before signing (ad-hoc)
+update normally, since updates aren't quarantined.
 
 ## Updates
 
@@ -244,10 +270,10 @@ electron:dev`), an Intel Mac, or a Linux copy not run as an AppImage has no
 updates. `RAPPESPALTER_UPDATE_FEED` points the app at another `latest.json`, e.g.
 for testing.
 
-The installers are unsigned (the Mac app ad-hoc signed), so SmartScreen and
-Gatekeeper warn on the first manual install (see above). Updates the app downloads
-itself aren't affected: they're fetched by the app, not a browser, so they carry no
-quarantine flag.
+The Windows installer is unsigned, so SmartScreen warns on the first manual install;
+the Mac app is signed and notarized (see above). Updates the app downloads itself
+aren't affected either way: they're fetched by the app, not a browser, so they carry
+no quarantine flag.
 
 ## WSL2 / Linux notes
 

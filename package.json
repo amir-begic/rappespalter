@@ -108,7 +108,8 @@
       ],
       "icon": "resources/icon.png",
       "category": "public.app-category.finance",
-      "identity": "-",
+      "hardenedRuntime": true,
+      "notarize": true,
       "artifactName": "Rappespalter-mac-${arch}.${ext}"
     }
   }

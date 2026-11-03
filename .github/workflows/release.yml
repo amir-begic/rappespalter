@@ -53,7 +53,7 @@ jobs:
             files: dist/Rappespalter-linux-x64.AppImage
     name: build (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30 # a hung run would otherwise burn minutes up to the 6-hour default
+    timeout-minutes: 45 # notarization can take a while; a hung run would otherwise burn up to 6 hours
     defaults:
       run:
         shell: bash
@@ -85,13 +85,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Mac signing and notarization credentials
+        # The Mac app is signed with the Developer ID certificate and notarized by Apple
+        # (mac.notarize in package.json), so a downloaded copy opens without warnings.
+        # Only the Mac build gets these: on Windows, CSC_LINK would be taken as a
+        # Windows code-signing certificate. Without them the build stops rather than
+        # publishing an app macOS calls "damaged".
+        if: matrix.name == 'mac-arm64'
+        env:
+          CERT: ${{ secrets.MAC_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for v in CERT CERT_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then echo "::error::Secret for $v is missing (see docs/ELECTRON.md, Mac signing)."; exit 1; fi
+          done
+          {
+            echo "CSC_LINK=$CERT"
+            echo "CSC_KEY_PASSWORD=$CERT_PASSWORD"
+            echo "APPLE_ID=$APPLE_ID"
+            echo "APPLE_APP_SPECIFIC_PASSWORD=$APPLE_APP_SPECIFIC_PASSWORD"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          } >> "$GITHUB_ENV"
+
       - name: Build installer
         # `pnpm dist` runs: next build -> assemble-standalone -> electron-builder.
         # No dev.db exists in CI, so the app ships with an empty database (each
         # user imports their own data) — assemble-standalone.mjs handles this.
         # DATABASE_URL is set only to satisfy module load during `next build`.
-        # The Mac app is ad-hoc signed (mac.identity "-" in package.json), not with a
-        # Developer ID; this stops electron-builder looking for one in the keychain.
+        # No keychain lookups: the Mac certificate comes from CSC_LINK (step above).
         run: pnpm dist ${{ matrix.target }} --publish never
         env:
           DATABASE_URL: "file:./dev.db"
