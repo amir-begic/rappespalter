@@ -125,6 +125,9 @@ jobs:
         env:
           DATABASE_URL: "file:./dev.db"
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.name == 'mac-arm64' && 'true' || 'false' }}
+          # Log each codesign call and the notarization progress (electron-builder itself
+          # is silent between "signing" and "notarization successful").
+          DEBUG: ${{ matrix.name == 'mac-arm64' && 'electron-osx-sign*,electron-notarize*' || '' }}
 
       - name: Upload installer artifact
         # Manual runs keep it for 3 days to try; tag builds hand it to the publish job,
