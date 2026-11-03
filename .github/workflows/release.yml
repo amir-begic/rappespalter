@@ -45,7 +45,8 @@ jobs:
             # Pinned rather than macos-latest: the latest arm64 pool had no free runners
             # in Nov 2026 (jobs cancelled after 15 min queued). Still Apple silicon.
             runner: macos-15
-            target: --mac
+            # Fail rather than ship an unsigned app if no signing identity is found.
+            target: --mac -c.mac.forceCodeSigning=true
             files: |
               dist/Rappespalter-mac-arm64.dmg
               dist/Rappespalter-mac-arm64.zip
@@ -117,11 +118,13 @@ jobs:
         # No dev.db exists in CI, so the app ships with an empty database (each
         # user imports their own data) — assemble-standalone.mjs handles this.
         # DATABASE_URL is set only to satisfy module load during `next build`.
-        # No keychain lookups: the Mac certificate comes from CSC_LINK (step above).
+        # The Mac build needs identity discovery on: it then searches only the temporary
+        # keychain made from CSC_LINK (step above). With it off and no identity name,
+        # electron-builder doesn't look at all and skips signing. Elsewhere it's off.
         run: pnpm dist ${{ matrix.target }} --publish never
         env:
           DATABASE_URL: "file:./dev.db"
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.name == 'mac-arm64' && 'true' || 'false' }}
 
       - name: Upload installer artifact
         # Manual runs keep it for 3 days to try; tag builds hand it to the publish job,
