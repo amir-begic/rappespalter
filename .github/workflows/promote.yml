@@ -40,8 +40,10 @@ jobs:
           assets="$(gh release view "$tag" --json assets -q '.assets[].name')"
           grep -qx latest.json <<< "$assets" \
             || { echo "::error::$tag has no latest.json; it was built before releases carried one, or its Release run hasn't finished."; exit 1; }
-          grep -qx Rappespalter-Setup.exe <<< "$assets" \
-            || { echo "::error::$tag has no Rappespalter-Setup.exe. Wait for its Release run to finish, or run it again."; exit 1; }
+          for file in Rappespalter-Setup.exe Rappespalter-mac-arm64.zip Rappespalter-linux-x64.AppImage; do
+            grep -qx "$file" <<< "$assets" \
+              || { echo "::error::$tag has no $file. Wait for its Release run to finish, or run it again."; exit 1; }
+          done
 
           gh release edit "$tag" --prerelease=false --latest
 

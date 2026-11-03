@@ -164,21 +164,37 @@ Windows PC and run `Rappespalter.exe` directly — no install needed.
 
 ### No Windows toolchain? Use CI instead
 
-*Actions → Release → Run workflow* builds the installer on a `windows-latest`
-runner and keeps it as a workflow artifact for 3 days, without publishing anything.
-Pushing a version tag builds and publishes a release (see [Updates](#updates)).
+*Actions → Release → Run workflow* builds the installers on GitHub's runners and
+keeps them as workflow artifacts for 3 days, without publishing anything. Pushing a
+version tag builds and publishes a release (see [Updates](#updates)). Each system
+builds on its own runner because the libsql binary is native:
+
+| System                | Runner           | File                              |
+| --------------------- | ---------------- | --------------------------------- |
+| Windows x64           | `windows-latest` | `Rappespalter-Setup.exe`          |
+| macOS (Apple silicon) | `macos-latest`   | `Rappespalter-mac-arm64.dmg` + `.zip` (for updates) |
+| Linux x64             | `ubuntu-latest`  | `Rappespalter-linux-x64.AppImage` |
+
+There is no Intel Mac build. The Mac app is only ad-hoc signed (`mac.identity: "-"`),
+not notarized, so macOS refuses the first launch of a downloaded copy: right-click
+the app → *Open*, or run `xattr -cr /Applications/Rappespalter.app`. The AppImage
+needs `chmod +x` before it runs.
 
 ## Updates
 
-The installed Windows app updates itself, but only to versions you promoted by hand:
+The installed app updates itself on Windows, macOS (Apple silicon) and Linux
+(AppImage), but only to versions you promoted by hand:
 
 1. **Release:** bump `version` in package.json, commit, then tag and push the tag:
    ```bash
    git tag v0.1.5 && git push origin v0.1.5
    ```
-   [release.yml](../.github/workflows/release.yml) builds `Rappespalter-Setup.exe`
-   and publishes it as a **pre-release** with `latest.json`: the version, the commits
-   since the previous tag as notes, and the installer's address, size and SHA-256.
+   [release.yml](../.github/workflows/release.yml) builds the installers for
+   Windows, macOS and Linux (above) and publishes them as a **pre-release** with
+   `latest.json`: the version, the commits
+   since the previous tag as notes, and per system the update package's address,
+   size and SHA-256 (Windows: the installer; macOS: the zipped `.app`; Linux: the
+   AppImage).
    The run fails if the tag doesn't match package.json. Installed copies never see
    pre-releases.
 2. **Try it** by downloading the installer from the pre-release.
@@ -187,6 +203,7 @@ The installed Windows app updates itself, but only to versions you promoted by h
    repository's *latest* release, which is what installed copies read. These
    addresses always point to the latest promoted release:
    - installer: `https://github.com/amir-begic/rappespalter/releases/latest/download/Rappespalter-Setup.exe`
+     (likewise `Rappespalter-mac-arm64.dmg`, `Rappespalter-linux-x64.AppImage`)
    - feed: `https://github.com/amir-begic/rappespalter/releases/latest/download/latest.json`
 
 The repository must be **public**: the app reads the feed and downloads the
@@ -197,26 +214,40 @@ and then every six hours it reads the feed; opening *Settings* checks too if
 nothing has been checked yet. A newer version puts a dot on *Settings* in the nav,
 and *Settings → Updates → Install update* installs it:
 
-1. downloads the installer into `updates/` in the data folder and checks its size
-   and SHA-256 against the feed (a mismatch is discarded);
+1. downloads this system's package into `updates/` in the data folder and checks
+   its size and SHA-256 against the feed (a mismatch is discarded);
 2. stops the server and copies the database to `backups/before-update/`
    (the newest 5 are kept);
-3. runs the installer silently as an update (`/S --updated --force-run`), quits,
-   and the installer starts the new version when it's done.
+3. puts the new version in place and quits (`INSTALLERS` in
+   [main.js](../electron/main.js)):
+   - **Windows:** runs the installer silently as an update
+     (`/S --updated --force-run`), which starts the new version when it's done.
+   - **macOS:** unpacks the zip into `.Rappespalter-update/` next to the `.app`
+     (same volume, so the swap is a rename). A small shell waits for the app to
+     exit, moves the old `.app` aside, moves the new one in (or the old one back if
+     that fails) and opens it. The folder is removed on the next start. Run from the
+     disk image or from a folder you can't write to, unpacking fails up front and
+     the app keeps running and says so: move it to Applications first.
+   - **Linux:** copies the new AppImage next to the running one and renames it over
+     it (the running copy keeps its open file), then a small shell starts it once
+     the app has exited. Only a copy run as an AppImage (`$APPIMAGE` set) updates.
 
 `updates/status.json` records the update. On the next start the app marks it as
 succeeded (now running the new version) or failed (still the old one: the
-installer didn't finish), and *Settings → Updates* says so for a week. There is no
+update didn't finish), and *Settings → Updates* says so for a week. There is no
 automatic rollback: if the new version won't start, its error dialog names the
 database copy; reinstall the previous version from its release page and, if needed,
 load the copy with *File → Import Database…*.
 
 Versions are compared as `major.minor.patch`. A copy in development (`pnpm
-electron:dev`), or on Linux/macOS, has no updates. `RAPPESPALTER_UPDATE_FEED`
-points the app at another `latest.json`, e.g. for testing.
+electron:dev`), an Intel Mac, or a Linux copy not run as an AppImage has no
+updates. `RAPPESPALTER_UPDATE_FEED` points the app at another `latest.json`, e.g.
+for testing.
 
-The installers are unsigned, so SmartScreen warns on the first manual install
-(*More info → Run anyway*). Updates the app downloads itself aren't affected.
+The installers are unsigned (the Mac app ad-hoc signed), so SmartScreen and
+Gatekeeper warn on the first manual install (see above). Updates the app downloads
+itself aren't affected: they're fetched by the app, not a browser, so they carry no
+quarantine flag.
 
 ## WSL2 / Linux notes
 

@@ -182,7 +182,7 @@ export const itCH: Dict = {
   "updates.desktopOnly": "Gli aggiornamenti arrivano con l'app desktop installata.",
   "updates.running": "In esecuzione",
   "updates.lastChecked": "Ultimo controllo",
-  "updates.notConfigured": "Gli aggiornamenti non sono configurati per questa copia. Li configura il programma di installazione per Windows; una copia di sviluppo non li ha.",
+  "updates.notConfigured": "Gli aggiornamenti non sono configurati per questa copia. Arrivano con l'app installata (su Linux, l'AppImage; su Mac, Apple Silicon); una copia di sviluppo non li ha.",
   "updates.newVersion": "la nuova versione",
   "updates.failed": "L'aggiornamento a {version} non ha funzionato: {message}",
   "updates.succeeded": "✓ Aggiornato da {from} a {version} il {time}.",

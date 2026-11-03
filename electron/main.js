@@ -8,15 +8,16 @@
 // after the app is installed (the app bundle itself is read-only). On first launch
 // a seeded template database is copied there.
 //
-// Updates (Windows): electron/updater.js checks the promoted release's latest.json and
-// downloads + verifies the installer; installUpdate() below copies the database and
-// runs the installer silently, which restarts the app.
+// Updates: electron/updater.js checks the promoted release's latest.json and downloads
+// + verifies this system's package; installUpdate() below copies the database, puts
+// the new version in place (Windows: silent NSIS installer; macOS: swaps the .app;
+// Linux: replaces the AppImage) and restarts the app.
 
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
-const { spawn } = require("node:child_process")
+const { spawn, execFile } = require("node:child_process")
 const { createUpdater } = require("./updater")
 
 // Pin the app name so the userData directory is deterministic
@@ -359,9 +360,99 @@ async function installUpdate() {
   }
 }
 
-// Confirm, download the release, copy the database and hand over to the NSIS
-// installer: silent (/S), as an update (--updated keeps the shortcuts as they are),
-// and start the app when done (--force-run). We quit right after.
+// Start a detached program that outlives us, once it has actually started.
+async function spawnDetached(command, args, options = {}) {
+  const child = spawn(command, args, { detached: true, stdio: "ignore", ...options })
+  await new Promise((resolve, reject) => {
+    child.once("spawn", resolve)
+    child.once("error", reject)
+  })
+  child.unref()
+}
+
+// Windows: the NSIS installer, silent (/S), as an update (--updated keeps the
+// shortcuts as they are), and it starts the app when done (--force-run).
+async function installWindows(installer) {
+  await spawnDetached(installer, ["--updated", "/S", "--force-run"])
+}
+
+// The .app this copy runs from (…/Rappespalter.app/Contents/MacOS/Rappespalter).
+function macBundle() {
+  const bundle = path.resolve(process.execPath, "..", "..", "..")
+  return bundle.endsWith(".app") ? bundle : null
+}
+
+// Where a macOS update is unpacked: next to the .app, so swapping them is a rename
+// on the same volume. Removed on the next start.
+function macStaging(bundle) {
+  return path.join(path.dirname(bundle), ".Rappespalter-update")
+}
+
+// macOS: unpack the zipped .app next to the running one, then hand the swap to a
+// shell that waits for us to exit (a running bundle's files shouldn't change under
+// it), moves the new .app in, and opens it. If the move fails it puts the old one
+// back and opens that, and the next start reports the update as failed. Unpacking
+// here fails early, with the app still running, when the folder isn't writable
+// (e.g. run straight from the disk image).
+async function installMac(zip) {
+  const bundle = macBundle()
+  if (!bundle) throw new Error("Can't tell where Rappespalter is installed.")
+  const staging = macStaging(bundle)
+  fs.rmSync(staging, { recursive: true, force: true })
+  try {
+    await new Promise((resolve, reject) =>
+      execFile("/usr/bin/ditto", ["-x", "-k", zip, staging], (err) => (err ? reject(err) : resolve())),
+    )
+  } catch (err) {
+    fs.rmSync(staging, { recursive: true, force: true })
+    throw new Error(
+      `Couldn't unpack the update next to ${bundle}. Move Rappespalter to your Applications folder and try again.`,
+      { cause: err },
+    )
+  }
+  const unpacked = path.join(staging, "Rappespalter.app")
+  if (!fs.existsSync(path.join(unpacked, "Contents", "MacOS"))) {
+    fs.rmSync(staging, { recursive: true, force: true })
+    throw new Error("The update doesn't contain Rappespalter.app.")
+  }
+  const script = `
+    while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+    if mv "$2" "$3/previous.app"; then
+      mv "$4" "$2" || mv "$3/previous.app" "$2"
+    fi
+    open "$2"
+  `
+  await spawnDetached("/bin/sh", ["-c", script, "sh", String(process.pid), bundle, staging, unpacked])
+}
+
+// Linux: put the new AppImage beside the running one, then rename it over it (the
+// running copy keeps its file open, so that's safe) and start it once we've exited.
+// The AppImage runtime's own variables are left out so the new copy sets its own.
+async function installLinux(appImage) {
+  const target = process.env.APPIMAGE
+  if (!target) throw new Error("Can't tell where the AppImage is.")
+  const next = target + ".update"
+  try {
+    fs.copyFileSync(appImage, next)
+    fs.chmodSync(next, 0o755)
+    fs.renameSync(next, target)
+  } catch (err) {
+    fs.rmSync(next, { force: true })
+    throw new Error(`Couldn't replace ${target}. Is its folder writable?`, { cause: err })
+  }
+  const env = { ...process.env }
+  for (const name of ["APPIMAGE", "APPDIR", "ARGV0", "OWD"]) delete env[name]
+  const script = `
+    while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+    exec "$2"
+  `
+  await spawnDetached("/bin/sh", ["-c", script, "sh", String(process.pid), target], { env, cwd: path.dirname(target) })
+}
+
+const INSTALLERS = { win32: installWindows, darwin: installMac, linux: installLinux }
+
+// Confirm, download the release, copy the database and put the new version in place
+// (INSTALLERS); each starts the new version once we've quit, which we do right after.
 async function runUpdate(release) {
   const choice = await dialog.showMessageBox(mainWindow, {
     type: "question",
@@ -390,13 +481,8 @@ async function runUpdate(release) {
     await stopServer()
     const backup = backupDatabase(updater.current)
     updater.writeStatus({ state: "installing", from: updater.current, version: release.version, backup })
-    const child = spawn(installer, ["--updated", "/S", "--force-run"], { detached: true, stdio: "ignore" })
-    await new Promise((resolve, reject) => {
-      child.once("spawn", resolve)
-      child.once("error", reject)
-    })
-    child.unref()
-    log(`Started installer for ${release.version}`)
+    await INSTALLERS[process.platform](installer)
+    log(`Installing ${release.version}`)
     app.quit()
   } catch (err) {
     log(`Update failed: ${err && err.stack ? err.stack : err}`)
@@ -490,6 +576,10 @@ app.whenReady().then(async () => {
   buildMenu()
   updater = createUpdater({ log })
   updater.start()
+  // What's left of a macOS update: the unpacked folder and the previous .app.
+  if (process.platform === "darwin" && app.isPackaged && macBundle()) {
+    fs.rm(macStaging(macBundle()), { recursive: true, force: true }, () => {})
+  }
   registerUpdateIpc()
   createWindow()
   try {

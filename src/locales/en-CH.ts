@@ -183,7 +183,7 @@ export const enCH = {
   "updates.desktopOnly": "Updates come with the installed desktop app.",
   "updates.running": "Running",
   "updates.lastChecked": "Last checked",
-  "updates.notConfigured": "Updates aren't set up for this copy. The Windows installer sets them up; a development copy has none.",
+  "updates.notConfigured": "Updates aren't set up for this copy. They come with the installed app (on Linux, the AppImage; on a Mac, Apple silicon); a development copy has none.",
   "updates.newVersion": "the new version",
   "updates.failed": "The update to {version} didn't work: {message}",
   "updates.succeeded": "✓ Updated from {from} to {version} on {time}.",

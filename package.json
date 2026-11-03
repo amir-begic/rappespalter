@@ -1,6 +1,6 @@
 {
   "name": "rappespalter",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
@@ -89,7 +89,8 @@
         "AppImage"
       ],
       "category": "Office",
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "artifactName": "Rappespalter-linux-x64.${ext}"
     },
     "win": {
       "target": [
@@ -102,9 +103,13 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "category": "public.app-category.finance",
+      "identity": "-",
+      "artifactName": "Rappespalter-mac-${arch}.${ext}"
     }
   }
 }

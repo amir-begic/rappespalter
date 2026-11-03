@@ -1,15 +1,16 @@
-// Updates for the installed Windows app.
+// Updates for the installed desktop app (Windows, macOS on Apple silicon, Linux AppImage).
 //
 // .github/workflows/release.yml builds every pushed vX.Y.Z tag as a pre-release with
-// latest.json next to the installer: the version, the release notes and, per system,
-// the installer's download address, size and SHA-256. promote.yml makes one release
+// latest.json next to the installers: the version, the release notes and, per system,
+// the update package's download address, size and SHA-256 (Windows: the NSIS
+// installer; macOS: a zip of the .app; Linux: the AppImage). promote.yml makes one release
 // the repository's latest, and only that one is read here:
 // …/releases/latest/download/latest.json. So installed copies only ever get versions
 // that were promoted by hand, never a fresh tag.
 //
-// This module checks the feed and downloads + verifies the installer. main.js does
-// the rest (stop the server, copy the database, run the installer, quit), because it
-// owns the server process and the database path.
+// This module checks the feed and downloads + verifies the package. main.js does
+// the rest (stop the server, copy the database, install, quit), because it owns the
+// server process and the database path.
 
 const { app, net } = require("electron")
 const path = require("node:path")
@@ -20,14 +21,25 @@ const FEED_URL =
   process.env.RAPPESPALTER_UPDATE_FEED ||
   "https://github.com/amir-begic/rappespalter/releases/latest/download/latest.json"
 
-// The feed's key for this system's package. Only Windows is built (see release.yml).
-const PLATFORM = process.platform === "win32" && process.arch === "x64" ? "win-x64" : null
+// The feed's key for this system's package and the file name it must have. A Linux
+// copy updates only when it runs as an AppImage (the runtime sets APPIMAGE to its
+// path); there is no Intel Mac build.
+function platform() {
+  const key = `${process.platform}-${process.arch}`
+  if (key === "win32-x64") return { key: "win-x64", file: /^Rappespalter-Setup(-[0-9A-Za-z.-]+)?\.exe$/ }
+  if (key === "darwin-arm64") return { key: "mac-arm64", file: /^Rappespalter-mac-arm64(-[0-9A-Za-z.-]+)?\.zip$/ }
+  if (key === "linux-x64" && process.env.APPIMAGE) {
+    return { key: "linux-x64", file: /^Rappespalter-linux-x64(-[0-9A-Za-z.-]+)?\.AppImage$/ }
+  }
+  return null
+}
+const PLATFORM = platform()
 
 const FIRST_CHECK_DELAY_MS = 60 * 1000
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 const RECENT_STATUS_MS = 7 * 24 * 60 * 60 * 1000
 
-const INSTALLER_NAME = /^Rappespalter-Setup(-[0-9A-Za-z.-]+)?\.exe$/
+const PACKAGE_EXT = /\.(exe|zip|AppImage|part)$/
 const SHA256 = /^[0-9a-f]{64}$/i
 
 // --- versions ----------------------------------------------------------------
@@ -50,12 +62,12 @@ function isNewer(candidate, current) {
 
 // --- feed --------------------------------------------------------------------
 
-// The release for this system from a latest.json, or null unless it names an
-// installer for it with an https address and its SHA-256.
+// The release for this system from a latest.json, or null unless it names a
+// package for it with the expected file name, an https address and its SHA-256.
 function toRelease(json, platform) {
-  const pkg = json && json.packages && json.packages[platform]
+  const pkg = platform && json && json.packages && json.packages[platform.key]
   if (!json || !parseVersion(json.version) || !pkg) return null
-  if (typeof pkg.file !== "string" || !INSTALLER_NAME.test(pkg.file)) return null
+  if (typeof pkg.file !== "string" || !platform.file.test(pkg.file)) return null
   if (typeof pkg.sha256 !== "string" || !SHA256.test(pkg.sha256)) return null
   let download
   try {
@@ -87,7 +99,7 @@ function createUpdater({ log }) {
   let latest = null
   let unreachable = false
   let checking = false
-  let download = null // { received, total } while the installer downloads
+  let download = null // { received, total } while the package downloads
   let installing = false
   let error = null
   let timer = null
@@ -95,7 +107,7 @@ function createUpdater({ log }) {
 
   const available = () => (latest && isNewer(latest.version, current) ? latest : null)
 
-  // --- status of the last update (written by main.js before it runs the installer)
+  // --- status of the last update (written by main.js before it installs)
 
   function readStatus() {
     try {
@@ -113,7 +125,7 @@ function createUpdater({ log }) {
   }
 
   // On start: an update that was "installing" either worked (we now run its
-  // version) or the installer didn't finish. Leftover installers are removed.
+  // version) or the installer didn't finish. Leftover packages are removed.
   function settleStatus() {
     const status = readStatus()
     if (status && status.state === "installing") {
@@ -124,14 +136,14 @@ function createUpdater({ log }) {
         writeStatus({
           ...status,
           state: "failed",
-          message: `The installer didn't finish; Rappespalter is still ${current}.`,
+          message: `The update didn't finish; Rappespalter is still ${current}.`,
         })
         log(`Update to ${status.version} didn't install; still ${current}`)
       }
     }
     try {
       for (const f of fs.readdirSync(updatesDir)) {
-        if (f.endsWith(".exe") || f.endsWith(".part")) fs.rmSync(path.join(updatesDir, f), { force: true })
+        if (PACKAGE_EXT.test(f)) fs.rmSync(path.join(updatesDir, f), { force: true })
       }
     } catch {
       /* no updates folder yet */
@@ -222,8 +234,8 @@ function createUpdater({ log }) {
 
   // --- downloading --------------------------------------------------------------
 
-  // Downloads the available release's installer into userData/updates and checks
-  // its size and SHA-256. Returns the release and the installer's path.
+  // Downloads the available release's package into userData/updates and checks
+  // its size and SHA-256. Returns the release and the package's path.
   async function downloadAvailable() {
     const release = available()
     if (!release) throw new Error("There's no newer version to install.")

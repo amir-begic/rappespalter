@@ -1,15 +1,18 @@
-# Every pushed vX.Y.Z tag: build the Windows installer and publish it as a pre-release,
-# with latest.json, the feed entry installed copies read (electron/updater.js). They
-# don't see it yet: they read the repository's *latest* release, and a pre-release never
-# is. promote.yml makes one the latest once you've tried it, so the newest promoted
-# installer is always at …/releases/latest/download/Rappespalter-Setup.exe.
+# Every pushed vX.Y.Z tag: build the installers for Windows, macOS and Linux and publish
+# them as a pre-release, with latest.json, the feed entry installed copies read
+# (electron/updater.js). They don't see it yet: they read the repository's *latest*
+# release, and a pre-release never is. promote.yml makes one the latest once you've tried
+# it, so the newest promoted installers are always at …/releases/latest/download/<file>.
+# Installed copies update from the Windows installer, the macOS zip (the .app, which
+# the app swaps in itself; the dmg is for first installs) and the Linux AppImage.
 #
-# Runs on a real Windows runner, where `pnpm install` pulls the Windows-native libsql
-# binary (@libsql/win32-x64-msvc). Cross-building from Linux doesn't work because the
-# SQLite layer is native.
+# Each system builds on its own runner, where `pnpm install` pulls that system's native
+# libsql binary (@libsql/win32-x64-msvc, darwin-arm64, linux-x64-gnu). Cross-building doesn't work
+# because the SQLite layer is native. The Mac build is Apple silicon only (the runner's
+# architecture); an Intel build would need its own Intel runner.
 #
-# Run by hand (Actions → Release → Run workflow) for a test build: the installer is kept
-# as a workflow artifact for 3 days and nothing is published.
+# Run by hand (Actions → Release → Run workflow) for a test build: the installers are
+# kept as workflow artifacts for 3 days and nothing is published.
 name: Release
 
 on:
@@ -30,7 +33,26 @@ env:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false # one system failing shouldn't cancel the others' builds
+      matrix:
+        include:
+          - name: windows
+            runner: windows-latest
+            target: --win
+            files: dist/Rappespalter-Setup.exe
+          - name: mac-arm64
+            runner: macos-latest
+            target: --mac
+            files: |
+              dist/Rappespalter-mac-arm64.dmg
+              dist/Rappespalter-mac-arm64.zip
+          - name: linux
+            runner: ubuntu-latest
+            target: --linux
+            files: dist/Rappespalter-linux-x64.AppImage
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30 # a hung run would otherwise burn minutes up to the 6-hour default
     defaults:
       run:
@@ -39,8 +61,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # the release notes list the commits since the previous tag
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -70,29 +90,46 @@ jobs:
         # No dev.db exists in CI, so the app ships with an empty database (each
         # user imports their own data) — assemble-standalone.mjs handles this.
         # DATABASE_URL is set only to satisfy module load during `next build`.
-        run: pnpm dist --publish never
+        # The Mac app is ad-hoc signed (mac.identity "-" in package.json), not with a
+        # Developer ID; this stops electron-builder looking for one in the keychain.
+        run: pnpm dist ${{ matrix.target }} --publish never
         env:
           DATABASE_URL: "file:./dev.db"
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload installer artifact
-        # Only for manual runs; tag builds attach the installer to the Release,
-        # which doesn't count against Actions storage.
-        if: github.event_name == 'workflow_dispatch'
+        # Manual runs keep it for 3 days to try; tag builds hand it to the publish job,
+        # and the Release keeps it from there.
         uses: actions/upload-artifact@v4
         with:
-          name: rappespalter-windows
-          path: dist/Rappespalter-Setup.exe
+          name: rappespalter-${{ matrix.name }}
+          path: ${{ matrix.files }}
           if-no-files-found: error
-          retention-days: 3
-          compression-level: 0 # .exe is already compressed; skip wasted CPU
+          retention-days: ${{ github.event_name == 'workflow_dispatch' && 3 || 1 }}
+          compression-level: 0 # installers are already compressed; skip wasted CPU
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the release notes list the commits since the previous tag
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish as a pre-release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="$GITHUB_REF_NAME"
-          installer=dist/Rappespalter-Setup.exe
 
           previous="$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)"
           if [ -n "$previous" ]; then
@@ -101,36 +138,41 @@ jobs:
             git log -1 --format='- %s' "$tag" > notes.md
           fi
 
-          # The feed entry: what the release is, and per system where its installer is,
-          # its size and SHA-256 (toRelease in electron/updater.js).
+          # The feed entry: what the release is, and per system where its update package
+          # is, its size and SHA-256 (toRelease in electron/updater.js).
           node -e '
             const fs = require("node:fs"), crypto = require("node:crypto")
-            const [tag, installer, repo] = process.argv.slice(1)
-            const file = require("node:path").basename(installer)
-            const bytes = fs.readFileSync(installer)
+            const [tag, repo] = process.argv.slice(1)
+            const packages = {
+              "win-x64": "Rappespalter-Setup.exe",
+              "mac-arm64": "Rappespalter-mac-arm64.zip",
+              "linux-x64": "Rappespalter-linux-x64.AppImage",
+            }
+            for (const [system, file] of Object.entries(packages)) {
+              const bytes = fs.readFileSync(`dist/${file}`)
+              packages[system] = {
+                file,
+                size: bytes.length,
+                sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+                download: `https://github.com/${repo}/releases/download/${tag}/${file}`,
+              }
+            }
             const feed = {
               version: tag.replace(/^v/, ""),
               published: new Date().toISOString(),
               notes: fs.readFileSync("notes.md", "utf8"),
               page: `https://github.com/${repo}/releases/tag/${tag}`,
-              packages: {
-                "win-x64": {
-                  file,
-                  size: bytes.length,
-                  sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
-                  download: `https://github.com/${repo}/releases/download/${tag}/${file}`,
-                },
-              },
+              packages,
             }
             fs.writeFileSync("latest.json", JSON.stringify(feed, null, 2) + "\n")
-          ' "$tag" "$installer" "$GITHUB_REPOSITORY"
+          ' "$tag" "$GITHUB_REPOSITORY"
           cat latest.json
 
           # A re-run for the same tag replaces the files and leaves the Release as it is
           # (promoted or not).
           if gh release view "$tag" > /dev/null 2>&1; then
-            gh release upload "$tag" "$installer" latest.json --clobber
+            gh release upload "$tag" dist/* latest.json --clobber
           else
-            gh release create "$tag" "$installer" latest.json --prerelease --latest=false \
+            gh release create "$tag" dist/* latest.json --prerelease --latest=false \
               --title "Rappespalter ${tag#v}" --notes-file notes.md --verify-tag
           fi

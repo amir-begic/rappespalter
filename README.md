@@ -187,7 +187,7 @@ pnpm electron:dev
 pnpm dist
 ```
 
-⚠️ **The SQLite layer is native, so build on the target OS.** A Windows installer must be built on Windows (or in CI). This repo includes a GitHub Actions workflow ([`.github/workflows/build-windows.yml`](.github/workflows/build-windows.yml)) that builds the Windows `.exe` on a `windows-latest` runner — trigger it manually from the Actions tab, or push a `v*` tag to produce a Release with the installer attached.
+⚠️ **The SQLite layer is native, so build on the target OS.** A Windows installer must be built on Windows, a Mac one on a Mac (or in CI). The [Release workflow](.github/workflows/release.yml) builds the Windows `.exe`, the macOS (Apple silicon) `.dmg` and the Linux `.AppImage`, each on its own runner. Trigger it manually from the Actions tab, or push a `v*` tag to produce a pre-release with all three attached.
 
 Full details, DB locations per OS, and troubleshooting are in **[docs/ELECTRON.md](docs/ELECTRON.md)**.
 

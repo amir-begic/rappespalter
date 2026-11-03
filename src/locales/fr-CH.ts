@@ -182,7 +182,7 @@ export const frCH: Dict = {
   "updates.desktopOnly": "Les mises à jour sont fournies avec l'app de bureau installée.",
   "updates.running": "En cours",
   "updates.lastChecked": "Dernière vérification",
-  "updates.notConfigured": "Les mises à jour ne sont pas configurées pour cette copie. L'installateur Windows les configure ; une copie de développement n'en a pas.",
+  "updates.notConfigured": "Les mises à jour ne sont pas configurées pour cette copie. Elles viennent avec l'app installée (sous Linux, l'AppImage ; sur Mac, Apple Silicon) ; une copie de développement n'en a pas.",
   "updates.newVersion": "la nouvelle version",
   "updates.failed": "La mise à jour vers {version} n'a pas fonctionné : {message}",
   "updates.succeeded": "✓ Mise à jour de {from} vers {version} le {time}.",

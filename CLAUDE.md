@@ -119,13 +119,16 @@ plus `outputFileTracingIncludes` for `generated/prisma` and the libsql adapter.
 Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 `pnpm dist`. Full details in [docs/ELECTRON.md](docs/ELECTRON.md).
 
-**Updates** (Windows, modelled on Aperture): a pushed `vX.Y.Z` tag (must match
-package.json) is built by `release.yml` as a pre-release with `latest.json`
-(version, notes, installer URL/size/SHA-256); `promote.yml` makes one the latest
-release, the only one installed copies read. `electron/updater.js` checks the feed
-(1 min after start, every 6 h) and downloads + verifies the installer; `installUpdate`
-in `main.js` copies the DB to `backups/before-update/`, runs the NSIS installer with
-`/S --updated --force-run` and quits. The renderer reaches it only through
+**Releases**: a pushed `vX.Y.Z` tag (must match package.json) is built by
+`release.yml` on one runner per system (Windows exe, macOS arm64 dmg + zip, Linux
+AppImage; native libsql, so no cross-builds) and published as a pre-release.
+**Updates** (all three, modelled on Aperture): the release carries `latest.json`
+(version, notes, per system the update package's URL/size/SHA-256); `promote.yml`
+makes one the latest release, the only one installed copies read. `electron/updater.js`
+checks the feed (1 min after start, every 6 h) and downloads + verifies the package;
+`installUpdate` in `main.js` copies the DB to `backups/before-update/`, puts the new
+version in place (`INSTALLERS`: NSIS `/S --updated --force-run`; macOS swaps the `.app`
+after exit; Linux renames the new AppImage over `$APPIMAGE`) and quits. The renderer reaches it only through
 `window.rappespalter.updates` (preload.js, typed in `src/lib/updates.ts`); UI is
 Settings → Updates (`src/components/updates-card.tsx`). The repo must be public.
 

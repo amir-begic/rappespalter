@@ -182,7 +182,7 @@ export const deCH: Dict = {
   "updates.desktopOnly": "Updates gibt es mit der installierten Desktop-App.",
   "updates.running": "Läuft",
   "updates.lastChecked": "Zuletzt geprüft",
-  "updates.notConfigured": "Updates sind für diese Kopie nicht eingerichtet. Das Windows-Installationsprogramm richtet sie ein; eine Entwicklungskopie hat keine.",
+  "updates.notConfigured": "Updates sind für diese Kopie nicht eingerichtet. Sie kommen mit der installierten App (unter Linux das AppImage, auf dem Mac Apple Silicon); eine Entwicklungskopie hat keine.",
   "updates.newVersion": "die neue Version",
   "updates.failed": "Das Update auf {version} hat nicht funktioniert: {message}",
   "updates.succeeded": "✓ Von {from} auf {version} aktualisiert am {time}.",
