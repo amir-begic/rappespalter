@@ -42,7 +42,9 @@ jobs:
             target: --win
             files: dist/Rappespalter-Setup.exe
           - name: mac-arm64
-            runner: macos-latest
+            # Pinned rather than macos-latest: the latest arm64 pool had no free runners
+            # in Nov 2026 (jobs cancelled after 15 min queued). Still Apple silicon.
+            runner: macos-15
             target: --mac
             files: |
               dist/Rappespalter-mac-arm64.dmg

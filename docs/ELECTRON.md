@@ -172,7 +172,7 @@ builds on its own runner because the libsql binary is native:
 | System                | Runner           | File                              |
 | --------------------- | ---------------- | --------------------------------- |
 | Windows x64           | `windows-latest` | `Rappespalter-Setup.exe`          |
-| macOS (Apple silicon) | `macos-latest`   | `Rappespalter-mac-arm64.dmg` + `.zip` (for updates) |
+| macOS (Apple silicon) | `macos-15`       | `Rappespalter-mac-arm64.dmg` + `.zip` (for updates) |
 | Linux x64             | `ubuntu-latest`  | `Rappespalter-linux-x64.AppImage` |
 
 There is no Intel Mac build. The AppImage needs `chmod +x` before it runs.
