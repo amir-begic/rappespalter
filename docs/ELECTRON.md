@@ -24,7 +24,8 @@ and points a window at it.
 No separate Node.js install is required on the target machine — Electron's own
 runtime executes the server. On macOS it runs as the bundled `Rappespalter Helper`
 (a background app, `LSUIElement`), not the main binary, which would show a second,
-endlessly bouncing Dock icon for the server.
+endlessly bouncing Dock icon for the server. There's no fallback: a missing Helper
+means a broken install and stops startup with an error.
 
 Starting the server is most of the startup time, so it begins before Electron's
 `ready` event, and the window opens straight away on a loading page

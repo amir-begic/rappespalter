@@ -134,12 +134,14 @@ function waitForServer(port, child, timeoutMs = 30000) {
 
 // The binary that runs the server as plain Node (ELECTRON_RUN_AS_NODE). On macOS
 // that's the bundled "<App> Helper", a background app (LSUIElement): the main binary
-// would show a second, endlessly bouncing Dock icon for the server.
+// would show a second, endlessly bouncing Dock icon for the server. Every Electron app
+// bundle has the Helper, so a missing one is a broken install: say so at startup.
 function nodeBinary() {
   if (process.platform !== "darwin") return process.execPath
   const name = path.basename(process.execPath)
   const helper = path.join(process.execPath, "..", "..", "Frameworks", `${name} Helper.app`, "Contents", "MacOS", `${name} Helper`)
-  return fs.existsSync(helper) ? helper : process.execPath
+  if (!fs.existsSync(helper)) throw new Error(`${name} Helper not found at ${helper}`)
+  return helper
 }
 
 async function startServer() {
