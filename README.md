@@ -53,9 +53,9 @@ Monthly spending overview with drill-downs.
 - Sortable, searchable transaction drill-down dialog
 
 ### 📥 Import
-Upload a Raiffeisen **Finanzassistent** `.xlsx` export.
+Upload a Raiffeisen **Finanzassistent** `.xlsx` export, or **camt.053 / camt.054** account statements (`.xml`, or a `.zip` of several) from any Swiss bank.
 - Drag-and-drop or browse
-- Automatic German→English category mapping
+- Automatic German→English category mapping (Raiffeisen); camt statements carry no categories, so rules and the review inbox sort them (salary is recognised)
 - Transfers between your own accounts are recognised (known names, plus the same amount leaving one account and arriving in another within 3 days) and left out of totals, so card bills and savings moves aren't double-counted
 - Deduplicated on re-import — re-uploading the same file imports nothing twice
 - Reports imported / skipped / total counts
@@ -148,11 +148,11 @@ pnpm dev
 Open **http://localhost:3000**. The database file `dev.db` is created in the project root and is **gitignored** — your financial data never enters version control.
 
 ### Import your data
-1. In Raiffeisen e-banking, open **Finanzassistent** and export your transactions as `.xlsx`.
+1. In Raiffeisen e-banking, open **Finanzassistent** and export your transactions as `.xlsx` — or, with any bank, download your account statements as **camt.053** (often called ISO 20022 or XML statements).
 2. Go to **Import** in the app and upload the file.
 3. Head to the **Dashboard** — months populate automatically.
 
-> Only Raiffeisen's Finanzassistent format is parsed today (see [`src/lib/parser.ts`](src/lib/parser.ts)). Adapting the column mapping for another bank is the main change needed for other formats.
+> Parsers: Raiffeisen Finanzassistent in [`src/lib/parser.ts`](src/lib/parser.ts), camt statements in [`src/lib/camt.ts`](src/lib/camt.ts). Use one format per account — the same account imported both ways would count twice.
 
 ---
 
@@ -223,6 +223,7 @@ src/
   lib/
     prisma.ts   # shared PrismaClient (libsql adapter)
     parser.ts   # Raiffeisen XLSX parser
+    camt.ts     # camt.053/054 statement parser (any bank)
 prisma/
   schema.prisma  migrations/  seed.ts
 electron/        # desktop main + preload

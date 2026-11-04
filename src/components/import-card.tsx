@@ -25,7 +25,7 @@ export interface Source {
   name:         string // the bank / broker's own name, never translated
   purpose:      MessageKey
   description:  MessageKey
-  extension:    string // e.g. ".xlsx"
+  extensions:   string[] // e.g. [".xlsx"]
   endpoint:     string
   loadingText:  MessageKey
   result:       { href: string; label: MessageKey }
@@ -36,13 +36,23 @@ export interface Source {
 
 type Translate = ReturnType<typeof useT>["t"]
 
+// What /api/import reports beyond the counts.
+function bankNotes(data: Record<string, unknown>, t: Translate): string[] {
+  return [
+    ...(Number(data.byRule) ? [t("import.byRule", { count: Number(data.byRule) })] : []),
+    ...(Number(data.toReview) ? [t("import.toReview", { count: Number(data.toReview) })] : []),
+    ...(Number(data.uncategorized) ? [t("import.uncategorized", { count: Number(data.uncategorized) })] : []),
+    ...(Number(data.transfers) ? [t("import.transfers", { count: Number(data.transfers) })] : []),
+  ]
+}
+
 export const IMPORT_SOURCES: Source[] = [
   {
     id:          "raiffeisen",
     name:        "Raiffeisen",
     purpose:     "import.raiffeisen.purpose",
     description: "import.raiffeisen.description",
-    extension:   ".xlsx",
+    extensions:  [".xlsx"],
     endpoint:    "/api/import",
     loadingText: "import.raiffeisen.loading",
     result:      { href: "/dashboard", label: "import.raiffeisen.result" },
@@ -50,18 +60,30 @@ export const IMPORT_SOURCES: Source[] = [
       title: "import.raiffeisen.how",
       steps: ["import.raiffeisen.step1", "import.raiffeisen.step2", "import.raiffeisen.step3", "import.raiffeisen.step4"],
     },
-    afterImport: async (data, t) => [
-      ...(Number(data.byRule) ? [t("import.byRule", { count: Number(data.byRule) })] : []),
-      ...(Number(data.toReview) ? [t("import.toReview", { count: Number(data.toReview) })] : []),
-      ...(Number(data.transfers) ? [t("import.transfers", { count: Number(data.transfers) })] : []),
-    ],
+    afterImport: async (data, t) => bankNotes(data, t),
+  },
+  {
+    // Any Swiss bank's ISO 20022 statement (src/lib/camt.ts).
+    id:          "camt",
+    name:        "camt.053",
+    purpose:     "import.camt.purpose",
+    description: "import.camt.description",
+    extensions:  [".xml", ".zip"],
+    endpoint:    "/api/import",
+    loadingText: "import.raiffeisen.loading",
+    result:      { href: "/dashboard", label: "import.raiffeisen.result" },
+    instructions: {
+      title: "import.camt.how",
+      steps: ["import.camt.step1", "import.camt.step2", "import.camt.step3", "import.camt.step4"],
+    },
+    afterImport: async (data, t) => bankNotes(data, t),
   },
   {
     id:          "yuh",
     name:        "Yuh",
     purpose:     "import.yuh.purpose",
     description: "import.yuh.description",
-    extension:   ".csv",
+    extensions:  [".csv"],
     endpoint:    "/api/portfolio/import",
     loadingText: "import.yuh.loading",
     result:      { href: "/portfolio", label: "import.yuh.result" },
@@ -96,10 +118,11 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
   const [fileName, setFileName]     = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const extension = source.extensions.join(" / ")
 
   async function handleFile(file: File) {
-    if (!file.name.toLowerCase().endsWith(source.extension)) {
-      setError(t("import.wrongType", { extension: source.extension, name: source.name }))
+    if (!source.extensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      setError(t("import.wrongType", { extension, name: source.name }))
       setStatus("error")
       return
     }
@@ -177,7 +200,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
           <div
             role="button"
             tabIndex={0}
-            aria-label={t("import.uploadAria", { name: source.name, extension: source.extension })}
+            aria-label={t("import.uploadAria", { name: source.name, extension })}
             onDrop={onDrop}
             onDragOver={onDragOver}
             onDragLeave={() => setIsDragging(false)}
@@ -194,7 +217,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
           >
             <div className="text-3xl mb-3">📂</div>
             <p className="text-sm break-all">
-              {fileName ?? t("import.dropHere", { extension: source.extension })}
+              {fileName ?? t("import.dropHere", { extension })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {t("import.orBrowse")}
@@ -202,7 +225,7 @@ export function ImportCard({ source, onImported }: { source: Source; onImported?
             <input
               ref={fileInputRef}
               type="file"
-              accept={source.extension}
+              accept={source.extensions.join(",")}
               className="hidden"
               onChange={onFileInputChange}
             />

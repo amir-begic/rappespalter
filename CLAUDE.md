@@ -40,7 +40,7 @@ src/
     review/page.tsx          — review inbox (uncategorized + guessed categories)
     tax/page.tsx             — figures for one year's tax return
     api/
-      import/route.ts        — parses and imports Raiffeisen XLSX
+      import/route.ts        — parses and imports Raiffeisen XLSX or camt statements (.xml/.zip)
       transactions/route.ts  — CRUD + filtering
       snapshots/route.ts     — monthly asset balance history
       summary/route.ts       — aggregated monthly dashboard data
@@ -68,6 +68,7 @@ src/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
     counterparty.ts          — pure payee handling (bare "Dauerauftrag" → payee, payment-type prefix)
+    camt.ts                  — ISO 20022 camt.052/053/054 parser (any Swiss bank; .xml or .zip)
     marks.ts                 — TransactionMark table (one-off, category source, reviewed) + NOT_ONE_OFF
     recurring.ts             — pure recurring-payment detection
     tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
@@ -236,7 +237,8 @@ the other. Import (`src/app/api/import/route.ts`) files it under the transfer-ty
 category (prefers `Internal Transfer`, creates it if the database has none), in
 this order:
 1. **Rules** win — a rule's category is never overridden (e.g. → Säule 3a).
-2. **Known names** — `INTERNAL_TRANSFER_PATTERNS` in the parser.
+2. **Known names** — `INTERNAL_TRANSFER_PATTERNS` in the parser (Raiffeisen XLSX
+   only); for camt, a payment to another account in the same upload.
 3. **Pairs** (`src/lib/transfers.ts`, pure) — the same amount (to the cent, same
    currency) out of one account and into another within 3 days, matched against
    the new rows and what's already imported. Never touches rule/manual rows or rows
@@ -250,6 +252,26 @@ filter and correctly stays as a real expense.
 ## Portfolio tracker
 Standalone: it never touches Transaction/Snapshot. Money moved into a broker account
 already shows up in the bank export (typically categorized as *ETF Investment*), so
+## camt statements (any bank)
+`src/lib/camt.ts` reads ISO 20022 camt.053 / .054 / .052 (versions .04–.08+), a
+single `.xml` or a `.zip` of several (opened with `xlsx`'s CFB reader; XML via
+`fast-xml-parser`). Same `/api/import` route and `ParsedTransaction` as the XLSX.
+- Only booked entries (`Sts` BOOK). Debit/credit from `CdtDbtInd`. Account = IBAN.
+- Counterparty: creditor (money out) / debtor (money in) name, else the entry's
+  additional info (card purchases), else the other IBAN. Booking text collects
+  entry info, name, IBAN and remittance lines.
+- Batch bookings are split into their payments when every one has an amount and
+  they add up to the entry.
+- No spending categories in camt: rows come in uncategorized (review inbox, rules),
+  except salary (purpose or bank code `SALA` → Salary) and transfers to another
+  account in the same upload. The Raiffeisen name patterns are **not** applied —
+  e.g. Viseca there means the card bill, but a camt user has no card purchases
+  imported, so it must stay spending.
+- `sourceHash` = sha256 of IBAN + the bank's reference (+ index in the entry), else
+  date/amount/counterparty + occurrence index per statement, so overlapping
+  statements and camt.053 vs .054 deduplicate. Not across formats: one account
+  shouldn't be imported both as Raiffeisen XLSX and camt (the UI says so).
+
 importing broker deposits as transactions would double-count savings.
 
 - **Import** (`yuh.ts`): Yuh "Activities" CSV — `;`-separated, UTF-8 BOM, DD/MM/YYYY,

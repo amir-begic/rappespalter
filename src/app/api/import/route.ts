@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { parseRaiffeisenXLSX } from "@/lib/parser"
+import { CamtFormatError, parseCamt } from "@/lib/camt"
 import { findRule } from "@/lib/rules"
 import { ensureRuleTable } from "@/lib/rules-store"
 import { ensureMarkTable, setMarks, type CategorySource } from "@/lib/marks"
@@ -21,9 +22,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!file.name.endsWith(".xlsx")) {
+    // A Raiffeisen Finanzassistent export (.xlsx), or a camt statement from any
+    // bank (.xml, or several in a .zip).
+    const name = file.name.toLowerCase()
+    const format = name.endsWith(".xlsx") ? "raiffeisen"
+      : name.endsWith(".xml") || name.endsWith(".zip") ? "camt"
+      : null
+    if (!format) {
       return NextResponse.json(
-        { error: t("err.notXlsx") },
+        { error: t("err.unsupportedImport") },
         { status: 400 }
       )
     }
@@ -32,8 +39,16 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Parse the XLSX into normalized transaction objects
-    const parsed = parseRaiffeisenXLSX(buffer)
+    // Parse the file into normalized transaction objects
+    let parsed
+    try {
+      parsed = format === "raiffeisen" ? parseRaiffeisenXLSX(buffer) : parseCamt(buffer, name)
+    } catch (e) {
+      if (e instanceof CamtFormatError) {
+        return NextResponse.json({ error: t("err.notCamt") }, { status: 400 })
+      }
+      throw e
+    }
 
     if (parsed.length === 0) {
       return NextResponse.json(
@@ -129,6 +144,7 @@ export async function POST(req: NextRequest) {
     let byRule = 0
     let toReview = 0 // imported with the parser's fallback category
     let transfers = 0
+    let uncategorized = 0 // imported without a category (camt has none)
 
     for (const [i, tx] of parsed.entries()) {
       const { categoryId, categorySource } = decided[i]
@@ -152,6 +168,7 @@ export async function POST(req: NextRequest) {
         if (rule) byRule++
         if (categorySource === "transfer") transfers++
         if (categorySource === "fallback") toReview++
+        if (categoryId == null) uncategorized++
       } catch (e: any) {
         // Unique constraint on sourceHash means this transaction
         // already exists — skip it, but fill in how its category would be
@@ -183,6 +200,7 @@ export async function POST(req: NextRequest) {
       byRule, // of the imported, how many a rule categorized
       toReview, // of the imported, how many got the fallback category
       transfers, // of the imported, how many are movements between own accounts
+      uncategorized, // of the imported, how many have no category
       total: parsed.length,
     })
 
