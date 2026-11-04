@@ -209,6 +209,11 @@ Check a build on a Mac:
 `accepted, source=Notarized Developer ID`. Copies installed before signing (ad-hoc)
 update normally, since updates aren't quarantined.
 
+The Mac build uses `mac.compression: "normal"` instead of the top-level `"maximum"`.
+With "maximum", electron-builder zips with 15 Deflate passes (`-mpass=15`), and the
+~250 MB `.app` took about 20 minutes on the runner. With "normal" the zip gets a single
+pass and the dmg uses zlib instead of bzip2, which costs a few MB.
+
 ## Updates
 
 The installed app updates itself on Windows, macOS (Apple silicon) and Linux
