@@ -132,6 +132,16 @@ function waitForServer(port, child, timeoutMs = 30000) {
   })
 }
 
+// The binary that runs the server as plain Node (ELECTRON_RUN_AS_NODE). On macOS
+// that's the bundled "<App> Helper", a background app (LSUIElement): the main binary
+// would show a second, endlessly bouncing Dock icon for the server.
+function nodeBinary() {
+  if (process.platform !== "darwin") return process.execPath
+  const name = path.basename(process.execPath)
+  const helper = path.join(process.execPath, "..", "..", "Frameworks", `${name} Helper.app`, "Contents", "MacOS", `${name} Helper`)
+  return fs.existsSync(helper) ? helper : process.execPath
+}
+
 async function startServer() {
   const port = await getFreePort()
   if (app.isQuitting) throw new Error("quitting") // don't leave a server behind
@@ -144,7 +154,7 @@ async function startServer() {
 
   log(`Database: ${dbPath}`)
   log(`Starting server: ${serverFile} (port ${port})`)
-  serverProcess = spawn(process.execPath, [serverFile], {
+  serverProcess = spawn(nodeBinary(), [serverFile], {
     env: {
       ...process.env,
       // Run Electron's binary as a plain Node process for the child.
