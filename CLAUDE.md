@@ -67,8 +67,8 @@ src/
   lib/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
-    counterparty.ts          — pure payee handling (bare "Dauerauftrag" → payee, payment-type prefix)
     camt.ts                  — ISO 20022 camt.052/053/054 parser (any Swiss bank; .xml or .zip)
+    counterparty.ts          — pure payee handling (bare "Dauerauftrag" → payee, payment-type prefix)
     marks.ts                 — TransactionMark table (one-off, category source, reviewed) + NOT_ONE_OFF
     recurring.ts             — pure recurring-payment detection
     tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
@@ -249,9 +249,6 @@ this order:
 The annual card fee ("Gebühr / Jahresgebühr Kreditkarte") does **not** match the
 filter and correctly stays as a real expense.
 
-## Portfolio tracker
-Standalone: it never touches Transaction/Snapshot. Money moved into a broker account
-already shows up in the bank export (typically categorized as *ETF Investment*), so
 ## camt statements (any bank)
 `src/lib/camt.ts` reads ISO 20022 camt.053 / .054 / .052 (versions .04–.08+), a
 single `.xml` or a `.zip` of several (opened with `xlsx`'s CFB reader; XML via
@@ -272,6 +269,9 @@ single `.xml` or a `.zip` of several (opened with `xlsx`'s CFB reader; XML via
   statements and camt.053 vs .054 deduplicate. Not across formats: one account
   shouldn't be imported both as Raiffeisen XLSX and camt (the UI says so).
 
+## Portfolio tracker
+Standalone: it never touches Transaction/Snapshot. Money moved into a broker account
+already shows up in the bank export (typically categorized as *ETF Investment*), so
 importing broker deposits as transactions would double-count savings.
 
 - **Import** (`yuh.ts`): Yuh "Activities" CSV — `;`-separated, UTF-8 BOM, DD/MM/YYYY,
