@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { loadYearEnd } from "@/lib/portfolio/store"
 import { yearEndSnapshot } from "@/lib/tax"
 import { payeeName, resolveCounterparty } from "@/lib/counterparty"
+import { loadAssets, loadLiabilities } from "@/lib/assets-store"
+import { totalsAt } from "@/lib/assets"
+import { taxableWealth } from "@/lib/tax-estimate"
+import { ageAtYearEnd, loadTaxEstimate, loadTaxProfile } from "@/lib/tax-estimate-store"
 
 // Snapshot months are stored as local midnight on the 1st; read them back in local time.
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
@@ -35,7 +39,7 @@ export async function GET(req: NextRequest) {
     const pillar3a = savingsCategories.find(c => c.id === pick) ?? savingsCategories.find(c => /3a/i.test(c.name)) ?? null
 
     const range = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) }
-    const [payments, income, snapshots, portfolio] = await Promise.all([
+    const [payments, income, snapshots, portfolio, assets, liabilities, taxProfile, estimate, age] = await Promise.all([
       pillar3a
         ? prisma.transaction.findMany({
             where: { categoryId: pillar3a.id, date: range },
@@ -49,6 +53,11 @@ export async function GET(req: NextRequest) {
       }),
       prisma.snapshot.findMany({ orderBy: { month: "asc" } }),
       loadYearEnd(year),
+      loadAssets(),
+      loadLiabilities(),
+      loadTaxProfile(),
+      loadTaxEstimate(year),
+      ageAtYearEnd(year),
     ])
 
     const incomeBy = new Map<string, { name: string; color: string; total: number }>()
@@ -59,7 +68,10 @@ export async function GET(req: NextRequest) {
       incomeBy.set(name, row)
     }
 
+    const incomeRows = [...incomeBy.values()].map(r => ({ ...r, total: round2(r.total) })).sort((a, b) => b.total - a.total)
     const snap = yearEndSnapshot(snapshots.map(s => ({ ...s, month: monthKey(s.month) })), year)
+    // Other assets and debts on the same day the securities are valued (31 Dec, or today).
+    const others = totalsAt(assets, liabilities, portfolio.asOf)
 
     return NextResponse.json({
       year,
@@ -75,12 +87,20 @@ export async function GET(req: NextRequest) {
           counterparty: payeeName(resolveCounterparty(p.counterparty, p.bookingText ?? "")),
         })),
       },
-      income: [...incomeBy.values()].map(r => ({ ...r, total: round2(r.total) })).sort((a, b) => b.total - a.total),
+      income: incomeRows,
       snapshot: snap && {
         month: snap.month, etf: snap.etf, savings: snap.savings, pillar3a: snap.pillar3a,
         pillar2: snap.pillar2, checking: snap.checking,
       },
       portfolio,
+      estimate: {
+        wealth:  taxableWealth({ snapshot: snap, portfolio, assets: others.assets, debts: others.debts }),
+        // Money in booked this year: only a starting point for the net income field.
+        income:  Math.max(0, Math.round(incomeRows.reduce((sum, r) => sum + r.total, 0))),
+        profile: taxProfile,
+        age,
+        saved:   estimate,
+      },
     })
   } catch (error) {
     console.error("Tax summary error:", error)

@@ -51,7 +51,8 @@ src/
       rules/route.ts         — auto-categorization rules (+ rules/apply)
       review/route.ts        — review inbox: list / counts, mark reviewed, re-map a group
       recurring/route.ts     — recurring series + upcoming payments
-      tax/route.ts           — one year's 3a, balances, securities, dividends, income
+      tax/route.ts           — one year's 3a, balances, securities, dividends, income, taxable wealth
+                               (+ locations/ = ESTV municipality search, profile/, estimate/ = ESTV estimate)
       goals/route.ts         — goals CRUD, balances + savings pace per asset, PATCH category → asset
       assets/                — assets CRUD (+ values/, month-ends/ for Net Worth, car/ = a vehicle's monthly cost)
       liabilities/route.ts   — loans, mortgages, leases CRUD
@@ -72,6 +73,8 @@ src/
     marks.ts                 — TransactionMark table (one-off, category source, reviewed) + NOT_ONE_OFF
     recurring.ts             — pure recurring-payment detection
     tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
+    tax-estimate.ts          — pure tax profile, taxable wealth, ESTV request (tax-estimate-store.ts: Settings)
+    estv.ts                  — ESTV tax calculator client (unofficial API; the only file that talks to it)
     goals.ts                 — pure goal maths: allocation, savings pace per asset, projection
                                (goals-store.ts: tables on demand + loading)
     assets.ts                — pure asset maths: kind registry, valuation/depreciation, loan balances,
@@ -421,6 +424,19 @@ no tax rules. Säule 3a = payments in the savings category named like "3a"
 securities valued with `computePortfolio` as of 31 Dec (or today); dividends per
 security, gross = net + withholding, CHF at each payment day's ECB rate; income by
 category excluding transfers. One-offs count.
+
+**Income and wealth tax estimate** (`tax-estimate.ts`, `estv.ts`): taxable wealth on 31 Dec =
+checking + savings (year-end snapshot) + securities (broker import, else the snapshot's ETF) +
+other assets − debts; 3a / 2. Säule and lease commitments left out. Net income starts at the
+money booked in the year (partner's at 0). Every amount is editable — it's an estimate, and
+ESTV applies only standard deductions. On a click only, the ESTV tax calculator's undocumented
+public API (swisstaxcalculator.estv.admin.ch, linked in the UI) is sent exactly a `TaxRequest`:
+year, net incomes, wealth, municipality, marital status, number of children, church, age —
+never names or accounts. It returns federal / cantonal / municipal / church income tax,
+cantonal / municipal / church wealth tax and the head tax; they add up to ESTV's total. Profile
+and the last estimate per year live in Setting (`tax.profile`, `tax.estimate.<year>`); the same
+request again is answered from the saved estimate. ESTV has no published terms for this API —
+keep calls user-triggered and spaced, never bulk-download rates or tariffs.
 
 ## Goals
 Planning → Goals (`src/lib/goals.ts`, pure; tables `Goal` + `GoalAllocation`,

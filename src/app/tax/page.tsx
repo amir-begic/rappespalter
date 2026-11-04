@@ -7,6 +7,7 @@ import type { TaxDividend } from "@/lib/tax"
 import type { PortfolioWarning } from "@/lib/portfolio/engine"
 import { warningText } from "@/lib/i18n/labels"
 import { useT } from "@/lib/i18n/provider"
+import { TaxEstimateCard, type TaxEstimateData } from "@/components/tax-estimate-card"
 
 interface TaxSummary {
   year:              number
@@ -28,6 +29,7 @@ interface TaxSummary {
     dividends: TaxDividend[]
     warnings:  PortfolioWarning[]
   }
+  estimate: TaxEstimateData
 }
 
 // Number and date writing in the current language.
@@ -233,6 +235,8 @@ export default function TaxPage() {
             )}
             {p!.warnings.length > 0 && <p className="text-xs text-negative mt-2">{p!.warnings.map(w => warningText(t, w)).join(" · ")}</p>}
           </Section>
+
+          <TaxEstimateCard key={data.year} year={data.year} data={data.estimate} />
 
           <Section title={t("tax.dividends.title", { year: data.year })}>
             {p!.dividends.length === 0 ? (
