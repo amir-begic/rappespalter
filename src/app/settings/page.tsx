@@ -57,6 +57,17 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A link to a card (#backup from the dashboard's reminder, #updates from the
+  // desktop app's menu): scroll there once the form above it has loaded and the
+  // card stopped moving.
+  const loaded = values !== null || error !== null
+  useEffect(() => {
+    const id = window.location.hash.slice(1)
+    if (!loaded || !id) return
+    const timer = setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "start" }), 50)
+    return () => clearTimeout(timer)
+  }, [loaded])
+
   function setValue(key: SettingKey, value: string) {
     setSaved(false)
     setValues(prev => prev && { ...prev, [key]: value })

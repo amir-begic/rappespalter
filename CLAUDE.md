@@ -360,15 +360,29 @@ throws typed errors (`BackupError`, `YuhFormatError`) instead of wording them.
 
 ## Backup & restore
 Settings → Backup & restore (`src/lib/backup.ts`, `src/components/backup-card.tsx`).
-Backups are manual only and always ask where to save: `GET /api/backup` returns a
-consistent copy of the database (`VACUUM INTO`) as a download; the desktop app shows
-its native Save dialog (main.js sets no download save path, keep it that way), a
-browser uses the "Save as" picker where available. Restore uploads a file to
-`POST /api/backup/restore`, which checks it (SQLite, `quick_check`, has Transaction +
-Category), saves a safety copy to `backups/before-restore/` next to the database
-(newest 5 kept), migrates the uploaded copy to the current schema, closes Prisma's
-connection and swaps the file in; if the swapped-in file can't be opened, the safety
-copy is put back. The page then reloads.
+Backups are manual and always ask where to save: `POST /api/backup` (`{ password? }`;
+`GET` = plain) returns a consistent copy of the database (`VACUUM INTO`) as a download;
+the desktop app shows its native Save dialog (main.js sets no download save path, keep
+it that way), a browser uses the "Save as" picker where available.
+- **Password** (`src/lib/backup-crypto.ts`, pure): optional, ≥ 8 characters. The file
+  (`.rpbackup`, magic `RPBACKUP`) is the gzipped database under AES-256-GCM with a
+  scrypt key (N = 2^17); the header (cost, salt, nonce) is authenticated. The password
+  goes in the POST body, never a URL. A forgotten password loses only that backup.
+- **Restore** uploads to `POST /api/backup/restore` (multipart `file` + `password`), or
+  `{ kind, name }` for a local copy. It decrypts if needed, checks the file (SQLite,
+  `quick_check`, has Transaction + Category), migrates it to the current schema, saves a
+  safety copy to `backups/before-restore/` (newest 5), closes Prisma's connection and
+  swaps the file in; if the swapped-in file can't be opened, the safety copy is put
+  back. The page then reloads. The desktop menu's File → Import Database also keeps a
+  before-restore copy and points password-protected files to Settings.
+- **Local copies** (`src/lib/backup-copies.ts`): `backups/daily/` gets one copy a day
+  while the server runs (started from `instrumentation.ts`, newest 7, only once there's
+  data); with `before-update/` (main.js) and `before-restore/` they're listed on the card
+  and restorable. Same disk as the data, so they don't replace real backups.
+- **Reminder** (`src/lib/backup-status.ts`, pure; `backup-store.ts`): Setting
+  `backup.lastAt` is set when a backup is downloaded; the dashboard shows
+  `<BackupReminder />` 30 days after it (or after the first data, if never), "Later"
+  snoozes 14 days (`backup.remindAfter`). `GET /api/backup/status` has all of it.
 
 ## Auto-categorization rules
 Data → Rules (`src/lib/rules.ts`, pure). A rule matches the counterparty (contains /

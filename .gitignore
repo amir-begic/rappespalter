@@ -59,3 +59,6 @@ next-env.d.ts
 
 # Promo video: render scripts, screenshots and rendered videos (see promo/README.md)
 /promo/
+
+# Copies the app keeps next to the database (daily, before restore/update)
+backups/

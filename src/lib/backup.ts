@@ -80,7 +80,9 @@ export async function restoreFrom(file: string) {
   const safetyCopy = join(dir, `rappespalter-${stamp}.db`)
   await snapshot(safetyCopy)
   const copies = readdirSync(dir).filter(f => f.endsWith(".db")).sort().reverse()
-  for (const old of copies.slice(BEFORE_RESTORE_KEEP)) rmSync(join(dir, old), { force: true })
+  for (const old of copies.slice(BEFORE_RESTORE_KEEP)) {
+    for (const ext of ["", "-wal", "-shm"]) rmSync(join(dir, old + ext), { force: true })
+  }
 
   await prisma.$disconnect()
   try {

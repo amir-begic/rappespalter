@@ -317,12 +317,41 @@ function stopServer() {
   })
 }
 
+// A password-protected backup (src/lib/backup-crypto.ts) starts with this.
+function isEncryptedBackup(file) {
+  try {
+    const fd = fs.openSync(file, "r")
+    const head = Buffer.alloc(8)
+    fs.readSync(fd, head, 0, 8, 0)
+    fs.closeSync(fd)
+    return head.toString("ascii") === "RPBACKUP"
+  } catch {
+    return false
+  }
+}
+
+// Before File → Import Database replaces the data: a copy in backups/before-restore,
+// the folder Settings → Backup & restore lists (src/lib/backup-copies.ts). The
+// server is stopped, so the file and its WAL are consistent.
+function keepCopyBeforeImport(dbPath) {
+  if (!fs.existsSync(dbPath)) return
+  const dir = path.join(path.dirname(dbPath), "backups", "before-restore")
+  fs.mkdirSync(dir, { recursive: true })
+  const target = path.join(dir, `rappespalter-${new Date().toISOString().replace(/[:.]/g, "-")}.db`)
+  fs.copyFileSync(dbPath, target)
+  for (const ext of ["-wal", "-shm"]) {
+    if (fs.existsSync(dbPath + ext)) fs.copyFileSync(dbPath + ext, target + ext)
+  }
+  log(`Database copied to ${target}`)
+}
+
 // Replace the live database with the chosen file and restart the server.
 async function importDatabase(sourcePath) {
   const dbPath = path.join(app.getPath("userData"), "rappespalter.db")
   isRestarting = true
   try {
     await stopServer()
+    keepCopyBeforeImport(dbPath)
     fs.copyFileSync(sourcePath, dbPath)
     for (const ext of ["-wal", "-shm", "-journal"]) {
       fs.rmSync(dbPath + ext, { force: true })
@@ -359,7 +388,9 @@ async function promptImportDatabase() {
   if (!isSqliteFile(source)) {
     dialog.showErrorBox(
       "Not a database file",
-      `${source}\n\nThis doesn't look like a SQLite database.`,
+      isEncryptedBackup(source)
+        ? `${source}\n\nThis is a password-protected backup. Restore it on Settings → Backup & restore, which asks for its password.`
+        : `${source}\n\nThis doesn't look like a SQLite database.`,
     )
     return
   }
@@ -372,7 +403,7 @@ async function promptImportDatabase() {
     message: "Replace the current database?",
     detail:
       `This overwrites the app's current data with:\n${source}\n\n` +
-      "The app will reload. This cannot be undone.",
+      "A copy of the current data is kept in backups/before-restore (File → Open Data Folder). The app will reload.",
   })
   if (choice !== 1) return
 

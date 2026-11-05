@@ -20,6 +20,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
 import { PageLoading } from "@/components/page-loading"
+import { BackupReminder } from "@/components/backup-reminder"
 import { useT } from "@/lib/i18n/provider"
 import type { MessageKey } from "@/locales"
 
@@ -519,6 +520,8 @@ useEffect(() => {
 
       {data && (
         <div className={`space-y-4 transition-opacity ${loading ? "opacity-60 delay-300" : ""}`} aria-busy={loading}>
+
+          <BackupReminder />
 
           {/* Stat cards — click to drill into the underlying transactions */}
 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
