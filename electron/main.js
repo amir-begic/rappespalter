@@ -13,7 +13,8 @@
 // the new version in place (Windows: silent NSIS installer; macOS: swaps the .app;
 // Linux: replaces the AppImage) and restarts the app.
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron")
+const { app, BrowserWindow, Menu, dialog, ipcMain, session, shell } = require("electron")
+const crypto = require("node:crypto")
 const path = require("node:path")
 const fs = require("node:fs")
 const net = require("node:net")
@@ -34,6 +35,10 @@ if (!isPrimary) app.quit()
 const isDev = !app.isPackaged || process.env.ELECTRON_DEV === "1"
 const DEV_URL = "http://localhost:3000"
 const ICON = path.join(__dirname, "..", "resources", process.platform === "win32" ? "icon.ico" : "icon.png")
+
+// Only this process knows it: the server (src/proxy.ts) turns away requests without
+// it, so other programs and web pages on this computer can't use the API.
+const API_TOKEN = crypto.randomBytes(32).toString("hex")
 
 let appUrl = null // where the window points once the server is up
 let serverProcess = null
@@ -165,6 +170,7 @@ async function startServer() {
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
       DATABASE_URL: databaseUrl(dbPath),
+      RAPPESPALTER_TOKEN: API_TOKEN,
     },
     stdio: ["ignore", "pipe", "pipe"],
   })
@@ -200,6 +206,19 @@ async function startServer() {
   log("Server ready")
   appUrl = `http://127.0.0.1:${port}`
   return appUrl
+}
+
+// Adds the API token to the window's requests to its own server (pages, fetches,
+// downloads), and only those. The server's port changes on a restart, so the check
+// reads appUrl each time.
+function authorizeRequests() {
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = details.requestHeaders
+    if (appUrl && !isDev && details.url.startsWith(appUrl + "/")) {
+      headers["x-rappespalter-token"] = API_TOKEN
+    }
+    callback({ requestHeaders: headers })
+  })
 }
 
 // Opens the window at `url`, or at the loading page while the server is starting.
@@ -593,6 +612,7 @@ app.whenReady().then(async () => {
     fs.rm(macStaging(macBundle()), { recursive: true, force: true }, () => {})
   }
   registerUpdateIpc()
+  authorizeRequests()
   createWindow()
   try {
     appUrl = await serverStarting

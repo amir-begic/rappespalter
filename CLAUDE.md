@@ -117,7 +117,13 @@ Electron main process spawns the Next.js standalone server (`.next/standalone/se
 using Electron's own bundled Node and points a window at it, so all API routes and
 Prisma/SQLite code run unchanged. The SQLite DB lives in the OS userData dir (seeded
 from a bundled `template.db` on first launch). It's single-instance and shows
-`electron/loading.html` while the server starts. The app icon is `src/app/icon.svg`,
+`electron/loading.html` while the server starts.
+**Local API lockdown** (`src/proxy.ts`): every request must name a loopback host
+(no DNS rebinding), must not be cross-/same-site (`Sec-Fetch-Site`, `Origin`), and in
+the desktop app must carry `x-rappespalter-token`, a random token main.js makes per
+launch, passes to the server as `RAPPESPALTER_TOKEN` and adds to the window's own
+requests (`authorizeRequests`). `pnpm dev` has no token. Extra host names (e.g. a LAN
+dev server): `RAPPESPALTER_ALLOWED_HOSTS`. The app icon is `src/app/icon.svg`,
 rendered to `resources/icon.{png,ico}` by `node scripts/make-icons.mjs`. Build requires `output: "standalone"`
 plus `outputFileTracingIncludes` for `generated/prisma` and the libsql adapter.
 Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,

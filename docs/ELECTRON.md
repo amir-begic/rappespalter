@@ -21,6 +21,24 @@ and points a window at it.
 └────────────────────────────────────────────────────────────┘
 ```
 
+### Who can talk to the server
+
+Listening on `127.0.0.1` keeps other computers out, but not other programs or web
+pages on this one: a page open in the browser could post a form to
+`/api/backup/restore`, or use DNS rebinding to read `/api/backup`. `src/proxy.ts`
+turns away (403) any request that
+
+- names a host other than `localhost` / `127.0.0.1` / `[::1]` (DNS rebinding),
+- comes from another site (`Sec-Fetch-Site: cross-site` or `same-site`, or an
+  `Origin` that isn't the server itself), or
+- lacks the launch token: main.js makes a random one per launch, passes it to the
+  server as `RAPPESPALTER_TOKEN`, and adds it as `x-rappespalter-token` to the
+  window's requests to its own server (`authorizeRequests`, via
+  `session.webRequest`; pages, fetches and backup downloads alike).
+
+`pnpm dev` runs without a token and relies on the first two. To reach a dev server
+from another host name, list it in `RAPPESPALTER_ALLOWED_HOSTS` (comma-separated).
+
 No separate Node.js install is required on the target machine — Electron's own
 runtime executes the server. On macOS it runs as the bundled `Rappespalter Helper`
 (a background app, `LSUIElement`), not the main binary, which would show a second,
