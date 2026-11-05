@@ -62,3 +62,7 @@ next-env.d.ts
 
 # Copies the app keeps next to the database (daily, before restore/update)
 backups/
+
+# Playwright (e2e/)
+/test-results/
+/playwright-report/

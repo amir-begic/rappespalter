@@ -129,6 +129,13 @@ jobs:
           # is silent between "signing" and "notarization successful").
           DEBUG: ${{ matrix.name == 'mac-arm64' && 'electron-osx-sign*,electron-notarize*' || '' }}
 
+      - name: Test the packaged app
+        # Starts the app just built on a throwaway data folder (e2e/app.spec.ts): the
+        # bundled server, the API token, migrations, backups. A broken build stops
+        # here, before anything is uploaded or published.
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a pnpm test:e2e; else pnpm test:e2e; fi
+
       - name: Upload installer artifact
         # Manual runs keep it for 3 days to try; tag builds hand it to the publish job,
         # and the Release keeps it from there.

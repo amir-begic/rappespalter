@@ -570,6 +570,7 @@ pnpm exec prisma generate                       # regenerate client after schema
 pnpm exec prisma migrate reset                  # wipe db, reapply migrations, run seed
 pnpm exec prisma db seed                        # run seed script manually
 pnpm test                                       # unit tests (Vitest, src/lib/__tests__)
+pnpm test:e2e                                   # packaged app end to end (Playwright, e2e/; build it first)
 ```
 
 ## Environment
@@ -625,4 +626,9 @@ DATABASE_URL="file:./prisma/dev.db"
 - Prisma client imported from @/lib/prisma in all API routes
 - Pure lib maths has unit tests in `src/lib/__tests__/` (Vitest, fictional data only).
   CI (`.github/workflows/ci.yml`) runs tsc, lint, `i18n:check` and the tests on every
-  push and PR — keep all four passing
+  push and PR — keep all four passing. `e2e/app.spec.ts` (Playwright) starts the
+  *packaged* app on a throwaway data folder (`RAPPESPALTER_USER_DATA`, read by main.js):
+  loading page, API token (no 403s in the window, 403 from outside), first start,
+  migrating an old database, backups. CI runs it on Linux; release.yml on every system
+  before publishing. Locally: `pnpm build:desktop && pnpm exec electron-builder --dir`,
+  then `pnpm test:e2e` (`xvfb-run -a` without a display)

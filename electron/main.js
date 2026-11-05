@@ -26,6 +26,10 @@ const { createUpdater } = require("./updater")
 // package name. Must run before any app.getPath("userData") call.
 app.setName("Rappespalter")
 
+// The end-to-end tests (e2e/) run the packaged app on a throwaway data folder.
+// Set before the single-instance lock, which lives in that folder.
+if (process.env.RAPPESPALTER_USER_DATA) app.setPath("userData", process.env.RAPPESPALTER_USER_DATA)
+
 // One copy at a time: a second launch (e.g. a double click while the first is still
 // starting) just brings the existing window forward. Two copies would each start a
 // server on the same database.

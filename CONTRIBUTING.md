@@ -36,6 +36,14 @@ pnpm i18n:check          # translations
 pnpm test                # unit tests
 ```
 
+The packaged desktop app has end-to-end tests too (`e2e/`). CI runs them, but you can
+run them yourself after building the app unpacked:
+
+```bash
+pnpm build:desktop && pnpm exec electron-builder --dir
+pnpm test:e2e            # on Linux without a display: xvfb-run -a pnpm test:e2e
+```
+
 - **Read [CLAUDE.md](CLAUDE.md).** Despite the name it's the project's architecture
   notes and conventions: how imports, transfers, rules, the portfolio and the
   desktop app work, and why.

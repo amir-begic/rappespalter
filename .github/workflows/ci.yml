@@ -1,4 +1,5 @@
-# Checks every push and pull request: types, lint, translations and tests.
+# Checks every push and pull request: types, lint, translations and unit tests,
+# and the packaged Linux app end to end.
 # Releases are built separately by release.yml.
 name: CI
 
@@ -41,3 +42,33 @@ jobs:
 
       - name: Tests
         run: pnpm test
+
+  e2e:
+    # The packaged desktop app, started for real (e2e/app.spec.ts). Linux only here;
+    # release.yml runs the same tests on every system before publishing.
+    name: packaged app (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the desktop app (unpacked)
+        run: pnpm build:desktop && pnpm exec electron-builder --linux --dir --publish never
+        env:
+          DATABASE_URL: "file:./dev.db" # only for module loading during next build
+
+      - name: Test the packaged app
+        run: xvfb-run -a pnpm test:e2e
