@@ -178,7 +178,9 @@ builds on its own runner because the libsql binary is native:
 | macOS (Apple silicon) | `macos-15`       | `Rappespalter-mac-arm64.dmg` + `.zip` (for updates) |
 | Linux x64             | `ubuntu-latest`  | `Rappespalter-linux-x64.AppImage` |
 
-There is no Intel Mac build. The AppImage needs `chmod +x` before it runs.
+There is no Intel Mac build. The AppImage needs `chmod +x` before it runs. It also
+needs `libfuse2`, which Ubuntu 22.04+ and other recent distributions don't install
+by default; the README's "Installing" section has the command per distribution.
 
 ### Mac signing and notarization
 
