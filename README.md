@@ -272,6 +272,16 @@ The **Portfolio** page is the one feature that goes online: it fetches public ma
 
 ---
 
+## Disclaimer
+
+Rappespalter is a personal project, not financial, investment or tax advice. Forecasts, tax estimates and allocation suggestions are arithmetic on the figures you enter and the assumptions shown next to them; check anything that matters against your official documents or with a professional.
+
+It isn't affiliated with or endorsed by any bank, broker, fund provider or authority it reads files from or talks to (Raiffeisen, Yuh, iShares, Vanguard, Xtrackers/DWS, Yahoo Finance, the ESTV). Market prices and the tax calculator come from public but unofficial interfaces that can change or stop working without notice.
+
+Provided as is, without warranty: see the [license](LICENSE).
+
+---
+
 ## License
 
 [MIT](LICENSE)
