@@ -1,0 +1,47 @@
+name: Bug report
+description: Something doesn't work or shows the wrong numbers.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please don't attach real bank exports, statements, database backups or screenshots showing your own names, IBANs or amounts.** If a file is needed, make a small one with invented values that still shows the problem.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Import …
+        3. …
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → Updates shows it, or the release you downloaded. "From source" plus the commit is fine too.
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - From source (pnpm dev)
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log or error message
+      description: Desktop app — File → Open Data Folder, then `startup.log`. Remove anything personal first.
+      render: text

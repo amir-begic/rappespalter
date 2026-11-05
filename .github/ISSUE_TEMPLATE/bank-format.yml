@@ -1,0 +1,31 @@
+name: Bank or broker format
+description: Ask for an export format the app can't import yet.
+labels: [import-format]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rappespalter already reads Raiffeisen XLSX exports, camt.052/053/054 statements (most Swiss banks offer these, often as "ISO 20022" or "camt" downloads) and Yuh activity CSVs. Please check whether your bank offers camt first.
+
+        **Never paste or attach real data.** Describe the structure and give a few rows with invented names, IBANs and amounts.
+  - type: input
+    id: institution
+    attributes:
+      label: Bank or broker
+    validations:
+      required: true
+  - type: input
+    id: format
+    attributes:
+      label: File type and where to download it
+      placeholder: e.g. CSV, from e-banking → Account → Export
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Structure, with invented values
+      description: Column headers or XML elements, date and number formats, how money in and out are shown, and a few made-up rows.
+      render: text
+    validations:
+      required: true
