@@ -5,7 +5,8 @@
      The name is written out in one ink line, stroke by stroke. Letterforms: Hershey
      "Script 1-stroke" (public-domain glyph data, via the hersheytext package),
      smoothed into curves; each path's --d/--t is its start and duration so the pen
-     moves at a steady speed. -->
+     moves at a steady speed. main.js (LOADING_ANIMATION_MS) waits for the last stroke
+     before it shows the app: change both together. -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -73,6 +74,17 @@
       }
       .blob.a { top: -140px; right: -120px; width: 360px; fill: var(--yellow); }
       .blob.b { bottom: -170px; left: -150px; width: 400px; fill: var(--pink); }
+      /* main.js adds this once the name is written and the app is ready. */
+      .stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        transition: opacity 250ms ease;
+      }
+      body.leaving .stage {
+        opacity: 0;
+      }
       @media (prefers-reduced-motion: reduce) {
         .word path { animation: none; opacity: 1; stroke-dashoffset: 0; }
         .caption { animation: none; opacity: 1; }
@@ -86,6 +98,7 @@
     <svg class="blob b" viewBox="-100 -100 200 200" aria-hidden="true">
       <path d="M39.9,-52.4C51.3,-46.5,59.6,-34.1,65.6,-19.7C71.6,-5.3,75.3,11.1,69.9,24.1C64.5,37.1,50,46.7,35.4,55.6C20.8,64.5,6.1,72.7,-10.1,74.6C-26.3,76.5,-44,72.1,-55.2,60.6C-66.4,49.1,-71.1,30.5,-71.7,13C-72.3,-4.5,-68.8,-20.9,-59.7,-32.9C-50.6,-44.9,-35.9,-52.5,-22,-57.6C-8.1,-62.7,5,-65.3,17.6,-63.3C30.2,-61.3,28.5,-58.3,39.9,-52.4Z" />
     </svg>
+    <div class="stage">
     <svg class="word" viewBox="-4 -3 159 41" role="img" aria-label="Rappespalter">
       <path d="M0,17 C0.33,16.5 1.5,14.83 2,14 C2.5,13.17 2.83,12 3,12 C3.17,12 2.5,13.67 3,14 C3.5,14.33 5.33,13.83 6,14 C6.67,14.17 6.83,14.5 7,15 C7.17,15.5 7.17,16.17 7,17 C6.83,17.83 6.17,19.33 6,20 C5.83,20.67 5.83,20.67 6,21 C6.17,21.33 6.67,21.83 7,22 C7.33,22.17 7.5,22.17 8,22 C8.5,21.83 9.5,21.33 10,21 C10.5,20.67 10.5,20.67 11,20 C11.5,19.33 12.67,17.5 13,17" pathLength="1" style="--d:0.200s;--t:0.084s" />
       <path d="M22,16 C21.83,15.67 21.5,14.5 21,14 C20.5,13.5 19.67,13.17 19,13 C18.33,12.83 17.67,12.83 17,13 C16.33,13.17 15.5,13.67 15,14 C14.5,14.33 14.33,14.5 14,15 C13.67,15.5 13.17,16.33 13,17 C12.83,17.67 12.83,18.33 13,19 C13.17,19.67 13.5,20.5 14,21 C14.5,21.5 15.33,21.83 16,22 C16.67,22.17 17.33,22.17 18,22 C18.67,21.83 19.5,21.5 20,21 C20.5,20.5 20.5,20.33 21,19 C21.5,17.67 22.83,13.17 23,13 C23.17,12.83 22.17,16.67 22,18 C21.83,19.33 21.83,20.33 22,21 C22.17,21.67 22.67,21.83 23,22 C23.33,22.17 23.5,22.17 24,22 C24.5,21.83 25.5,21.33 26,21 C26.5,20.67 26.5,20.67 27,20 C27.5,19.33 28.67,17.5 29,17" pathLength="1" style="--d:0.334s;--t:0.148s" />
@@ -110,5 +123,6 @@
       <path d="M138,17 C138.33,16.5 139.5,14.83 140,14 C140.5,13.17 140.83,12 141,12 C141.17,12 140.5,13.67 141,14 C141.5,14.33 143.33,13.83 144,14 C144.67,14.17 144.83,14.5 145,15 C145.17,15.5 145.17,16.17 145,17 C144.83,17.83 144.17,19.33 144,20 C143.83,20.67 143.83,20.67 144,21 C144.17,21.33 144.67,21.83 145,22 C145.33,22.17 145.5,22.17 146,22 C146.5,21.83 147.5,21.33 148,21 C148.5,20.67 148.5,20.67 149,20 C149.5,19.33 150.67,17.5 151,17" pathLength="1" style="--d:2.751s;--t:0.084s" />
     </svg>
     <div class="caption">Starting</div>
+    </div>
   </body>
 </html>

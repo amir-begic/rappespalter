@@ -229,6 +229,31 @@ function authorizeRequests() {
   })
 }
 
+// The loading page writes the name out in about 2.8 s (the last stroke in
+// loading.html starts at 2.75 s). A quick server mustn't cut it off, so the app
+// replaces it only after this long, which includes a moment to read the name.
+const LOADING_ANIMATION_MS = 3300
+const LOADING_FADE_MS = 250
+let loadingShown = null // resolves with the time the loading page was on screen
+
+// Resolves once the loading page has played through, then fades it out. Instant
+// when the system asks for reduced motion (the page doesn't animate then).
+async function finishLoadingPage() {
+  const contents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null
+  if (!contents || !loadingShown) return
+  const shownAt = await loadingShown // the server can be ready before the page has loaded
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const reduced = await contents
+    .executeJavaScript(`matchMedia("(prefers-reduced-motion: reduce)").matches`)
+    .catch(() => false)
+  if (reduced) return
+  const left = shownAt + LOADING_ANIMATION_MS - Date.now()
+  if (left > 0) await new Promise((resolve) => setTimeout(resolve, left))
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  await contents.executeJavaScript(`document.body.classList.add("leaving")`).catch(() => {})
+  await new Promise((resolve) => setTimeout(resolve, LOADING_FADE_MS))
+}
+
 // Opens the window at `url`, or at the loading page while the server is starting.
 function createWindow(url) {
   mainWindow = new BrowserWindow({
@@ -251,8 +276,16 @@ function createWindow(url) {
     return { action: "deny" }
   })
 
-  if (url) mainWindow.loadURL(url)
-  else mainWindow.loadFile(path.join(__dirname, "loading.html"))
+  if (url) {
+    mainWindow.loadURL(url)
+  } else {
+    const contents = mainWindow.webContents
+    loadingShown = new Promise((resolve) => {
+      contents.once("did-finish-load", () => resolve(Date.now()))
+      contents.once("destroyed", () => resolve(Date.now()))
+    })
+    mainWindow.loadFile(path.join(__dirname, "loading.html"))
+  }
   mainWindow.on("closed", () => {
     mainWindow = null
   })
@@ -624,6 +657,7 @@ app.whenReady().then(async () => {
   createWindow()
   try {
     appUrl = await serverStarting
+    await finishLoadingPage()
     if (mainWindow) mainWindow.loadURL(appUrl)
   } catch (err) {
     if (app.isQuitting) return // window closed while starting; the server was stopped
