@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma"
-import { ensureSettingTable } from "@/lib/setting-table"
 import { BIRTH_DATE_KEY, LEGACY_AGE_KEY, SETTING_FIELDS } from "@/lib/settings"
 
 // First-start setup (/welcome). Its progress lives in the Setting table:
@@ -27,15 +26,10 @@ async function hasData(): Promise<boolean> {
     }),
   ])
   if (transactions || snapshots || settings) return true
-  // The portfolio tables are created on demand, so they may not exist yet.
-  const activity = await prisma.$queryRawUnsafe<{ n: number }[]>(
-    `SELECT COUNT(*) AS n FROM "PortfolioActivity"`
-  ).catch(() => [{ n: 0 }])
-  return Number(activity[0]?.n) > 0
+  return (await prisma.portfolioActivity.count()) > 0
 }
 
 export async function loadOnboarding(): Promise<Onboarding> {
-  await ensureSettingTable()
   const rows = await prisma.setting.findMany({ where: { key: { in: [ONBOARDING_STATE, ONBOARDING_STEP] } } })
   const raw = rows.find(r => r.key === ONBOARDING_STATE)?.value
   const step = Number(rows.find(r => r.key === ONBOARDING_STEP)?.value) || 0
@@ -58,7 +52,6 @@ export async function needsOnboarding(): Promise<boolean> {
 }
 
 export async function saveOnboarding(change: { state?: OnboardingState; step?: number }) {
-  await ensureSettingTable()
   const entries: [string, string][] = []
   if (change.state) entries.push([ONBOARDING_STATE, change.state])
   if (change.step != null) entries.push([ONBOARDING_STEP, String(change.step)])

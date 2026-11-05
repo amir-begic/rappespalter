@@ -4,12 +4,10 @@ import {
   BIRTH_DATE_KEY, DEFAULT_AGE, DEFAULT_SETTINGS, LEGACY_AGE_KEY, estimateBirthDate, isBirthDate, isSettingKey,
   type Settings,
 } from "@/lib/settings"
-import { ensureSettingTable as ensureTable } from "@/lib/setting-table"
 
 // `birthDateEstimated`: no birth date saved (or configured), so it's guessed from
 // the old "current age" setting — the Settings page asks for the real one.
 async function loadSettings(): Promise<{ settings: Settings; birthDateEstimated: boolean }> {
-  await ensureTable()
   const rows = await prisma.setting.findMany()
   const settings = { ...DEFAULT_SETTINGS }
   let legacyAge: number | null = null
@@ -61,7 +59,6 @@ export async function PUT(req: NextRequest) {
     // A saved birth date supersedes the old age setting.
     if (typeof input.birthDate === "string") entries.push([LEGACY_AGE_KEY, null])
 
-    await ensureTable()
     await prisma.$transaction(
       entries.map(([key, value]) =>
         value === null

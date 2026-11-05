@@ -3,23 +3,19 @@
 // A backup is a consistent copy made with VACUUM INTO while the app keeps running.
 // A restore checks the file, saves a safety copy of the current data to
 // backups/before-restore/ next to the database (the newest few are kept, like
-// backups/before-update/ in the desktop app), closes Prisma's connection, swaps the
+// backups/before-update/ in the desktop app), brings the backup up to the current
+// schema (it may come from an older version), closes Prisma's connection, swaps the
 // file in and lets the next query reconnect.
 import { closeSync, copyFileSync, mkdirSync, openSync, readdirSync, readSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { randomUUID } from "node:crypto"
 import { createClient } from "@libsql/client"
+import { migrate } from "@/lib/migrate"
 import { prisma } from "@/lib/prisma"
-import { resetSettingTable } from "@/lib/setting-table"
-import { resetRuleTable } from "@/lib/rules-store"
-import { resetPortfolioSchema } from "@/lib/portfolio/schema"
-import { resetMarkTable } from "@/lib/marks"
-import { resetGoalTables } from "@/lib/goals-store"
-import { resetAssetTables } from "@/lib/assets-store"
 
 const BEFORE_RESTORE_KEEP = 5
-// Tables every Rappespalter database has; the on-demand ones are created later.
+// Tables every Rappespalter database has; migrate() adds the rest.
 const REQUIRED_TABLES = ["Transaction", "Category"]
 
 // A backup problem the person can fix; `code` says which, so the route words it in
@@ -71,9 +67,11 @@ export async function checkBackup(file: string) {
   }
 }
 
-// Replaces the live database with `file`. Returns where the previous data was saved.
+// Replaces the live database with `file` (a temporary copy: it's migrated in place).
+// Returns where the previous data was saved.
 export async function restoreFrom(file: string) {
   await checkBackup(file)
+  await migrate(`file:${file}`)
   const db = databasePath()
 
   const dir = join(dirname(db), "backups", "before-restore")
@@ -100,11 +98,4 @@ export async function restoreFrom(file: string) {
 function swapIn(source: string, db: string) {
   copyFileSync(source, db)
   for (const ext of ["-wal", "-shm", "-journal"]) rmSync(db + ext, { force: true })
-  // The restored file may predate the tables these create on demand.
-  resetSettingTable()
-  resetRuleTable()
-  resetPortfolioSchema()
-  resetMarkTable()
-  resetGoalTables()
-  resetAssetTables()
 }

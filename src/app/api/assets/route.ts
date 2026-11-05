@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureAssetTables, loadAssets, loadLiabilities } from "@/lib/assets-store"
+import { loadAssets, loadLiabilities } from "@/lib/assets-store"
 import { COLLECTIBLE_TYPES, isAssetKind, kindInfo } from "@/lib/assets"
 
 // Local (Swiss) calendar date.
@@ -78,7 +78,6 @@ function parseAsset(body: unknown): AssetBody | string {
 // POST: create an asset, with its first valuation when `value` is sent.
 export async function POST(req: NextRequest) {
   try {
-    await ensureAssetTables()
     const body = await req.json().catch(() => null)
     const asset = parseAsset(body)
     if (typeof asset === "string") return NextResponse.json({ error: asset }, { status: 400 })
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
 // PUT { id, ...asset }: replace an asset's details (valuations stay).
 export async function PUT(req: NextRequest) {
   try {
-    await ensureAssetTables()
     const body = await req.json().catch(() => null)
     const id = Number(body?.id)
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
@@ -115,7 +113,6 @@ export async function PUT(req: NextRequest) {
 // DELETE ?id=… (its valuations go too; loans against it stay, unlinked).
 export async function DELETE(req: NextRequest) {
   try {
-    await ensureAssetTables()
     const id = Number(new URL(req.url).searchParams.get("id"))
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
     await prisma.$transaction([

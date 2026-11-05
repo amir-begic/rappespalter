@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensurePortfolioSchema } from "@/lib/portfolio/schema"
 
 // Save target weights and fund fees for several securities at once:
 // PUT { items: [{ symbol, targetWeight: 0.6 | null, ter: 0.0022 | null }] }
 // Fractions, not percentages; null clears the value.
 export async function PUT(req: NextRequest) {
   try {
-    await ensurePortfolioSchema()
     const body = await req.json()
     const items: unknown[] = Array.isArray(body?.items) ? body.items : []
     const fraction = (v: unknown, max: number) =>

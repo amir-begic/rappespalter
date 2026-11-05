@@ -1,12 +1,10 @@
 import { prisma } from "@/lib/prisma"
-import { ensureSettingTable } from "@/lib/setting-table"
 import { APPEARANCE_KEYS, DEFAULT_APPEARANCE, isMotion, isTheme, type Appearance } from "@/lib/appearance"
 
 // Reads the saved appearance, falling back to the defaults for anything missing or
 // unreadable (the page must render even if the database can't be reached).
 export async function loadAppearance(): Promise<Appearance> {
   try {
-    await ensureSettingTable()
     const rows = await prisma.setting.findMany({
       where: { key: { in: Object.values(APPEARANCE_KEYS) } },
     })
@@ -24,7 +22,6 @@ export async function loadAppearance(): Promise<Appearance> {
 }
 
 export async function saveAppearance(change: Partial<Appearance>) {
-  await ensureSettingTable()
   const entries = Object.entries(change).filter(([, v]) => v !== undefined) as [keyof Appearance, string][]
   await prisma.$transaction(
     entries.map(([field, value]) =>

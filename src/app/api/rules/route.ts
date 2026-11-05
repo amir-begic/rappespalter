@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isDirection, isMatchType } from "@/lib/rules"
-import { ensureRuleTable, planRuleChanges } from "@/lib/rules-store"
+import { planRuleChanges } from "@/lib/rules-store"
 
 // Auto-categorization rules (see src/lib/rules.ts).
 //   GET                    rules with how many transactions each decides and would change
@@ -59,7 +59,6 @@ async function validate(body: RuleInput, partial: boolean) {
 
 export async function POST(req: NextRequest) {
   try {
-    await ensureRuleTable()
     const body = await req.json()
     const { data, error } = await validate(body, false)
     if (error) return NextResponse.json({ error }, { status: 400 })
@@ -82,7 +81,6 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    await ensureRuleTable()
     const body = await req.json()
     const id = Number(body?.id)
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
@@ -99,7 +97,6 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    await ensureRuleTable()
     const id = Number(new URL(req.url).searchParams.get("id"))
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id query param is required" }, { status: 400 })
     await prisma.categoryRule.deleteMany({ where: { id } })

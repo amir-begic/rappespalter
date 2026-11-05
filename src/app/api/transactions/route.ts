@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, setMark, type MarkPatch } from "@/lib/marks"
+import { setMark, type MarkPatch } from "@/lib/marks"
 
 export async function GET(req: NextRequest) {
   try {
@@ -74,7 +74,6 @@ export async function GET(req: NextRequest) {
     }
 
     // Run count and data fetch in parallel
-    await ensureMarkTable()
     const [total, transactions] = await Promise.all([
       prisma.transaction.count({ where }),
       prisma.transaction.findMany({

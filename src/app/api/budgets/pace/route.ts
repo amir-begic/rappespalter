@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable } from "@/lib/marks"
 import { BUDGETABLE_TYPES } from "@/lib/categories"
 import { analysePace, type PaceEntry } from "@/lib/pace"
 
@@ -19,7 +18,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "month parameter is required (format: YYYY-MM)" }, { status: 400 })
     }
 
-    await ensureMarkTable()
     const [rows, categories, latest] = await Promise.all([
       prisma.transaction.findMany({
         where:  { amount: { lt: 0 } },

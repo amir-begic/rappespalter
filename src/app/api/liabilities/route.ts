@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureAssetTables } from "@/lib/assets-store"
 import { isLiabilityKind } from "@/lib/assets"
 
 // Loans, mortgages and leases. Listed by GET /api/assets together with the assets.
@@ -59,7 +58,6 @@ function parseLiability(body: unknown): LiabilityBody | string {
 // POST: add a loan / lease.
 export async function POST(req: NextRequest) {
   try {
-    await ensureAssetTables()
     const liability = parseLiability(await req.json().catch(() => null))
     if (typeof liability === "string") return NextResponse.json({ error: liability }, { status: 400 })
     const created = await prisma.liability.create({ data: liability })
@@ -73,7 +71,6 @@ export async function POST(req: NextRequest) {
 // PUT { id, ...liability }
 export async function PUT(req: NextRequest) {
   try {
-    await ensureAssetTables()
     const body = await req.json().catch(() => null)
     const id = Number(body?.id)
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
@@ -90,7 +87,6 @@ export async function PUT(req: NextRequest) {
 // DELETE ?id=…
 export async function DELETE(req: NextRequest) {
   try {
-    await ensureAssetTables()
     const id = Number(new URL(req.url).searchParams.get("id"))
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
     await prisma.liability.delete({ where: { id } })

@@ -6,10 +6,8 @@ collections, a car) and the loans and leases against it. Both feed Net Worth.
 - Pure maths: `src/lib/assets.ts` (values, depreciation, loan balances, lease
   commitments, month-end totals, what a vehicle costs a month) and `src/lib/car.ts`
   (lease vs. buy).
-- Tables: `Asset`, `AssetValue`, `Liability`, created on demand by
-  `ensureAssetTables()` (`src/lib/assets-store.ts`) because the desktop app doesn't
-  migrate existing databases. `resetAssetTables()` is called from `swapIn` in
-  `backup.ts`.
+- Tables: `Asset`, `AssetValue`, `Liability` (migration
+  `20261104100000_assets_liabilities`; loading in `src/lib/assets-store.ts`).
 - API: `/api/assets` (CRUD; GET lists assets and liabilities), `/api/assets/values`,
   `/api/liabilities`, `/api/assets/month-ends` (Net Worth), `/api/assets/car?id=`.
 - Pages: `/assets`, `/assets/[id]` (vehicles: monthly cost and lease vs. buy),

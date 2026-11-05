@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { parseRaiffeisenXLSX } from "@/lib/parser"
 import { CamtFormatError, parseCamt } from "@/lib/camt"
 import { findRule } from "@/lib/rules"
-import { ensureRuleTable } from "@/lib/rules-store"
-import { ensureMarkTable, setMarks, type CategorySource } from "@/lib/marks"
+import { setMarks, type CategorySource } from "@/lib/marks"
 import { TRANSFER_CATEGORY } from "@/lib/parser"
 import { TRANSFER_WINDOW_DAYS, findTransferPairs } from "@/lib/transfers"
 import { getT } from "@/lib/i18n/store"
@@ -65,8 +64,6 @@ export async function POST(req: NextRequest) {
     const typeOf = new Map(categories.map(c => [c.id, c.type]))
 
     // The user's own rules take precedence over the parser's category mapping.
-    await ensureRuleTable()
-    await ensureMarkTable()
     const rules = await prisma.categoryRule.findMany()
 
     // Where movements between own accounts go: the transfer-type category,

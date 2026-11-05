@@ -1,6 +1,4 @@
 import { prisma } from "@/lib/prisma"
-import { ensurePortfolioSchema } from "./schema"
-import { ensureSettingTable } from "@/lib/setting-table"
 import {
   BASE_CURRENCY, fetchFxRates, fetchListing, fetchConstituentFile, matchListing, xtrackersConstituentsUrl,
 } from "./market"
@@ -17,8 +15,6 @@ const minusDays = (date: string, n: number) => iso(new Date(Date.parse(date) - n
 // ── Import ──────────────────────────────────────────────────────────────────
 
 export async function importActivities(parsed: ParseResult) {
-  await ensurePortfolioSchema()
-
   // New securities get a row; existing ones keep their (possibly user-set) pricing.
   for (const [symbol, s] of parsed.securities) {
     await prisma.security.upsert({
@@ -59,7 +55,6 @@ export const AUTO_REFRESH_HOURS = 4
 const LAST_REFRESH_KEY = "portfolio.lastRefreshAt"
 
 export async function getLastRefresh(): Promise<string | null> {
-  await ensureSettingTable()
   return (await prisma.setting.findUnique({ where: { key: LAST_REFRESH_KEY } }))?.value ?? null
 }
 
@@ -74,7 +69,6 @@ export interface RefreshResult {
 }
 
 export async function refreshMarketData(opts: { auto?: boolean } = {}): Promise<RefreshResult> {
-  await ensurePortfolioSchema()
   const last = await getLastRefresh()
   if (opts.auto && last && Date.now() - Date.parse(last) < AUTO_REFRESH_HOURS * 3_600_000) {
     return { skipped: true, lastRefreshAt: last, matched: [], failed: [], prices: 0, fxRates: 0, constituents: [] }
@@ -219,14 +213,12 @@ async function saveConstituents(symbol: string, file: ConstituentFile, fileName:
 }
 
 export async function importConstituents(symbol: string, file: ConstituentFile, fileName: string) {
-  await ensurePortfolioSchema()
   const sec = await prisma.security.findUnique({ where: { symbol } })
   if (!sec) throw new Error(`Unknown security "${symbol}"`)
   await saveConstituents(symbol, file, fileName)
 }
 
 export async function deleteConstituents(symbol: string) {
-  await ensurePortfolioSchema()
   await prisma.$transaction([
     prisma.fundConstituent.deleteMany({ where: { symbol } }),
     prisma.fundSource.deleteMany({ where: { symbol } }),
@@ -236,8 +228,8 @@ export async function deleteConstituents(symbol: string) {
 export async function loadLookThrough() {
   const [{ input }, sources, rows] = await Promise.all([
     loadEngineInput(),
-    ensurePortfolioSchema().then(() => prisma.fundSource.findMany()),
-    ensurePortfolioSchema().then(() => prisma.fundConstituent.findMany()),
+    prisma.fundSource.findMany(),
+    prisma.fundConstituent.findMany(),
   ])
   const portfolio = computePortfolio(input)
   const sourceBySymbol = new Map(sources.map(s => [s.symbol, s]))
@@ -293,7 +285,6 @@ function group<T>(rows: T[], key: (r: T) => string, point: (r: T) => { date: str
 // Everything the engine needs, straight from the database. Pass a symbol to
 // load only that security's prices (FX rates are small, so always loaded).
 async function loadEngineInput(symbol?: string) {
-  await ensurePortfolioSchema()
   const [activities, securities, prices, rates] = await Promise.all([
     prisma.portfolioActivity.findMany({ where: symbol ? { symbol } : {}, orderBy: { date: "asc" } }),
     prisma.security.findMany({ orderBy: { symbol: "asc" } }),
@@ -315,8 +306,7 @@ async function loadEngineInput(symbol?: string) {
 export async function loadPortfolio() {
   const [{ input, activities, securities, prices }, lastPrice, lastRefreshAt] = await Promise.all([
     loadEngineInput(),
-    ensurePortfolioSchema().then(() =>
-      prisma.securityPrice.findFirst({ where: { source: "yahoo" }, orderBy: { date: "desc" } })),
+    prisma.securityPrice.findFirst({ where: { source: "yahoo" }, orderBy: { date: "desc" } }),
     getLastRefresh(),
   ])
   const result = computePortfolio(input)

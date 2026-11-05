@@ -13,9 +13,11 @@ const nextConfig: NextConfig = {
   // stack needs in the packaged app, so we force them in:
   //  - the Prisma client generated outside src/ (generated/prisma)
   //  - @libsql/client's native (.node) bindings used for the local SQLite file
+  //  - the migrations, read at startup by src/lib/migrate.ts
   outputFileTracingIncludes: {
     "/*": [
       "generated/prisma/**/*",
+      "prisma/migrations/**/*",
       "node_modules/@libsql/**/*",
       "node_modules/@prisma/adapter-libsql/**/*",
       // Next loads @swc/helpers at runtime via its require-hook, which the file

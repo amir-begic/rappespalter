@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, setMarks } from "@/lib/marks"
+import { setMarks } from "@/lib/marks"
 import { FALLBACK_CATEGORY } from "@/lib/parser"
 import type { Prisma } from "../../../../generated/prisma/client"
 
@@ -13,7 +13,6 @@ import type { Prisma } from "../../../../generated/prisma/client"
 // now (and counted on the nav badge); older items are a backlog to clear once.
 const RECENT_DAYS = 90
 async function inboxWhere(): Promise<Prisma.TransactionWhereInput> {
-  await ensureMarkTable()
   const fallback = await prisma.category.findUnique({ where: { name: FALLBACK_CATEGORY }, select: { id: true } })
   const unreviewed: Prisma.TransactionWhereInput = { NOT: { mark: { is: { reviewedAt: { not: null } } } } }
   return {

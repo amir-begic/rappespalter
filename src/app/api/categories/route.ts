@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureRuleTable } from "@/lib/rules-store"
 import { BUDGETABLE_TYPES, CATEGORY_PALETTE, isCategoryType, isHexColor } from "@/lib/categories"
 
 const include = {
@@ -120,7 +119,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "id query param is required" }, { status: 400 })
     }
 
-    await ensureRuleTable()
     const [, , , deleted] = await prisma.$transaction([
       prisma.categoryRule.deleteMany({ where: { categoryId: id } }),
       prisma.budget.deleteMany({ where: { categoryId: id } }),

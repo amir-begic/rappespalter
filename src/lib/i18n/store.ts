@@ -1,6 +1,5 @@
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { ensureSettingTable } from "@/lib/setting-table"
 import { DEFAULT_LOCALE, LANGUAGE_KEY, isLocale, matchLocale, type Locale } from "@/lib/i18n/locales"
 import { translate, type Messages, type Vars } from "@/lib/i18n/translate"
 import { loadMessages, type MessageKey } from "@/locales"
@@ -10,7 +9,6 @@ import { loadMessages, type MessageKey } from "@/locales"
 // request, never at build time. Never throws: the page must render.
 export async function loadLocale(): Promise<{ locale: Locale; saved: boolean }> {
   try {
-    await ensureSettingTable()
     const row = await prisma.setting.findUnique({ where: { key: LANGUAGE_KEY } })
     if (isLocale(row?.value)) return { locale: row.value, saved: true }
   } catch (error) {
@@ -24,7 +22,6 @@ export async function loadLocale(): Promise<{ locale: Locale; saved: boolean }> 
 }
 
 export async function saveLocale(locale: Locale) {
-  await ensureSettingTable()
   await prisma.setting.upsert({
     where: { key: LANGUAGE_KEY }, update: { value: locale }, create: { key: LANGUAGE_KEY, value: locale },
   })

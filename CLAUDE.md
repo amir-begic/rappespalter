@@ -76,9 +76,9 @@ src/
     tax-estimate.ts          — pure tax profile, taxable wealth, ESTV request (tax-estimate-store.ts: Settings)
     estv.ts                  — ESTV tax calculator client (unofficial API; the only file that talks to it)
     goals.ts                 — pure goal maths: allocation, savings pace per asset, projection
-                               (goals-store.ts: tables on demand + loading)
+                               (goals-store.ts: loading)
     assets.ts                — pure asset maths: kind registry, valuation/depreciation, loan balances,
-                               lease commitments, month-end totals, car cost (assets-store.ts: tables + loading)
+                               lease commitments, month-end totals, car cost (assets-store.ts: loading)
     car.ts                   — pure lease-vs-buy comparison + a lease's effective interest rate
     blob.ts                  — blob outlines shared by the page blobs and the goal illustrations
     i18n/                    — locales.ts (languages, Accept-Language matching), translate.ts (pure lookup,
@@ -145,22 +145,16 @@ Tables:
 - **Budget** — monthly limits per category
 - **Snapshot** — monthly asset balances (ETF, savings, 3a, 2. Säule, checking)
 - **Setting** — key/value user settings edited on /settings; missing keys fall back
-  to the `NEXT_PUBLIC_*` env defaults. `/api/settings` creates the table if absent
-  because the desktop app doesn't migrate existing userData databases.
-- **CategoryRule** — auto-categorization rules (counterparty pattern → category);
-  created on demand by `ensureRuleTable()` (src/lib/rules-store.ts).
+  to the `NEXT_PUBLIC_*` env defaults.
+- **CategoryRule** — auto-categorization rules (counterparty pattern → category).
 - **TransactionMark** — per-transaction flags keyed by transactionId: `oneOff`,
   `categorySource` (rule | bank | fallback | transfer | manual; override on older imports), `reviewedAt`. A
-  separate table, not Transaction columns, so older databases keep working; created
-  on demand by `ensureMarkTable()` (src/lib/marks.ts) — call it before any query that
-  touches `mark`.
+  separate table, not Transaction columns (src/lib/marks.ts).
 - **Asset / AssetValue / Liability** — other assets with their valuations, and
-  loans/leases (optionally against an asset); created on demand by
-  `ensureAssetTables()` (src/lib/assets-store.ts).
+  loans/leases (optionally against an asset) (src/lib/assets-store.ts).
 - **PortfolioActivity / Security / SecurityPrice / FxRate / FundSource / FundConstituent** —
   portfolio tracker and ETF look-through (see below); `Security.ter` / `targetWeight`
-  hold fund fees and allocation targets;
-  created on demand by `ensurePortfolioSchema()` for the same reason.
+  hold fund fees and allocation targets.
 
 ## Prisma setup (important)
 Prisma 7 requires an explicit adapter — no parameterless PrismaClient constructor.
@@ -187,6 +181,17 @@ would download the latest CLI, which no longer has `generate`):
 pnpm exec prisma migrate dev --name <description>
 pnpm exec prisma generate
 ```
+
+**Migrations run at startup** (`src/lib/migrate.ts`, called from
+`src/instrumentation.ts`): the server applies every `prisma/migrations/*/migration.sql`
+the database hasn't recorded, each in a transaction with foreign keys off (so Prisma's
+table rebuilds don't cascade deletes), and records it in `_prisma_migrations` in
+Prisma's format. That's how installed desktop apps, restored backups (migrated before
+they're swapped in) and dev databases all catch up — no Prisma CLI at runtime, and no
+`CREATE TABLE IF NOT EXISTS` helpers: a schema change is just a migration. Migrations
+up to `20261104100000_assets_liabilities` are from when tables were created on demand,
+so for those only, "already exists" is skipped. Never edit a migration that has shipped.
+`next.config.ts` traces `prisma/migrations` into the standalone build.
 
 ## Category types
 - **fixed** — rent, taxes, insurance, utilities (recurring, predictable)
@@ -352,10 +357,9 @@ its native Save dialog (main.js sets no download save path, keep it that way), a
 browser uses the "Save as" picker where available. Restore uploads a file to
 `POST /api/backup/restore`, which checks it (SQLite, `quick_check`, has Transaction +
 Category), saves a safety copy to `backups/before-restore/` next to the database
-(newest 5 kept), closes Prisma's connection, swaps the file in and resets the
-on-demand table caches (`reset*` in setting-table / rules-store / portfolio/schema);
-if the swapped-in file can't be opened, the safety copy is put back. The page then
-reloads. Add any new on-demand table helper's reset to `swapIn` in backup.ts.
+(newest 5 kept), migrates the uploaded copy to the current schema, closes Prisma's
+connection and swaps the file in; if the swapped-in file can't be opened, the safety
+copy is put back. The page then reloads.
 
 ## Auto-categorization rules
 Data → Rules (`src/lib/rules.ts`, pure). A rule matches the counterparty (contains /
@@ -439,8 +443,7 @@ request again is answered from the saved estimate. ESTV has no published terms f
 keep calls user-triggered and spaced, never bulk-download rates or tariffs.
 
 ## Goals
-Planning → Goals (`src/lib/goals.ts`, pure; tables `Goal` + `GoalAllocation`,
-created on demand by `ensureGoalTables()`). A goal has a kind (picks its illustration
+Planning → Goals (`src/lib/goals.ts`, pure; tables `Goal` + `GoalAllocation`). A goal has a kind (picks its illustration
 in `components/goal-art.tsx` and its colour), a target (home: price × (down payment +
 costs)%), an optional target date and allocations of the latest snapshot's balances:
 a fixed CHF amount or a percentage. Per asset, fixed amounts come first, percentages

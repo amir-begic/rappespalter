@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
-import { ensureSettingTable } from "@/lib/setting-table"
+import { NOT_ONE_OFF } from "@/lib/marks"
 import { DEFAULT_SETTINGS } from "@/lib/settings"
 import { driftWindow } from "@/lib/budget-drift"
-import { ensureGoalTables, loadGoals } from "@/lib/goals-store"
+import { loadGoals } from "@/lib/goals-store"
 import { assetOfSavingsCategory, isAssetKey, isGoalKind, savingsPace, zeroAssets, type Allocation, type AssetKey } from "@/lib/goals"
 
 // Local (Swiss) calendar date, matching how months are derived elsewhere in the app.
@@ -21,7 +20,6 @@ const SOURCE_KEY = "goals.source."
 // worked out on the page (src/lib/goals.ts).
 export async function GET() {
   try {
-    await Promise.all([ensureMarkTable(), ensureSettingTable()])
     const [goals, snapshot, rows, latest, pillar2, categories, sources] = await Promise.all([
       loadGoals(),
       prisma.snapshot.findFirst({ orderBy: { month: "desc" } }),
@@ -109,7 +107,6 @@ function parseGoal(body: unknown): GoalBody | string {
 // PATCH { categoryId, asset }: which asset a savings category feeds.
 export async function PATCH(req: NextRequest) {
   try {
-    await ensureSettingTable()
     const { categoryId, asset } = await req.json().catch(() => ({}))
     if (!Number.isInteger(categoryId) || !isAssetKey(asset) || asset === "checking") {
       return NextResponse.json({ error: "Send { categoryId, asset } (asset other than checking)" }, { status: 400 })
@@ -126,7 +123,6 @@ export async function PATCH(req: NextRequest) {
 // POST: create a goal (added at the end).
 export async function POST(req: NextRequest) {
   try {
-    await ensureGoalTables()
     const goal = parseGoal(await req.json().catch(() => null))
     if (typeof goal === "string") return NextResponse.json({ error: goal }, { status: 400 })
     const last = await prisma.goal.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } })
@@ -144,7 +140,6 @@ export async function POST(req: NextRequest) {
 // PUT { id, ...goal }: replace a goal and its allocations.
 export async function PUT(req: NextRequest) {
   try {
-    await ensureGoalTables()
     const body = await req.json().catch(() => null)
     const id = Number(body?.id)
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
@@ -165,7 +160,6 @@ export async function PUT(req: NextRequest) {
 // DELETE ?id=…
 export async function DELETE(req: NextRequest) {
   try {
-    await ensureGoalTables()
     const id = Number(new URL(req.url).searchParams.get("id"))
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
     await prisma.$transaction([
