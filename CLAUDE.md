@@ -117,7 +117,10 @@ Electron main process spawns the Next.js standalone server (`.next/standalone/se
 using Electron's own bundled Node and points a window at it, so all API routes and
 Prisma/SQLite code run unchanged. The SQLite DB lives in the OS userData dir (seeded
 from a bundled `template.db` on first launch). It's single-instance and shows
-`electron/loading.html` while the server starts.
+`electron/loading.html` while the server starts; the app replaces it only after the
+name is written (`LOADING_ANIMATION_MS`). The Windows installer is an assisted NSIS
+installer (welcome → install → finish with "Let's go!", no choices; `resources/installer/installer.nsh`)
+whose sidebar animation `scripts/make-installer-art.mjs` draws from loading.html during `pnpm dist`.
 **Local API lockdown** (`src/proxy.ts`): every request must name a loopback host
 (no DNS rebinding), must not be cross-/same-site (`Sec-Fetch-Site`, `Origin`), and in
 the desktop app must carry `x-rappespalter-token`, a random token main.js makes per

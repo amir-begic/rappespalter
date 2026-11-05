@@ -13,7 +13,7 @@
     "i18n:check": "node --experimental-strip-types scripts/check-i18n.mjs",
     "electron:dev": "ELECTRON_DEV=1 electron .",
     "build:desktop": "next build && node scripts/assemble-standalone.mjs",
-    "dist": "pnpm build:desktop && electron-builder",
+    "dist": "pnpm build:desktop && node scripts/make-installer-art.mjs && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -103,7 +103,20 @@
       "icon": "resources/icon.ico"
     },
     "nsis": {
-      "artifactName": "Rappespalter-Setup.${ext}"
+      "artifactName": "Rappespalter-Setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "installerLanguages": [
+        "en_US",
+        "de_DE",
+        "fr_FR",
+        "it_IT"
+      ],
+      "include": "resources/installer/installer.nsh",
+      "installerSidebar": "build/installer/sidebar.bmp",
+      "uninstallerSidebar": "build/installer/sidebar-done.bmp",
+      "installerHeader": "build/installer/header.bmp"
     },
     "mac": {
       "target": [

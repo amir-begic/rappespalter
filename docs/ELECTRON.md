@@ -48,9 +48,13 @@ means a broken install and stops startup with an error.
 Starting the server is most of the startup time, so it begins before Electron's
 `ready` event, and the window opens straight away on a loading page
 ([electron/loading.html](../electron/loading.html)), where the name is written
-out in one ink line, until the server answers. Its letterforms are the public-domain
+out in one ink line. Its letterforms are the public-domain
 Hershey "Script 1-stroke" font, smoothed into curves; each stroke is a `<path>` with
-its own start and duration, so the pen moves at a steady speed. Only one copy runs
+its own start and duration, so the pen moves at a steady speed. The page always plays
+through: a server that's ready sooner waits until the name is written
+(`LOADING_ANIMATION_MS` in main.js, about 2.8 s plus a moment to read it), then the
+name fades out and the app loads. With reduced motion (system setting) the page
+doesn't animate and the app loads as soon as the server answers. Only one copy runs
 at a time (`app.requestSingleInstanceLock()`): launching it again, e.g. a second
 click while it's starting, focuses the existing window.
 
@@ -121,6 +125,27 @@ pnpm dist
 `pnpm dist` writes installers to `dist/` (AppImage on Linux, NSIS `.exe` on
 Windows, `.dmg` on macOS — see the `build` block in package.json to adjust
 targets).
+
+### The Windows installer
+
+An assisted NSIS installer with three pages and nothing to choose: welcome, install,
+finish. It installs for the current user into the default folder, as the earlier
+one-click installer did, so updates replace it in place. The welcome and finish pages'
+sidebar writes the name out like the loading page; the finish page's **Let's go!**
+opens the app. Texts are in English, German, French and Italian, picked from the
+Windows language ([resources/installer/installer.nsh](../resources/installer/installer.nsh)).
+
+The pictures are drawn by `scripts/make-installer-art.mjs`, which `pnpm dist` runs
+before electron-builder: it reads the strokes, timings and blobs from
+`electron/loading.html` and writes the sidebar frames (80 ms apart), the uninstaller
+sidebar and the progress page's header to `build/installer/` (build output, not
+committed). Change the loading page and the installer follows.
+
+Updates run the installer silently (`/S --updated --force-run`), so none of its pages
+show then.
+
+Building the `.exe` needs Windows (or Wine): electron-builder runs the freshly built
+installer once to extract its uninstaller.
 
 ## Updating the shipped database template
 
