@@ -191,6 +191,27 @@ pnpm dist
 
 Full details, DB locations per OS, and troubleshooting are in **[docs/ELECTRON.md](docs/ELECTRON.md)**.
 
+### Installing
+
+Download the file for your system from the [latest release](https://github.com/amir-begic/rappespalter/releases/latest). The app updates itself after that (Settings → Updates).
+
+| OS                    | File                                  | Install                                                    |
+| --------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| macOS (Apple silicon) | `Rappespalter-mac-arm64.dmg`          | Open it and drag **Rappespalter** into Applications.       |
+| Windows               | `Rappespalter-Setup.exe`              | Run it.                                                    |
+| Linux (x64)           | `Rappespalter-linux-x64.AppImage`     | Make it executable (`chmod +x Rappespalter-linux-x64.AppImage`), then run it. |
+
+**Linux: "AppImages require FUSE to run".** AppImages need `libfuse2`, which recent distributions no longer install by default. Install it once:
+
+| Distribution                     | Command                          |
+| -------------------------------- | -------------------------------- |
+| Ubuntu 24.04+, Debian 13+        | `sudo apt install libfuse2t64`   |
+| Ubuntu 22.04, Debian 12, Mint    | `sudo apt install libfuse2`      |
+| Fedora                           | `sudo dnf install fuse-libs`     |
+| Arch, Manjaro                    | `sudo pacman -S fuse2`           |
+
+Where FUSE isn't available at all (containers, WSL), run it with `./Rappespalter-linux-x64.AppImage --appimage-extract-and-run`.
+
 ### Uninstalling
 
 Removing the app leaves your data in place, so reinstalling picks up where you left off. To remove everything, delete the data folder as well. It holds the database, the automatic copies made before updates and restores (`backups/`), and a startup log. **File → Open Data Folder** in the app opens it. Make a backup first (**Settings → Backup & restore**) if you might want the data again.
