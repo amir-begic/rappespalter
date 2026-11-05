@@ -19,7 +19,22 @@ model Transaction {
   bookingText  String?
   sourceHash   String    @unique
   importedAt   DateTime  @default(now())
+  importId     Int?      // the ImportBatch that added it (null: imported before batches were recorded)
   mark         TransactionMark?
+
+  @@index([importId])
+}
+
+// One bank import (Data → Import), so it can be undone. `changes` (JSON) lists the
+// rows that were already there and that this import re-filed as transfers, with
+// their previous category, so undoing puts them back.
+model ImportBatch {
+  id         Int      @id @default(autoincrement())
+  fileName   String
+  format     String
+  importedAt DateTime @default(now())
+  count      Int      @default(0)
+  changes    String?
 }
 
 // Per-transaction flags, kept out of Transaction so older databases (which the

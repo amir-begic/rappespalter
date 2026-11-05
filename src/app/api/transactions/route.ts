@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { deleteTransaction } from "@/lib/imports"
 import { setMark, type MarkPatch } from "@/lib/marks"
 
 export async function GET(req: NextRequest) {
@@ -146,5 +147,18 @@ export async function PATCH(req: NextRequest) {
       { error: "Failed to update transaction" },
       { status: 500 }
     )
+  }
+}
+
+// DELETE ?id=: remove one transaction (and its mark), e.g. a duplicate.
+export async function DELETE(req: NextRequest) {
+  const id = Number(req.nextUrl.searchParams.get("id"))
+  if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "Expected ?id=" }, { status: 400 })
+  try {
+    if (!(await deleteTransaction(id))) return NextResponse.json({ error: "No such transaction" }, { status: 404 })
+    return NextResponse.json({ deleted: true })
+  } catch (error) {
+    console.error("Transaction delete error:", error)
+    return NextResponse.json({ error: "Failed to delete the transaction" }, { status: 500 })
   }
 }

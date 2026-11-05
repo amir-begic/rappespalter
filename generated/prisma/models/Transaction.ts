@@ -30,12 +30,14 @@ export type TransactionAvgAggregateOutputType = {
   id: number | null
   amount: number | null
   categoryId: number | null
+  importId: number | null
 }
 
 export type TransactionSumAggregateOutputType = {
   id: number | null
   amount: number | null
   categoryId: number | null
+  importId: number | null
 }
 
 export type TransactionMinAggregateOutputType = {
@@ -49,6 +51,7 @@ export type TransactionMinAggregateOutputType = {
   bookingText: string | null
   sourceHash: string | null
   importedAt: Date | null
+  importId: number | null
 }
 
 export type TransactionMaxAggregateOutputType = {
@@ -62,6 +65,7 @@ export type TransactionMaxAggregateOutputType = {
   bookingText: string | null
   sourceHash: string | null
   importedAt: Date | null
+  importId: number | null
 }
 
 export type TransactionCountAggregateOutputType = {
@@ -75,6 +79,7 @@ export type TransactionCountAggregateOutputType = {
   bookingText: number
   sourceHash: number
   importedAt: number
+  importId: number
   _all: number
 }
 
@@ -83,12 +88,14 @@ export type TransactionAvgAggregateInputType = {
   id?: true
   amount?: true
   categoryId?: true
+  importId?: true
 }
 
 export type TransactionSumAggregateInputType = {
   id?: true
   amount?: true
   categoryId?: true
+  importId?: true
 }
 
 export type TransactionMinAggregateInputType = {
@@ -102,6 +109,7 @@ export type TransactionMinAggregateInputType = {
   bookingText?: true
   sourceHash?: true
   importedAt?: true
+  importId?: true
 }
 
 export type TransactionMaxAggregateInputType = {
@@ -115,6 +123,7 @@ export type TransactionMaxAggregateInputType = {
   bookingText?: true
   sourceHash?: true
   importedAt?: true
+  importId?: true
 }
 
 export type TransactionCountAggregateInputType = {
@@ -128,6 +137,7 @@ export type TransactionCountAggregateInputType = {
   bookingText?: true
   sourceHash?: true
   importedAt?: true
+  importId?: true
   _all?: true
 }
 
@@ -228,6 +238,7 @@ export type TransactionGroupByOutputType = {
   bookingText: string | null
   sourceHash: string
   importedAt: Date
+  importId: number | null
   _count: TransactionCountAggregateOutputType | null
   _avg: TransactionAvgAggregateOutputType | null
   _sum: TransactionSumAggregateOutputType | null
@@ -264,6 +275,7 @@ export type TransactionWhereInput = {
   bookingText?: Prisma.StringNullableFilter<"Transaction"> | string | null
   sourceHash?: Prisma.StringFilter<"Transaction"> | string
   importedAt?: Prisma.DateTimeFilter<"Transaction"> | Date | string
+  importId?: Prisma.IntNullableFilter<"Transaction"> | number | null
   category?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   mark?: Prisma.XOR<Prisma.TransactionMarkNullableScalarRelationFilter, Prisma.TransactionMarkWhereInput> | null
 }
@@ -279,6 +291,7 @@ export type TransactionOrderByWithRelationInput = {
   bookingText?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceHash?: Prisma.SortOrder
   importedAt?: Prisma.SortOrder
+  importId?: Prisma.SortOrderInput | Prisma.SortOrder
   category?: Prisma.CategoryOrderByWithRelationInput
   mark?: Prisma.TransactionMarkOrderByWithRelationInput
 }
@@ -297,6 +310,7 @@ export type TransactionWhereUniqueInput = Prisma.AtLeast<{
   categoryId?: Prisma.IntNullableFilter<"Transaction"> | number | null
   bookingText?: Prisma.StringNullableFilter<"Transaction"> | string | null
   importedAt?: Prisma.DateTimeFilter<"Transaction"> | Date | string
+  importId?: Prisma.IntNullableFilter<"Transaction"> | number | null
   category?: Prisma.XOR<Prisma.CategoryNullableScalarRelationFilter, Prisma.CategoryWhereInput> | null
   mark?: Prisma.XOR<Prisma.TransactionMarkNullableScalarRelationFilter, Prisma.TransactionMarkWhereInput> | null
 }, "id" | "sourceHash">
@@ -312,6 +326,7 @@ export type TransactionOrderByWithAggregationInput = {
   bookingText?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceHash?: Prisma.SortOrder
   importedAt?: Prisma.SortOrder
+  importId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.TransactionCountOrderByAggregateInput
   _avg?: Prisma.TransactionAvgOrderByAggregateInput
   _max?: Prisma.TransactionMaxOrderByAggregateInput
@@ -333,6 +348,7 @@ export type TransactionScalarWhereWithAggregatesInput = {
   bookingText?: Prisma.StringNullableWithAggregatesFilter<"Transaction"> | string | null
   sourceHash?: Prisma.StringWithAggregatesFilter<"Transaction"> | string
   importedAt?: Prisma.DateTimeWithAggregatesFilter<"Transaction"> | Date | string
+  importId?: Prisma.IntNullableWithAggregatesFilter<"Transaction"> | number | null
 }
 
 export type TransactionCreateInput = {
@@ -344,6 +360,7 @@ export type TransactionCreateInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
   category?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
   mark?: Prisma.TransactionMarkCreateNestedOneWithoutTransactionInput
 }
@@ -359,6 +376,7 @@ export type TransactionUncheckedCreateInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
   mark?: Prisma.TransactionMarkUncheckedCreateNestedOneWithoutTransactionInput
 }
 
@@ -371,6 +389,7 @@ export type TransactionUpdateInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   category?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
   mark?: Prisma.TransactionMarkUpdateOneWithoutTransactionNestedInput
 }
@@ -386,6 +405,7 @@ export type TransactionUncheckedUpdateInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   mark?: Prisma.TransactionMarkUncheckedUpdateOneWithoutTransactionNestedInput
 }
 
@@ -400,6 +420,7 @@ export type TransactionCreateManyInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
 }
 
 export type TransactionUpdateManyMutationInput = {
@@ -411,6 +432,7 @@ export type TransactionUpdateManyMutationInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionUncheckedUpdateManyInput = {
@@ -424,6 +446,7 @@ export type TransactionUncheckedUpdateManyInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionCountOrderByAggregateInput = {
@@ -437,12 +460,14 @@ export type TransactionCountOrderByAggregateInput = {
   bookingText?: Prisma.SortOrder
   sourceHash?: Prisma.SortOrder
   importedAt?: Prisma.SortOrder
+  importId?: Prisma.SortOrder
 }
 
 export type TransactionAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
+  importId?: Prisma.SortOrder
 }
 
 export type TransactionMaxOrderByAggregateInput = {
@@ -456,6 +481,7 @@ export type TransactionMaxOrderByAggregateInput = {
   bookingText?: Prisma.SortOrder
   sourceHash?: Prisma.SortOrder
   importedAt?: Prisma.SortOrder
+  importId?: Prisma.SortOrder
 }
 
 export type TransactionMinOrderByAggregateInput = {
@@ -469,12 +495,14 @@ export type TransactionMinOrderByAggregateInput = {
   bookingText?: Prisma.SortOrder
   sourceHash?: Prisma.SortOrder
   importedAt?: Prisma.SortOrder
+  importId?: Prisma.SortOrder
 }
 
 export type TransactionSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   categoryId?: Prisma.SortOrder
+  importId?: Prisma.SortOrder
 }
 
 export type TransactionScalarRelationFilter = {
@@ -512,16 +540,16 @@ export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
   increment?: number
   decrement?: number
   multiply?: number
   divide?: number
 }
 
-export type NullableIntFieldUpdateOperationsInput = {
-  set?: number | null
+export type IntFieldUpdateOperationsInput = {
+  set?: number
   increment?: number
   decrement?: number
   multiply?: number
@@ -593,6 +621,7 @@ export type TransactionCreateWithoutMarkInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
   category?: Prisma.CategoryCreateNestedOneWithoutTransactionsInput
 }
 
@@ -607,6 +636,7 @@ export type TransactionUncheckedCreateWithoutMarkInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
 }
 
 export type TransactionCreateOrConnectWithoutMarkInput = {
@@ -634,6 +664,7 @@ export type TransactionUpdateWithoutMarkInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   category?: Prisma.CategoryUpdateOneWithoutTransactionsNestedInput
 }
 
@@ -648,6 +679,7 @@ export type TransactionUncheckedUpdateWithoutMarkInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type TransactionCreateWithoutCategoryInput = {
@@ -659,6 +691,7 @@ export type TransactionCreateWithoutCategoryInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
   mark?: Prisma.TransactionMarkCreateNestedOneWithoutTransactionInput
 }
 
@@ -672,6 +705,7 @@ export type TransactionUncheckedCreateWithoutCategoryInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
   mark?: Prisma.TransactionMarkUncheckedCreateNestedOneWithoutTransactionInput
 }
 
@@ -714,6 +748,7 @@ export type TransactionScalarWhereInput = {
   bookingText?: Prisma.StringNullableFilter<"Transaction"> | string | null
   sourceHash?: Prisma.StringFilter<"Transaction"> | string
   importedAt?: Prisma.DateTimeFilter<"Transaction"> | Date | string
+  importId?: Prisma.IntNullableFilter<"Transaction"> | number | null
 }
 
 export type TransactionCreateManyCategoryInput = {
@@ -726,6 +761,7 @@ export type TransactionCreateManyCategoryInput = {
   bookingText?: string | null
   sourceHash: string
   importedAt?: Date | string
+  importId?: number | null
 }
 
 export type TransactionUpdateWithoutCategoryInput = {
@@ -737,6 +773,7 @@ export type TransactionUpdateWithoutCategoryInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   mark?: Prisma.TransactionMarkUpdateOneWithoutTransactionNestedInput
 }
 
@@ -750,6 +787,7 @@ export type TransactionUncheckedUpdateWithoutCategoryInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   mark?: Prisma.TransactionMarkUncheckedUpdateOneWithoutTransactionNestedInput
 }
 
@@ -763,6 +801,7 @@ export type TransactionUncheckedUpdateManyWithoutCategoryInput = {
   bookingText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceHash?: Prisma.StringFieldUpdateOperationsInput | string
   importedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  importId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 
@@ -778,6 +817,7 @@ export type TransactionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   bookingText?: boolean
   sourceHash?: boolean
   importedAt?: boolean
+  importId?: boolean
   category?: boolean | Prisma.Transaction$categoryArgs<ExtArgs>
   mark?: boolean | Prisma.Transaction$markArgs<ExtArgs>
 }, ExtArgs["result"]["transaction"]>
@@ -793,6 +833,7 @@ export type TransactionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   bookingText?: boolean
   sourceHash?: boolean
   importedAt?: boolean
+  importId?: boolean
   category?: boolean | Prisma.Transaction$categoryArgs<ExtArgs>
 }, ExtArgs["result"]["transaction"]>
 
@@ -807,6 +848,7 @@ export type TransactionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   bookingText?: boolean
   sourceHash?: boolean
   importedAt?: boolean
+  importId?: boolean
   category?: boolean | Prisma.Transaction$categoryArgs<ExtArgs>
 }, ExtArgs["result"]["transaction"]>
 
@@ -821,9 +863,10 @@ export type TransactionSelectScalar = {
   bookingText?: boolean
   sourceHash?: boolean
   importedAt?: boolean
+  importId?: boolean
 }
 
-export type TransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "date" | "counterparty" | "amount" | "currency" | "account" | "categoryId" | "bookingText" | "sourceHash" | "importedAt", ExtArgs["result"]["transaction"]>
+export type TransactionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "date" | "counterparty" | "amount" | "currency" | "account" | "categoryId" | "bookingText" | "sourceHash" | "importedAt" | "importId", ExtArgs["result"]["transaction"]>
 export type TransactionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   category?: boolean | Prisma.Transaction$categoryArgs<ExtArgs>
   mark?: boolean | Prisma.Transaction$markArgs<ExtArgs>
@@ -852,6 +895,7 @@ export type $TransactionPayload<ExtArgs extends runtime.Types.Extensions.Interna
     bookingText: string | null
     sourceHash: string
     importedAt: Date
+    importId: number | null
   }, ExtArgs["result"]["transaction"]>
   composites: {}
 }
@@ -1287,6 +1331,7 @@ export interface TransactionFieldRefs {
   readonly bookingText: Prisma.FieldRef<"Transaction", 'String'>
   readonly sourceHash: Prisma.FieldRef<"Transaction", 'String'>
   readonly importedAt: Prisma.FieldRef<"Transaction", 'DateTime'>
+  readonly importId: Prisma.FieldRef<"Transaction", 'Int'>
 }
     
 

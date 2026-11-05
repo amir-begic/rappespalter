@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Transaction: 'Transaction',
+  ImportBatch: 'ImportBatch',
   TransactionMark: 'TransactionMark',
   Snapshot: 'Snapshot',
   Budget: 'Budget',
@@ -94,10 +95,23 @@ export const TransactionScalarFieldEnum = {
   categoryId: 'categoryId',
   bookingText: 'bookingText',
   sourceHash: 'sourceHash',
-  importedAt: 'importedAt'
+  importedAt: 'importedAt',
+  importId: 'importId'
 } as const
 
 export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const ImportBatchScalarFieldEnum = {
+  id: 'id',
+  fileName: 'fileName',
+  format: 'format',
+  importedAt: 'importedAt',
+  count: 'count',
+  changes: 'changes'
+} as const
+
+export type ImportBatchScalarFieldEnum = (typeof ImportBatchScalarFieldEnum)[keyof typeof ImportBatchScalarFieldEnum]
 
 
 export const TransactionMarkScalarFieldEnum = {

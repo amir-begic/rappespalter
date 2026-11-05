@@ -14,6 +14,7 @@ import { useT } from "@/lib/i18n/provider"
 import { RulesTab } from "./rules-tab"
 import { RuleSuggestion } from "@/components/rule-suggestion"
 import { OneOffToggle } from "@/components/one-off-toggle"
+import { DeleteTransactionButton } from "@/components/delete-transaction-button"
 import { PageLoading } from "@/components/page-loading"
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -292,6 +293,10 @@ function TransactionsTab() {
                           onChange={oneOff => setTransactions(ts => ts.map(x =>
                             x.id === tx.id ? { ...x, mark: { ...x.mark, oneOff } } : x
                           ))}
+                        />
+                        <DeleteTransactionButton
+                          id={tx.id}
+                          onDeleted={() => setTransactions(ts => ts.filter(x => x.id !== tx.id))}
                         />
                       </span>
                     </TableCell>

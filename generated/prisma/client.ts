@@ -47,6 +47,11 @@ export { Prisma }
  */
 export type Transaction = Prisma.TransactionModel
 /**
+ * Model ImportBatch
+ * 
+ */
+export type ImportBatch = Prisma.ImportBatchModel
+/**
  * Model TransactionMark
  * 
  */

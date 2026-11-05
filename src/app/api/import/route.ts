@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         ...tx, id: -1, index, categoryId: decided[index].categoryId, source: decided[index].categorySource as string | null,
       }]),
     ]
-    const existingToTransfer: number[] = []
+    const existingToTransfer: { id: number; categoryId: number | null; categorySource: string | null }[] = []
     for (const pair of findTransferPairs(candidates)) {
       for (const c of pair.map(i => candidates[i])) {
         const type = c.categoryId != null ? typeOf.get(c.categoryId) : undefined
@@ -127,13 +127,24 @@ export async function POST(req: NextRequest) {
           decided[c.index] = { categoryId: await transferCategory(), categorySource: "transfer", byRule: false }
         } else if (c.source === "bank" || c.source === "fallback") {
           // Not rows without a recorded source: they predate it and may be hand-set.
-          existingToTransfer.push(c.id)
+          existingToTransfer.push({ id: c.id, categoryId: c.categoryId, categorySource: c.source })
         }
       }
     }
+    // This import, so it can be undone (Data → Import): its new rows carry its id,
+    // and the rows it re-files below are noted with their category before.
+    const batch = await prisma.importBatch.create({
+      data: {
+        fileName: file.name.slice(0, 200),
+        format,
+        changes:  existingToTransfer.length ? JSON.stringify(existingToTransfer) : null,
+      },
+    })
+
     if (existingToTransfer.length) {
-      await prisma.transaction.updateMany({ where: { id: { in: existingToTransfer } }, data: { categoryId: await transferCategory() } })
-      await setMarks(existingToTransfer, { categorySource: "transfer" })
+      const ids = existingToTransfer.map(c => c.id)
+      await prisma.transaction.updateMany({ where: { id: { in: ids } }, data: { categoryId: await transferCategory() } })
+      await setMarks(ids, { categorySource: "transfer" })
     }
 
     let imported = 0
@@ -158,6 +169,7 @@ export async function POST(req: NextRequest) {
             categoryId,
             bookingText:  tx.bookingText,
             sourceHash:   tx.sourceHash,
+            importId:     batch.id,
             mark:         { create: { categorySource } },
           },
         })
@@ -190,8 +202,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Nothing new and nothing changed: nothing to undo either.
+    if (imported === 0 && !existingToTransfer.length) {
+      await prisma.importBatch.delete({ where: { id: batch.id } })
+    } else {
+      await prisma.importBatch.update({ where: { id: batch.id }, data: { count: imported } })
+    }
+
     return NextResponse.json({
       success: true,
+      importId: imported || existingToTransfer.length ? batch.id : null,
       imported,
       skipped,
       byRule, // of the imported, how many a rule categorized

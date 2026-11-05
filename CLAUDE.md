@@ -41,6 +41,7 @@ src/
     tax/page.tsx             — figures for one year's tax return
     api/
       import/route.ts        — parses and imports Raiffeisen XLSX or camt statements (.xml/.zip)
+      imports/route.ts       — recent bank imports (GET) and undoing one (DELETE ?id=)
       transactions/route.ts  — CRUD + filtering
       snapshots/route.ts     — monthly asset balance history
       summary/route.ts       — aggregated monthly dashboard data
@@ -149,7 +150,10 @@ Settings → Updates (`src/components/updates-card.tsx`). The repo must be publi
 
 ## Database schema
 Tables:
-- **Transaction** — imported bank transactions with sourceHash for deduplication
+- **Transaction** — imported bank transactions with sourceHash for deduplication;
+  `importId` = the ImportBatch that added it (null before 1.6)
+- **ImportBatch** — one bank import (file name, format, count, and as JSON the
+  earlier rows it re-filed as transfers with their previous category), so it can be undone
 - **Category** — spending categories with color and type (fixed/variable/savings)
 - **Budget** — monthly limits per category
 - **Snapshot** — monthly asset balances (ETF, savings, 3a, 2. Säule, checking)
@@ -425,6 +429,15 @@ review inbox. One-offs (an inheritance, a car) stay in totals — dashboard summ
 Income page, tax summary — but are left out of trends and averages: `/api/trends`
 (and so the old Goal page's pace), income streams, budget drift, pace's "usual", and recurring
 detection. Filter with `NOT_ONE_OFF` from src/lib/marks.ts.
+
+## Undoing imports
+Data → Import lists the recent bank imports (`src/lib/imports.ts`, `/api/imports`).
+Undo deletes the rows the import added (and their marks) and gives earlier rows it
+re-filed as transfers their previous category back, unless they changed since
+(no longer `categorySource = "transfer"`). Imports from before batches were recorded
+can't be undone as a whole; single transactions can be deleted on Data → Transactions
+(hover → Delete, asks once more; `DELETE /api/transactions?id=`). An import that added
+and changed nothing records no batch.
 
 ## Review inbox
 Data → Review lists transactions whose category nobody confirmed: uncategorized ones,
