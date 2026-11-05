@@ -133,6 +133,10 @@ plus `outputFileTracingIncludes` for `generated/prisma` and the libsql adapter.
 Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 `pnpm dist`. Full details in [docs/ELECTRON.md](docs/ELECTRON.md).
 
+**Changelog**: `CHANGELOG.md`, for users (plain words, `## X.Y.Z — date`). Add the
+version's section before tagging: the release takes its notes from it (GitHub release
+and `latest.json`, so Settings → Updates shows them; bold/links stripped there) and
+falls back to the commit subjects with a warning.
 **Releases**: a pushed `vX.Y.Z` tag (must match package.json) is built by
 `release.yml` on one runner per system (Windows exe, macOS arm64 dmg + zip, Linux
 AppImage; native libsql, so no cross-builds) and published as a pre-release.

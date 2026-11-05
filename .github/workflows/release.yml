@@ -163,11 +163,18 @@ jobs:
         run: |
           tag="$GITHUB_REF_NAME"
 
-          previous="$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)"
-          if [ -n "$previous" ]; then
-            git log --format='- %s' "$previous..$tag" > notes.md
-          else
-            git log -1 --format='- %s' "$tag" > notes.md
+          # The notes: this version's section of CHANGELOG.md ("## 1.6.0 — date"),
+          # else the commits since the previous tag.
+          awk -v v="${tag#v}" '/^## /{p = ($2 == v); next} p' CHANGELOG.md \
+            | sed -e '/./,$!d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > notes.md || true
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::warning::CHANGELOG.md has no section for ${tag#v}; using the commit list"
+            previous="$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)"
+            if [ -n "$previous" ]; then
+              git log --no-merges --format='- %s' "$previous..$tag" > notes.md
+            else
+              git log -1 --format='- %s' "$tag" > notes.md
+            fi
           fi
 
           # The feed entry: what the release is, and per system where its update package
@@ -192,7 +199,8 @@ jobs:
             const feed = {
               version: tag.replace(/^v/, ""),
               published: new Date().toISOString(),
-              notes: fs.readFileSync("notes.md", "utf8"),
+              // Settings → Updates shows plain text: no bold markers or link syntax.
+              notes: fs.readFileSync("notes.md", "utf8").replace(/\*\*/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"),
               page: `https://github.com/${repo}/releases/tag/${tag}`,
               packages,
             }
