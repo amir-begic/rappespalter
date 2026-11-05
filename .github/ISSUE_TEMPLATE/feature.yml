@@ -1,0 +1,19 @@
+name: Feature idea
+description: Something the app could do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation and what's missing, rather than a finished solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you handle it today?
