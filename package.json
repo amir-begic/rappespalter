@@ -13,7 +13,9 @@
     "i18n:check": "node --experimental-strip-types scripts/check-i18n.mjs",
     "electron:dev": "ELECTRON_DEV=1 electron .",
     "build:desktop": "next build && node scripts/assemble-standalone.mjs",
-    "dist": "pnpm build:desktop && electron-builder"
+    "dist": "pnpm build:desktop && electron-builder",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -59,7 +61,8 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   },
   "build": {
     "appId": "app.rappespalter.desktop",

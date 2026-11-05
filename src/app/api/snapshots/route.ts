@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from")
     const to   = searchParams.get("to")
 
-    const where: any = {}
+    const where: { month?: { gte?: Date; lte?: Date } } = {}
 
     if (from) {
       const [year, mon] = from.split("-").map(Number)

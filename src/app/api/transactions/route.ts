@@ -20,7 +20,14 @@ export async function GET(req: NextRequest) {
     const limit     = parseInt(searchParams.get("limit") ?? "50")
 
     // Build filter object dynamically based on provided params
-    const where: any = {}
+    const where: {
+      date?:         { gte?: Date; lt?: Date }
+      categoryId?:   null
+      category?:     { name: string }
+      account?:      { contains: string }
+      amount?:       { gte?: number; lte?: number; gt?: number; lt?: number }
+      counterparty?: { contains: string }
+    } = {}
 
     if (month) {
       const [year, mon] = month.split("-").map(Number)
