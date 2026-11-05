@@ -299,6 +299,8 @@ Three features go online. Each sends only what's listed here, never your transac
 
 Like any web request, these reveal your IP address to the service. If you don't use Portfolio or the tax estimate, the app never contacts them.
 
+**Protect the computer itself.** The database is an ordinary file in your user account, readable by anyone (or any program) that can read your files. Turn on disk encryption — **FileVault** on macOS, **BitLocker** or **Device encryption** on Windows, full-disk encryption (LUKS) on Linux — so a lost or stolen computer doesn't give your finances away. Backups you store elsewhere can have their own password (**Settings → Backup & restore**).
+
 ---
 
 ## Disclaimer
