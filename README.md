@@ -191,6 +191,18 @@ pnpm dist
 
 Full details, DB locations per OS, and troubleshooting are in **[docs/ELECTRON.md](docs/ELECTRON.md)**.
 
+### Uninstalling
+
+Removing the app leaves your data in place, so reinstalling picks up where you left off. To remove everything, delete the data folder as well. It holds the database, the automatic copies made before updates and restores (`backups/`), and a startup log. **File → Open Data Folder** in the app opens it. Make a backup first (**Settings → Backup & restore**) if you might want the data again.
+
+| OS      | Remove the app                                                       | Data folder                                    |
+| ------- | -------------------------------------------------------------------- | ---------------------------------------------- |
+| macOS   | Quit it, then drag **Rappespalter** from Applications to the Trash.   | `~/Library/Application Support/Rappespalter/`  |
+| Windows | **Settings → Apps → Installed apps → Rappespalter → Uninstall**.      | `%APPDATA%\Rappespalter\`                      |
+| Linux   | Delete the `Rappespalter-linux-x64.AppImage` file.                   | `~/.config/Rappespalter/`                      |
+
+On macOS the Library folder is hidden: in Finder press **⌘⇧G** and paste the path. On Windows paste the path into the Explorer address bar.
+
 ---
 
 ## Data model
