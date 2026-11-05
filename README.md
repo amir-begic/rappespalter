@@ -266,9 +266,17 @@ pnpm dist                                 # build a desktop installer for this O
 
 ## Privacy
 
-Local-first by design: your statements, transactions, balances, and projections live only in your local SQLite database and `.env`. Nothing is uploaded, and both are gitignored so they can't be committed accidentally.
+Local-first by design: your statements, transactions, balances, and projections live only in your local SQLite database (and `.env`, if you run from source). There's no account, no cloud sync, no analytics and no telemetry. Bank files are read on your computer and never uploaded.
 
-The **Portfolio** page is the one feature that goes online: it fetches public market prices (Yahoo Finance) and exchange rates (European Central Bank via Frankfurter), and refreshes Xtrackers ETF holdings files from DWS. Only ticker symbols, fund ISINs, currency codes and date ranges are sent — never your holdings or amounts. Prices are cached, so the page keeps working offline.
+Three features go online. Each sends only what's listed here, never your transactions, balances, holdings or amounts:
+
+| Feature | Talks to | What it sends | When |
+| ------- | -------- | ------------- | ---- |
+| **Portfolio** prices and exchange rates | Yahoo Finance, the European Central Bank (via Frankfurter), DWS (Xtrackers holdings files) | Ticker symbols, fund ISINs, currency codes, date ranges | When you open Portfolio (at most every 4 hours), refresh or import. Prices are cached, so the page works offline. |
+| **Tax estimate** | The Swiss Federal Tax Administration's tax calculator (ESTV) | Tax year, municipality, marital status, number of children, church, age, net income and taxable wealth. The municipality search sends what you type. | Only when you click to estimate. Never names, accounts or transactions. |
+| **Update check** (desktop app) | GitHub, where releases are published | An ordinary request for the latest release's `latest.json`. Nothing about you or your data. | A minute after start, then every 6 hours. Updates install only when you choose to. |
+
+Like any web request, these reveal your IP address to the service. If you don't use Portfolio or the tax estimate, the app never contacts them.
 
 ---
 
