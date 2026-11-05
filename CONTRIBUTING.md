@@ -45,9 +45,10 @@ pnpm test                # unit tests
 - **Translate everything.** Every visible string goes through `t()`. Add the key to
   `src/locales/en-CH.ts` and the other three languages; English is fine as a
   placeholder if you don't speak them, just say so in the pull request.
-- **Older databases must keep working.** The desktop app doesn't run migrations on
-  existing databases, so new tables are created on demand (see the `ensure*Table`
-  helpers).
+- **Schema changes are migrations.** Change `prisma/schema.prisma` and run
+  `pnpm exec prisma migrate dev --name <description>`. Installed apps apply new
+  migrations when they start (`src/lib/migrate.ts`), so never edit one that has
+  already been released; add another.
 - **Network access is opt-in and documented.** Anything that goes online is listed
   in the README's Privacy section, sends as little as possible, and is triggered by
   the user or rate-limited.
