@@ -169,12 +169,12 @@ export async function POST(req: NextRequest) {
         if (categorySource === "transfer") transfers++
         if (categorySource === "fallback") toReview++
         if (categoryId == null) uncategorized++
-      } catch (e: any) {
+      } catch (e) {
         // Unique constraint on sourceHash means this transaction
         // already exists — skip it, but fill in how its category would be
         // chosen if that isn't known yet (rows imported before it was recorded),
         // so re-importing an old export brings its guesses to the review inbox.
-        if (e.code === "P2002") {
+        if ((e as { code?: string }).code === "P2002") {
           skipped++
           const existing = await prisma.transaction.findUnique({
             where:  { sourceHash: tx.sourceHash },

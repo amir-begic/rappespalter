@@ -532,6 +532,7 @@ pnpm exec prisma migrate dev --name <name>      # create and apply migration
 pnpm exec prisma generate                       # regenerate client after schema change
 pnpm exec prisma migrate reset                  # wipe db, reapply migrations, run seed
 pnpm exec prisma db seed                        # run seed script manually
+pnpm test                                       # unit tests (Vitest, src/lib/__tests__)
 ```
 
 ## Environment
@@ -585,3 +586,6 @@ DATABASE_URL="file:./prisma/dev.db"
   it after a delay (`opacity-60 delay-300`, `aria-busy`; quick loads never dim)
   instead, so it doesn't collapse and fade in again
 - Prisma client imported from @/lib/prisma in all API routes
+- Pure lib maths has unit tests in `src/lib/__tests__/` (Vitest, fictional data only).
+  CI (`.github/workflows/ci.yml`) runs tsc, lint, `i18n:check` and the tests on every
+  push and PR — keep all four passing

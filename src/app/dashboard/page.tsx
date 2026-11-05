@@ -681,7 +681,7 @@ useEffect(() => {
                       innerRadius={55}
                       outerRadius={80}
                       paddingAngle={2}
-                      onClick={(d: any) => {
+                      onClick={(d: { categoryName?: string; payload?: { categoryName?: string } }) => {
                         const name = d?.categoryName ?? d?.payload?.categoryName
                         if (name) selectCategory(name)
                       }}
