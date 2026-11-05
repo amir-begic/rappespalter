@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensurePortfolioSchema } from "@/lib/portfolio/schema"
 import { fetchListing } from "@/lib/portfolio/market"
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
@@ -12,7 +11,6 @@ const iso = (d: Date) => d.toISOString().slice(0, 10)
 // Changing the listing drops its previously fetched prices; refresh afterwards.
 export async function PATCH(req: NextRequest) {
   try {
-    await ensurePortfolioSchema()
     const body = await req.json()
     const symbol = String(body?.symbol ?? "")
     const sec = await prisma.security.findUnique({ where: { symbol } })
@@ -58,7 +56,6 @@ export async function PATCH(req: NextRequest) {
 // switched to manual) and wins over a fetched close for the same day.
 export async function POST(req: NextRequest) {
   try {
-    await ensurePortfolioSchema()
     const body = await req.json()
     const symbol = String(body?.symbol ?? "")
     const price = Number(body?.price)

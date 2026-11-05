@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
+import { NOT_ONE_OFF } from "@/lib/marks"
 import { resolveCounterparty } from "@/lib/counterparty"
 import { findRecurring } from "@/lib/recurring"
 
@@ -12,7 +12,6 @@ const dayKey = (d: Date) =>
 // import — anything after it isn't in the data yet. One-offs are left out.
 export async function GET() {
   try {
-    await ensureMarkTable()
     const [rows, latest] = await Promise.all([
       prisma.transaction.findMany({
         where:  NOT_ONE_OFF,

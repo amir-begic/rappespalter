@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
+import { NOT_ONE_OFF } from "@/lib/marks"
 
 // Per-month income / expenses / savings trend across all recorded months.
 // Mirrors the single-month logic in /api/summary, grouped by YYYY-MM:
@@ -17,7 +17,6 @@ const round = (n: number) => Math.round(n * 100) / 100
 
 export async function GET() {
   try {
-    await ensureMarkTable()
     const transactions = await prisma.transaction.findMany({
       where:   NOT_ONE_OFF,
       include: { category: true },

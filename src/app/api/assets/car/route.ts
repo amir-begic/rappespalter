@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
+import { NOT_ONE_OFF } from "@/lib/marks"
 import { loadAssets, loadLiabilities } from "@/lib/assets-store"
 import { carCost, looksLikeCarCost } from "@/lib/assets"
 import { driftWindow } from "@/lib/budget-drift"
@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
   try {
     const id = Number(new URL(req.url).searchParams.get("id"))
     if (!Number.isInteger(id)) return NextResponse.json({ error: "id is required" }, { status: 400 })
-    await ensureMarkTable()
     const [assets, liabilities, categories, latest] = await Promise.all([
       loadAssets(),
       loadLiabilities(),

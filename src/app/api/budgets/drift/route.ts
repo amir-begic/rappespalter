@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensureMarkTable, NOT_ONE_OFF } from "@/lib/marks"
+import { NOT_ONE_OFF } from "@/lib/marks"
 import { BUDGETABLE_TYPES } from "@/lib/categories"
 import { analyseBudgetDrift, type SpendEntry } from "@/lib/budget-drift"
 
@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
     const param = Number(new URL(req.url).searchParams.get("months") ?? 6)
     const months = Number.isInteger(param) && param >= 1 && param <= 24 ? param : 6
 
-    await ensureMarkTable()
     const [rows, categories, latest] = await Promise.all([
       prisma.transaction.findMany({
         where:   { amount: { lt: 0 }, ...NOT_ONE_OFF },

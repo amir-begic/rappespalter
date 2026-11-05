@@ -116,8 +116,7 @@ shares).
 
 ## Data model
 
-Two tables, created on demand by `ensurePortfolioSchema()` like the other
-portfolio tables. They are also in `prisma/schema.prisma` with a migration.
+Two tables, in `prisma/schema.prisma` with a migration.
 
 - **FundSource**: one row per ETF that has constituent data: `symbol` (→ Security),
   `provider`, `asOf`, `fileName`, `sourceUrl` (auto-fetch, Xtrackers only),

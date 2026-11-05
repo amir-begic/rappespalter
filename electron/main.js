@@ -190,13 +190,21 @@ async function startServer() {
   serverProcess.stderr.on("data", capture)
 
   serverProcess.on("error", (err) => log(`Server process error: ${err.message}`))
-  // A crash during startup is reported by the caller (waitForServer rejects); only a
-  // crash after that quits the app here.
+  // A crash during startup is reported by the caller (waitForServer rejects); one
+  // after that (e.g. a database migration that failed, src/instrumentation.ts) is
+  // explained here, then the app quits.
   let ready = false
   serverProcess.on("exit", (code) => {
     serverProcess = null
     if (ready && code && code !== 0 && !app.isQuitting && !isRestarting) {
       log(`Server exited with code ${code}`)
+      dialog.showErrorBox(
+        "Rappespalter stopped",
+        `The app's server stopped unexpectedly (exit code ${code}).\n\n` +
+          `--- server output ---\n${serverOutput || "(none)"}\n\n` +
+          `Full log: ${logFile || "(unavailable)"}` +
+          afterUpdateHint(),
+      )
       app.quit()
     }
   })

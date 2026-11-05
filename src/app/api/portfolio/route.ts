@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { ensurePortfolioSchema } from "@/lib/portfolio/schema"
 import { loadPortfolio } from "@/lib/portfolio/store"
 
 export async function GET() {
@@ -16,7 +15,6 @@ export async function GET() {
 // ETF constituents). Bank transactions, snapshots and settings are untouched.
 export async function DELETE() {
   try {
-    await ensurePortfolioSchema()
     await prisma.$transaction([
       prisma.portfolioActivity.deleteMany(),
       prisma.securityPrice.deleteMany(),

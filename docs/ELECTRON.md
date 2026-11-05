@@ -136,11 +136,11 @@ DATABASE_URL="file:./template-new.db" pnpm exec prisma db seed          # defaul
 mv template-new.db resources/template.db
 ```
 
-> The desktop build does **not** run Prisma migrations at runtime. The shipped
-> `template.db` already contains the schema. After a schema change, rebuild so a
-> fresh `template.db` with the new schema is bundled. (Existing users' databases
-> in userData are not migrated automatically — for a personal single-user app this
-> is usually fine; if you need it, add a migration step to `main.js`.)
+> The server migrates the database when it starts (`src/lib/migrate.ts`, from
+> `src/instrumentation.ts`): every migration in `prisma/migrations` the database
+> hasn't recorded is applied, so existing users' databases in userData catch up
+> after an update. A stale `template.db` would therefore still work, but rebuild it
+> after a schema change anyway, so a first launch doesn't have to migrate.
 
 ## Building the Windows app
 
