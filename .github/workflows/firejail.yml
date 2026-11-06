@@ -1,0 +1,98 @@
+# Does the Linux AppImage run inside firejail? Run by hand: Actions → Firejail → Run
+# workflow. It needs GitHub's runner, a real VM: in Docker and WSL2 firejail reports
+# "an existing sandbox was detected" and runs the app without a jail, which is why a
+# case with that warning counts as INVALID here, never as a pass.
+name: Firejail
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to test, e.g. 1.7.1. Empty: the latest release."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  firejail:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Install firejail and what the app needs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq firejail xvfb imagemagick libfuse2t64 \
+            libnss3 libgtk-3-0t64 libgbm1 libasound2t64 libxss1 libsecret-1-0
+          firejail --version | head -1
+
+      - name: Download the AppImage
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            gh release download "v${VERSION#v}" --pattern Rappespalter-linux-x64.AppImage
+          else
+            gh release download --pattern Rappespalter-linux-x64.AppImage
+          fi
+          chmod +x Rappespalter-linux-x64.AppImage
+
+      - name: Run the app in each setup
+        run: |
+          app="$PWD/Rappespalter-linux-x64.AppImage"
+          mkdir -p results
+          Xvfb :99 -screen 0 1280x800x24 &
+          sleep 2
+          export DISPLAY=:99
+          failed=0
+          {
+            echo "| Case | Result | Jailed | Server ready | Exit |"
+            echo "| --- | --- | --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # A pass: jailed (unless it's the no-jail baseline), the server came up
+          # and the app was still running when stopped (timeout exits with 124).
+          run_case() {
+            local name="$1"; shift
+            local out="results/$name.log" jailed=no ready=no result=PASS code=0
+            rm -rf "$HOME/.config/Rappespalter"
+            (sleep 50; import -window root "results/$name.png") &
+            local shot=$!
+            timeout -k 5 60 "$@" > "$out" 2>&1 || code=$?
+            wait "$shot" || true
+            pkill -f 'Rappespalter-linux-x64|\.mount_Rappes' || true
+            sleep 3
+            cp "$HOME/.config/Rappespalter/startup.log" "results/$name.startup.log" 2>/dev/null || true
+            grep -aq 'Child process initialized' "$out" && jailed=yes
+            grep -aq 'Server ready' "$out" && ready=yes
+            if grep -aq 'existing sandbox' "$out"; then
+              result=INVALID
+            elif [ "$ready" = no ] || [ "$code" != 124 ]; then
+              result=FAIL
+            elif [ "$jailed" = no ] && [ "$name" != no-jail ]; then
+              result=INVALID
+            fi
+            [ "$result" = PASS ] || failed=1
+            echo "::group::$name: $result"
+            echo "\$ $*"
+            cat "$out"
+            echo "::endgroup::"
+            echo "| \`$*\` | $result | $jailed | $ready | $code |" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          run_case no-jail "$app"
+          run_case plain firejail "$app"
+          run_case appimage firejail --appimage "$app"
+          run_case appimage-no-sandbox firejail --appimage "$app" --no-sandbox
+          run_case noprofile-no-sandbox firejail --noprofile --appimage "$app" --no-sandbox
+          exit "$failed"
+
+      - name: Keep the logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firejail-results
+          path: results/
+          if-no-files-found: ignore
