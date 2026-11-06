@@ -6,7 +6,7 @@ short and in plain words. Headings are `## <version> — <date>`; the release
 workflow finds a version's notes by that heading. Earlier versions are described in
 the [GitHub releases](https://github.com/amir-begic/rappespalter/releases).
 
-## 1.7.0 — 2026-11-06
+## 1.7.1 — 2026-11-06
 
 - **Password-protected backups.** A backup can now have a password, so it's safe to keep on a cloud drive or a USB stick. Restoring asks for it.
 - **Daily copies on this computer.** The app keeps a copy of your data for each day you use it (the last 7), plus one before every update and restore. Settings → Backup & restore lists them, and any of them can be restored.
