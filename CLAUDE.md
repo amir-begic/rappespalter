@@ -137,6 +137,9 @@ Commands: `pnpm electron:dev` (with `pnpm dev` running), `pnpm build:desktop`,
 version's section before tagging: the release takes its notes from it (GitHub release
 and `latest.json`, so Settings → Updates shows them; bold/links stripped there) and
 falls back to the commit subjects with a warning.
+**Versioning**: semantic versioning for tags and package.json. MAJOR for a breaking
+change (data or backups an older version can't read, a removed feature, settings or
+imports that stop working as before), MINOR for new features, PATCH for fixes only.
 **Releases**: a pushed `vX.Y.Z` tag (must match package.json) is built by
 `release.yml` on one runner per system (Windows exe, macOS arm64 dmg + zip, Linux
 AppImage; native libsql, so no cross-builds) and published as a pre-release.
