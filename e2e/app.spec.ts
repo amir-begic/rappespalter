@@ -31,8 +31,17 @@ function dataFolder() {
   folders.push(dir)
   return dir
 }
+// On Windows the app's server may hold the database open for a moment after the
+// app has quit (it's killed, not waited for), so deleting retries. A folder that
+// still won't go is left in the temp dir rather than failing a test that passed.
 test.afterAll(() => {
-  for (const dir of folders) rmSync(dir, { recursive: true, force: true })
+  for (const dir of folders) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
+    } catch (error) {
+      console.warn(`Could not remove ${dir}:`, error)
+    }
+  }
 })
 
 async function launch(userData: string) {
