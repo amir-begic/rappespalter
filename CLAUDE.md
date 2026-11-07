@@ -70,7 +70,11 @@ src/
     prisma.ts                — shared PrismaClient singleton
     parser.ts                — Raiffeisen XLSX parser
     camt.ts                  — ISO 20022 camt.052/053/054 parser (any Swiss bank; .xml or .zip)
-    counterparty.ts          — pure payee handling (bare "Dauerauftrag" → payee, payment-type prefix)
+    counterparty.ts          — pure payee handling (bare "Dauerauftrag" → payee, payment-type prefix,
+                               camt entry text → payee, payeeKey / payeeBrand for matching)
+    suggest.ts               — pure category suggestions from payee history and known-payees.ts
+    known-payees.ts          — data: brands and common words (de/fr/it/en) → default category names
+    review-groups.ts         — pure review grouping, long tail, nav-badge count
     marks.ts                 — TransactionMark table (one-off, category source, reviewed) + NOT_ONE_OFF
     recurring.ts             — pure recurring-payment detection
     tax.ts                   — pure tax-year figures (dividends per security, year-end snapshot)
@@ -168,7 +172,7 @@ Tables:
   to the `NEXT_PUBLIC_*` env defaults.
 - **CategoryRule** — auto-categorization rules (counterparty pattern → category).
 - **TransactionMark** — per-transaction flags keyed by transactionId: `oneOff`,
-  `categorySource` (rule | bank | fallback | transfer | manual; override on older imports), `reviewedAt`. A
+  `categorySource` (rule | bank | fallback | transfer | manual | suggested | suggested-brand | suggested-list | suggested-rhythm; override on older imports), `reviewedAt`. A
   separate table, not Transaction columns (src/lib/marks.ts).
 - **Asset / AssetValue / Liability** — other assets with their valuations, and
   loans/leases (optionally against an asset) (src/lib/assets-store.ts).
@@ -219,6 +223,9 @@ so for those only, "already exists" is skipped. Never edit a migration that has 
 - **savings** — ETF transfers, 3a contributions, savings transfers (retained assets)
 - **income** — salary and other money in
 - **transfer** — movements between own accounts; excluded from all totals
+
+New installs start from `resources/template.db`, so a new default category goes there and
+in `prisma/seed.ts`; no migration, so existing databases don't change.
 
 Categories are managed on Data → Categories (add, rename, recolor, change type,
 delete). Type definitions live in src/lib/categories.ts; only fixed/variable can
@@ -283,19 +290,35 @@ single `.xml` or a `.zip` of several (opened with `xlsx`'s CFB reader; XML via
 `fast-xml-parser`). Same `/api/import` route and `ParsedTransaction` as the XLSX.
 - Only booked entries (`Sts` BOOK). Debit/credit from `CdtDbtInd`. Account = IBAN.
 - Counterparty: creditor (money out) / debtor (money in) name, else the entry's
-  additional info (card purchases), else the other IBAN. Booking text collects
-  entry info, name, IBAN and remittance lines.
+  additional info (card and TWINT payments) cleaned by `cleanCamtPayee`, else the other
+  IBAN. Booking text collects entry info, name, IBAN and remittance lines. Rules also
+  try the uncleaned text (`bankText`), so ones written for it keep matching on import.
 - Batch bookings are split into their payments when every one has an amount and
   they add up to the entry.
-- No spending categories in camt: rows come in uncategorized (review inbox, rules),
-  except salary (purpose or bank code `SALA` → Salary) and transfers to another
+- No spending categories in camt: rows come in uncategorized (rules, then suggestions
+  from payee history, see "Category suggestions"), except salary (purpose or bank code `SALA` → Salary) and transfers to another
   account in the same upload. The Raiffeisen name patterns are **not** applied —
   e.g. Viseca there means the card bill, but a camt user has no card purchases
   imported, so it must stay spending.
 - `sourceHash` = sha256 of IBAN + the bank's reference (+ index in the entry), else
-  date/amount/counterparty + occurrence index per statement, so overlapping
+  date/amount/uncleaned counterparty + occurrence index per statement, so overlapping
   statements and camt.053 vs .054 deduplicate. Not across formats: one account
   shouldn't be imported both as Raiffeisen XLSX and camt (the UI says so).
+
+## Category suggestions
+Full walkthrough in [docs/CATEGORY-SUGGESTIONS.md](docs/CATEGORY-SUGGESTIONS.md).
+`src/lib/suggest.ts` (pure): a row still without a category on import gets the one its
+payee went to before (`suggested`: ≥ 80% agreement), else the one its first word went
+to (`suggested-brand`: ≥ 90%, ≥ 3 payments), else one from the built-in list
+(`suggested-list`: `known-payees.ts`, money out to shops only; ambiguous brands need a clear
+preference in the history), else a monthly pattern (`suggested-rhythm`, `suggestByRhythm`:
+money in ≥ CHF 1,500 a month → Salary; the largest fixed ≥ CHF 800 a month out → Rent;
+rhythm from `findCadence` in recurring.ts). Payees compare by `payeeKey`, money in and out apart;
+`payeeBrand` is never used for people or cash. History leaves out transfers and
+unconfirmed suggestions. Suggested rows count in totals but stay in the review inbox
+until confirmed; transfer pairing may override them, and applying a rule turns them into
+`rule` (`settleSuggestions`). All local: no cloud AI or merchant API, because private
+names appear even in TWINT purchase rows.
 
 ## Portfolio tracker
 Standalone: it never touches Transaction/Snapshot. Money moved into a broker account
@@ -348,7 +371,7 @@ go to the dashboard. With no state saved, a database that already holds anything
 welcome (or restore a backup), birth date, monthly contributions, balances today
 (saved as the `init*` settings and, by default, this month's snapshot incl.
 checking), bank import (`components/import-card.tsx`, shared with Data → Import),
-done. Every step can be skipped; `onboarding.step` resumes where the user left.
+sort your top payees (`components/sort-top-payees.tsx`, only after an import), done. Every step can be skipped; `onboarding.step` resumes where the user left.
 The nav shows only the wordmark and theme toggle there. Settings has "Run the setup
 again".
 
@@ -448,12 +471,15 @@ and changed nothing records no batch.
 
 ## Review inbox
 Data → Review lists transactions whose category nobody confirmed: uncategorized ones,
-and ones the parser gave `FALLBACK_CATEGORY` ("Personal") because the bank's category
+ones the parser gave `FALLBACK_CATEGORY` ("Personal") because the bank's category
 wasn't in `CATEGORY_MAP` (`categorySource = "fallback"`, while still in that
-category). Import records `categorySource` for new rows and, for existing rows that
+category), and unconfirmed suggestions. Import records `categorySource` for new rows and, for existing rows that
 lack one, when an old export is re-imported. Re-mapping (here or on Data) or "Looks
-right" sets `reviewedAt`. Grouped by counterparty; the last 90 days before the latest
-import are shown first and counted on the nav badge.
+right" sets `reviewedAt`. Grouped by `payeeKey` and direction, largest groups first;
+"Accept N suggestions" confirms the `suggested` rows shown, not the weaker sources. With 10
+or more single-payment groups, those wait behind "Everything else" (`splitLongTail`), and for
+30 days after the first import the nav badge leaves them out (`isSettlingIn`). The
+last 90 days before the latest import are shown first and counted on the nav badge.
 
 ## Recurring payments
 `src/lib/recurring.ts` (pure): transactions grouped by payee (`payeeName` strips the

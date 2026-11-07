@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
+import { CategorySelect } from "@/components/category-select"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageLoading } from "@/components/page-loading"
 import { RuleSuggestion } from "@/components/rule-suggestion"
 import { OneOffToggle } from "@/components/one-off-toggle"
 import { useT } from "@/lib/i18n/provider"
+import { groupByPayee, splitLongTail, type PayeeGroup } from "@/lib/review-groups"
 
 interface Category { id: number; name: string; color: string }
 
@@ -23,27 +25,7 @@ interface Transaction {
   mark:         { oneOff: boolean; categorySource: string | null } | null
 }
 
-// Transactions to the same counterparty are reviewed together.
-interface Group {
-  counterparty: string
-  items:        Transaction[]
-  total:        number
-  latest:       string
-  guessed:      Category | null // the parser's fallback category, if that's why it's here
-}
-
-function groupBy(transactions: Transaction[]): Group[] {
-  const map = new Map<string, Group>()
-  for (const t of transactions) {
-    const g = map.get(t.counterparty) ?? { counterparty: t.counterparty, items: [], total: 0, latest: t.date, guessed: null }
-    g.items.push(t)
-    g.total += t.amount
-    if (t.date > g.latest) g.latest = t.date
-    if (t.categoryId != null && t.category) g.guessed = t.category
-    map.set(t.counterparty, g)
-  }
-  return [...map.values()].sort((a, b) => b.latest.localeCompare(a.latest))
-}
+type Group = PayeeGroup<Transaction>
 
 export default function ReviewPage() {
   const { t, rich, f } = useT()
@@ -56,6 +38,7 @@ export default function ReviewPage() {
   const [open, setOpen]                 = useState<string | null>(null)
   const [busy, setBusy]                 = useState<string | null>(null)
   const [error, setError]               = useState<string | null>(null)
+  const [showTail, setShowTail]         = useState(false)
   const [suggestion, setSuggestion]     = useState<{ pattern: string; categoryId: number; amount: number } | null>(null)
 
   function load() {
@@ -98,7 +81,7 @@ export default function ReviewPage() {
 
   async function assign(g: Group, categoryId: number) {
     const ids = g.items.map(x => x.id)
-    if (await post(g.counterparty, { ids, categoryId })) {
+    if (await post(g.key, { ids, categoryId })) {
       remove(ids)
       setSuggestion({ pattern: g.counterparty, categoryId, amount: g.items[0].amount })
     }
@@ -106,7 +89,7 @@ export default function ReviewPage() {
 
   async function confirm(g: Group) {
     const ids = g.items.map(x => x.id)
-    if (await post(g.counterparty, { ids })) remove(ids)
+    if (await post(g.key, { ids })) remove(ids)
   }
 
   // Clears what's on screen: the last 90 days, or everything under All.
@@ -116,8 +99,19 @@ export default function ReviewPage() {
     if (await post("__all__", { ids })) remove(ids)
   }
 
+  // The suggestions from this payee's own history. Ones that only share a first word
+  // with another payee are weaker, and are confirmed one group at a time.
+  async function acceptSuggestions() {
+    const ids = suggested.map(x => x.id)
+    if (!window.confirm(t("review.confirmSuggestions", { count: ids.length }))) return
+    if (await post("__all__", { ids })) remove(ids)
+  }
+
   const inScope = (transactions ?? []).filter(x => scope === "all" || x.date >= recentSince)
-  const groups = groupBy(inScope)
+  const groups = groupByPayee(inScope)
+  const { main, tail } = splitLongTail(groups)
+  const shownGroups = showTail ? groups : main
+  const suggested = inScope.filter(x => x.mark?.categorySource === "suggested")
   const recentCount = (transactions ?? []).filter(x => x.date >= recentSince).length
 
   return (
@@ -144,9 +138,16 @@ export default function ReviewPage() {
               </TabsList>
             </Tabs>
             {inScope.length > 0 && (
-              <Button variant="outline" size="sm" className="ml-auto" disabled={!!busy} onClick={confirmShown}>
-                {t("review.markShown", { count: inScope.length })}
-              </Button>
+              <div className="ml-auto flex flex-wrap gap-2">
+                {suggested.length > 0 && (
+                  <Button size="sm" disabled={!!busy} onClick={acceptSuggestions}>
+                    {t("review.acceptSuggestions", { count: suggested.length })}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" disabled={!!busy} onClick={confirmShown}>
+                  {t("review.markShown", { count: inScope.length })}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -171,43 +172,49 @@ export default function ReviewPage() {
           ) : (
             <Card>
               <CardContent className="pt-6 divide-y divide-border">
-                {groups.map(g => (
-                  <div key={g.counterparty} className="py-3 first:pt-0 last:pb-0">
+                {shownGroups.map(g => (
+                  <div key={g.key} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                       <button
                         type="button"
                         className="min-w-0 flex-1 text-left"
-                        aria-expanded={open === g.counterparty}
-                        onClick={() => setOpen(o => o === g.counterparty ? null : g.counterparty)}
+                        aria-expanded={open === g.key}
+                        onClick={() => setOpen(o => o === g.key ? null : g.key)}
                       >
                         <span className="block truncate">{g.counterparty}</span>
                         <span className="block text-xs text-muted-foreground">
                           {g.items.length === 1 ? fmtDate(g.latest) : t("review.payments", { count: g.items.length, date: fmtDate(g.latest) })}
                           {" · "}
                           {g.guessed
-                            ? rich("review.guessed", { b: text => <strong className="font-medium">{text}</strong> }, { name: g.guessed.name })
+                            ? rich(
+                                g.source === "suggested" ? "review.suggested"
+                                  : g.source === "suggested-brand" ? "review.suggestedBrand"
+                                  : g.source === "suggested-list" ? "review.suggestedList"
+                                  : g.source === "suggested-rhythm" ? "review.suggestedRhythm"
+                                  : "review.guessed",
+                                { b: text => <strong className="font-medium">{text}</strong> },
+                                { name: g.guessed.name },
+                              )
                             : t("review.uncategorized")}
                         </span>
                       </button>
                       <span className={`font-mono text-sm ${g.total < 0 ? "text-negative" : "text-positive"}`}>
                         Fr. {fmt(g.total)}
                       </span>
-                      <select
-                        value=""
-                        disabled={busy === g.counterparty}
-                        onChange={e => e.target.value && assign(g, Number(e.target.value))}
-                        aria-label={t("review.categoryFor", { name: g.counterparty })}
-                        className="text-sm rounded-xl border border-input px-2 py-1 bg-card text-foreground w-44"
-                      >
-                        <option value="">{t("review.setCategory")}</option>
-                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      <Button size="sm" variant="ghost" disabled={busy === g.counterparty} onClick={() => confirm(g)}>
+                      <CategorySelect
+                        guessed={g.guessed}
+                        categories={categories}
+                        disabled={busy === g.key}
+                        label={t("review.categoryFor", { name: g.counterparty })}
+                        placeholder={t("review.setCategory")}
+                        onChange={id => assign(g, id)}
+                      />
+                      <Button size="sm" variant={g.guessed ? "default" : "ghost"} disabled={busy === g.key} onClick={() => confirm(g)}>
                         {t("review.looksRight")}
                       </Button>
                     </div>
 
-                    {open === g.counterparty && (
+                    {open === g.key && (
                       <ul className="mt-3 space-y-1.5 border-l border-border pl-3">
                         {g.items.map(tx => (
                           <li key={tx.id} className="group flex items-center gap-3 text-xs">
@@ -231,6 +238,13 @@ export default function ReviewPage() {
                     )}
                   </div>
                 ))}
+                {tail.length > 0 && (
+                  <div className="pt-3">
+                    <Button size="sm" variant="ghost" aria-expanded={showTail} onClick={() => setShowTail(s => !s)}>
+                      {showTail ? t("review.hideTail") : t("review.showTail", { count: tail.length })}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

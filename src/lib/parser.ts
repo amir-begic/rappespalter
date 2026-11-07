@@ -4,6 +4,8 @@ import { resolveCounterparty } from "./counterparty"
 export interface ParsedTransaction {
   date: Date
   counterparty: string
+  // camt: the bank's text before cleaning, so a rule written for it still matches.
+  bankText?: string
   amount: number
   currency: string
   account: string

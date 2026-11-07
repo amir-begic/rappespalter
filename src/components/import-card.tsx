@@ -41,6 +41,7 @@ function bankNotes(data: Record<string, unknown>, t: Translate): string[] {
   return [
     ...(Number(data.byRule) ? [t("import.byRule", { count: Number(data.byRule) })] : []),
     ...(Number(data.toReview) ? [t("import.toReview", { count: Number(data.toReview) })] : []),
+    ...(Number(data.suggested) ? [t("import.suggested", { count: Number(data.suggested) })] : []),
     ...(Number(data.uncategorized) ? [t("import.uncategorized", { count: Number(data.uncategorized) })] : []),
     ...(Number(data.transfers) ? [t("import.transfers", { count: Number(data.transfers) })] : []),
   ]

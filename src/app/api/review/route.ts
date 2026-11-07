@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { setMarks } from "@/lib/marks"
 import { FALLBACK_CATEGORY } from "@/lib/parser"
+import { SUGGESTED_SOURCES } from "@/lib/suggest"
+import { countRepeating, isSettlingIn } from "@/lib/review-groups"
 import type { Prisma } from "../../../../generated/prisma/client"
 
 // The review inbox: transactions whose category nobody has confirmed —
 //   uncategorized, or
 //   given the parser's fallback category because the bank's wasn't recognised
-//   (and still in it: a rule or a manual re-map takes it out).
+//   (and still in it: a rule or a manual re-map takes it out), or
+//   suggested from payee history on import (src/lib/suggest.ts).
 // Confirming one ("Looks right") records reviewedAt, as does re-mapping it.
 // "Recent" is the last RECENT_DAYS before the latest import: what's worth a look
 // now (and counted on the nav badge); older items are a backlog to clear once.
@@ -18,6 +21,7 @@ async function inboxWhere(): Promise<Prisma.TransactionWhereInput> {
   return {
     OR: [
       { categoryId: null, ...unreviewed },
+      { mark: { is: { categorySource: { in: [...SUGGESTED_SOURCES] }, reviewedAt: null } } },
       ...(fallback ? [{ categoryId: fallback.id, mark: { is: { categorySource: "fallback", reviewedAt: null } } }] : []),
     ],
   }
@@ -29,6 +33,16 @@ async function recentSince() {
   return new Date(from.getTime() - RECENT_DAYS * 86_400_000)
 }
 
+// The nav badge: the recent rows, minus single payments while a new user settles in.
+async function badgeCount(where: Prisma.TransactionWhereInput, since: Date, recent: number) {
+  const first = await prisma.transaction.findFirst({ orderBy: { importedAt: "asc" }, select: { importedAt: true } })
+  if (!isSettlingIn(first?.importedAt ?? null)) return recent
+  return countRepeating(await prisma.transaction.findMany({
+    where:  { AND: [where, { date: { gte: since } }] },
+    select: { counterparty: true, amount: true },
+  }))
+}
+
 // GET /api/review → { transactions, total, recent, recentSince };
 // ?count=1 → the counts only (nav badge).
 export async function GET(req: NextRequest) {
@@ -38,7 +52,9 @@ export async function GET(req: NextRequest) {
       prisma.transaction.count({ where }),
       prisma.transaction.count({ where: { AND: [where, { date: { gte: since } }] } }),
     ])
-    if (new URL(req.url).searchParams.get("count")) return NextResponse.json({ total, recent })
+    if (new URL(req.url).searchParams.get("count")) {
+      return NextResponse.json({ total, recent: await badgeCount(where, since, recent) })
+    }
 
     const transactions = await prisma.transaction.findMany({
       where,

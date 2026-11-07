@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { parseRaiffeisenXLSX } from "@/lib/parser"
 import { CamtFormatError, parseCamt } from "@/lib/camt"
 import { findRule } from "@/lib/rules"
+import { SUGGESTED_SOURCES, buildMemory, suggestByRhythm, suggestCategory } from "@/lib/suggest"
 import { setMarks, type CategorySource } from "@/lib/marks"
 import { TRANSFER_CATEGORY } from "@/lib/parser"
 import { TRANSFER_WINDOW_DAYS, findTransferPairs } from "@/lib/transfers"
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     const decided: { categoryId: number | null; categorySource: CategorySource; byRule: boolean }[] = []
     for (const tx of parsed) {
-      const rule = findRule(rules, tx)
+      const rule = findRule(rules, tx) ?? (tx.bankText ? findRule(rules, { ...tx, counterparty: tx.bankText }) : null)
       decided.push(
         rule                               ? { categoryId: rule.categoryId, categorySource: "rule", byRule: true }
         : tx.categorySource === "transfer" ? { categoryId: await transferCategory(), categorySource: "transfer", byRule: false }
@@ -95,6 +96,36 @@ export async function POST(req: NextRequest) {
             byRule: false,
           },
       )
+    }
+
+    // Rows still without a category: what this payee was filed under before. Only
+    // confirmed categories count, and transfers are left to the pairing below.
+    if (decided.some(d => d.categoryId == null)) {
+      const history = await prisma.transaction.findMany({
+        where: {
+          categoryId: { not: null },
+          category:   { type: { not: "transfer" } },
+          NOT:        { mark: { is: { categorySource: { in: [...SUGGESTED_SOURCES] }, reviewedAt: null } } },
+        },
+        select: { counterparty: true, amount: true, categoryId: true, date: true, sourceHash: true },
+      })
+      const memory = buildMemory(history.map(h => ({ ...h, categoryId: h.categoryId! })))
+      parsed.forEach((tx, i) => {
+        if (decided[i].categoryId != null) return
+        const suggestion = suggestCategory(memory, tx, categoryMap)
+        if (suggestion) decided[i] = { ...suggestion, categorySource: suggestion.source, byRule: false }
+      })
+      // Still nothing: a monthly salary or rent, seen in this import and the history.
+      const day = (d: Date) => d.toISOString().slice(0, 10)
+      // (A row imported before is in the history too: counted once.)
+      const hashes = new Set(parsed.map(tx => tx.sourceHash))
+      const rhythm = suggestByRhythm(
+        [...parsed, ...history.filter(h => !hashes.has(h.sourceHash))]
+          .map(tx => ({ counterparty: tx.counterparty, amount: tx.amount, date: day(tx.date) })),
+        i => i < parsed.length && decided[i].categoryId == null,
+        categoryMap,
+      )
+      for (const [i, categoryId] of rhythm) decided[i] = { categoryId, categorySource: "suggested-rhythm", byRule: false }
     }
 
     // The same amount out of one account and into another within a few days
@@ -125,7 +156,7 @@ export async function POST(req: NextRequest) {
         if (c.amount < 0 && type === "savings") continue
         if (c.index >= 0) {
           decided[c.index] = { categoryId: await transferCategory(), categorySource: "transfer", byRule: false }
-        } else if (c.source === "bank" || c.source === "fallback") {
+        } else if (c.source === "bank" || c.source === "fallback" || SUGGESTED_SOURCES.some(s => s === c.source)) {
           // Not rows without a recorded source: they predate it and may be hand-set.
           existingToTransfer.push({ id: c.id, categoryId: c.categoryId, categorySource: c.source })
         }
@@ -153,6 +184,7 @@ export async function POST(req: NextRequest) {
     let toReview = 0 // imported with the parser's fallback category
     let transfers = 0
     let uncategorized = 0 // imported without a category (camt has none)
+    let suggested = 0 // imported with a category from payee history
 
     for (const [i, tx] of parsed.entries()) {
       const { categoryId, categorySource } = decided[i]
@@ -178,6 +210,7 @@ export async function POST(req: NextRequest) {
         if (categorySource === "transfer") transfers++
         if (categorySource === "fallback") toReview++
         if (categoryId == null) uncategorized++
+        if (SUGGESTED_SOURCES.some(s => s === categorySource)) suggested++
       } catch (e) {
         // Unique constraint on sourceHash means this transaction
         // already exists — skip it, but fill in how its category would be
@@ -218,6 +251,7 @@ export async function POST(req: NextRequest) {
       toReview, // of the imported, how many got the fallback category
       transfers, // of the imported, how many are movements between own accounts
       uncategorized, // of the imported, how many have no category
+      suggested, // of the imported, how many got a suggestion to confirm
       total: parsed.length,
     })
 

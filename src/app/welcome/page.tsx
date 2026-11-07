@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { PageLoading } from "@/components/page-loading"
 import { BackupCard } from "@/components/backup-card"
 import { IMPORT_SOURCES, ImportCard } from "@/components/import-card"
+import { SortTopPayees } from "@/components/sort-top-payees"
 import { ageOn, type SettingKey, type Settings } from "@/lib/settings"
 import { LOCALES, LOCALE_NAMES, isLocale } from "@/lib/i18n/locales"
 import { useSetLanguage, useT } from "@/lib/i18n/provider"
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils"
 
 const STEPS: MessageKey[] = [
   "welcome.step.welcome", "welcome.step.you", "welcome.step.saving",
-  "welcome.step.balances", "welcome.step.import", "welcome.step.done",
+  "welcome.step.balances", "welcome.step.import", "welcome.step.sort", "welcome.step.done",
 ]
 const LAST = STEPS.length - 1
 
@@ -272,7 +273,7 @@ export default function WelcomePage() {
             <StepShell
               label={t("welcome.import.label")} title={t("welcome.import.title")} text={t("welcome.import.text")}
               busy={busy} error={error}
-              onBack={() => go(3)} onNext={() => go(5)}
+              onBack={() => go(3)} onNext={() => go(imported.length ? 5 : LAST)}
               nextLabel={imported.length ? t("welcome.import.continue") : t("welcome.import.continueWithout")}
             >
               <div className="grid gap-6 lg:grid-cols-2 items-start">
@@ -288,6 +289,17 @@ export default function WelcomePage() {
           )}
 
           {step === 5 && (
+            <StepShell
+              label={t("welcome.sort.label")} title={t("welcome.sort.title")} text={t("welcome.sort.text")}
+              busy={busy} error={error}
+              onBack={() => go(4)} onNext={() => go(LAST)}
+              nextLabel={t("welcome.sort.continue")}
+            >
+              <SortTopPayees />
+            </StepShell>
+          )}
+
+          {step === LAST && (
             <>
               <div>
                 <p className="text-xs uppercase text-muted-foreground mb-2">{t("welcome.done.label")}</p>

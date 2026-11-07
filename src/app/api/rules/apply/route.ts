@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { planRuleChanges } from "@/lib/rules-store"
+import { settleSuggestions } from "@/lib/marks"
 
 // Re-categorize existing transactions according to the rules:
 // POST { ruleId? } — one rule's transactions, or every rule's when omitted.
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     const results = await prisma.$transaction(updates.map(u =>
       prisma.transaction.updateMany({ where: { id: { in: u.ids } }, data: { categoryId: u.categoryId } })
     ))
+    await settleSuggestions(updates.flatMap(u => u.ids))
     return NextResponse.json({ updated: results.reduce((s, r) => s + r.count, 0) })
   } catch (error) {
     console.error("Rule apply error:", error)

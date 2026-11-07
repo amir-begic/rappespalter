@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { parseCamt } from "../camt"
 
@@ -53,6 +54,18 @@ describe("parseCamt", () => {
     const again = parseCamt(Buffer.from(xml), "statement.xml")
     expect(again.map(r => r.sourceHash)).toEqual(rows.map(r => r.sourceHash))
     expect(new Set(rows.map(r => r.sourceHash)).size).toBe(rows.length)
+  })
+  it("keeps only the payee from free text, and the bank's text for rules and hashes", () => {
+    const card = (info: string, amount: string) => Buffer.from(`<Document><BkToCstmrStmt>${statement(IBAN_A,
+      entry(`<Amt Ccy="CHF">${amount}</Amt><CdtDbtInd>DBIT</CdtDbtInd><AddtlNtryInf>${info}</AddtlNtryInf>`))}</BkToCstmrStmt></Document>`)
+    const text = "Einkauf Example Shop-12\n10.03.2026, 12:30, Visa Debit-Nr. 123456xxxxxx1234"
+    const [row] = parseCamt(card(text, "9.50"), "card.xml")
+    expect(row.counterparty).toBe("Example Shop-12")
+    expect(row.bankText).toBe(text)
+    expect(row.bookingText).toContain("Visa Debit-Nr.")
+    // Hashed from the bank's text, as it was before cleaning, so older imports still match.
+    const key = `${IBAN_A}|2026-03-10|-950|${text}|0`
+    expect(row.sourceHash).toBe("camt:" + createHash("sha256").update(key).digest("hex").slice(0, 24))
   })
   it("rejects files that aren't camt", () => {
     expect(() => parseCamt(Buffer.from("<html></html>"), "x.xml")).toThrow()

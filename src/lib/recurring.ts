@@ -84,7 +84,8 @@ export function addMonths(date: string, n: number): string {
 const close = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.max(a, b) * 0.01)
 
 // The rhythm of a set of payments (sorted by date), or null if there isn't one.
-function findCadence(items: RecurringInput[]) {
+// Also used for suggestions on import (suggest.ts).
+export function findCadence(items: { date: string }[]) {
   const dates = items.map(i => i.date)
   // Gaps of a few days are one period's payment booked twice or around a month
   // end (31 Aug, 2 Sep) — they don't tell the rhythm.

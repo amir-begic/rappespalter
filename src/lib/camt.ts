@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { XMLParser } from "fast-xml-parser"
 import * as XLSX from "xlsx"
+import { cleanCamtPayee } from "./counterparty"
 import type { ParsedTransaction } from "./parser"
 
 // ISO 20022 cash-management statements, the format every Swiss bank offers in
@@ -9,9 +10,9 @@ import type { ParsedTransaction } from "./parser"
 // to .08+ differ only in a few nestings (Sts/Cd, RltdPties/Cdtr/Pty), handled
 // below. A .zip of several statements (how many banks deliver them) works too.
 //
-// camt has no spending categories, so entries come in uncategorized (rules and
-// the review inbox sort them), except salary (purpose or bank code SALA) and
-// payments to another account in the same upload (a transfer).
+// camt has no spending categories, so entries come in uncategorized (rules, payee
+// history and the review inbox sort them), except salary (purpose or bank code SALA)
+// and payments to another account in the same upload (a transfer).
 
 export class CamtFormatError extends Error {
   constructor() {
@@ -163,7 +164,9 @@ export function parseCamt(buffer: Buffer, fileName: string): ParsedTransaction[]
           || partyName(out ? parties?.UltmtCdtr : parties?.UltmtDbtr)
         const otherAccount = accountId(out ? parties?.CdtrAcct : parties?.DbtrAcct)
         const txInfo = text(tx?.AddtlTxInf)
-        const counterparty = (name || txInfo || entryInfo[0] || formatIban(otherAccount) || "?").slice(0, 140)
+        const bankText = (name || txInfo || entryInfo[0] || formatIban(otherAccount) || "?").slice(0, 140)
+        // Free text carries the payment type, date and card number around the payee.
+        const counterparty = name ? bankText : cleanCamtPayee(bankText).name
 
         const bookingText = [...new Set([
           ...entryInfo, txInfo, name, otherAccount && formatIban(otherAccount), ...remittance(tx),
@@ -176,7 +179,8 @@ export function parseCamt(buffer: Buffer, fileName: string): ParsedTransaction[]
         if (ref) {
           key = `${report.account}|${ref}|${i}`
         } else {
-          const base = `${report.account}|${day}|${cents(amount)}|${counterparty}`
+          // The bank's text, not the cleaned payee: rows imported earlier keep their hash.
+          const base = `${report.account}|${day}|${cents(amount)}|${bankText}`
           const n = occurrences.get(base) ?? 0
           occurrences.set(base, n + 1)
           key = `${base}|${n}`
@@ -189,6 +193,7 @@ export function parseCamt(buffer: Buffer, fileName: string): ParsedTransaction[]
         transactions.push({
           date,
           counterparty,
+          bankText,
           amount: cents(amount) / 100,
           currency: total.currency || "CHF",
           account: formatIban(report.account),

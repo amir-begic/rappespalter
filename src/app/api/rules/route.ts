@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isDirection, isMatchType } from "@/lib/rules"
 import { planRuleChanges } from "@/lib/rules-store"
+import { settleSuggestions } from "@/lib/marks"
 
 // Auto-categorization rules (see src/lib/rules.ts).
 //   GET                    rules with how many transactions each decides and would change
@@ -70,7 +71,10 @@ export async function POST(req: NextRequest) {
     let applied = 0
     if (body.apply) {
       const ids = (await planRuleChanges(rule.id)).byRule.get(rule.id)?.changes ?? []
-      if (ids.length) applied = (await prisma.transaction.updateMany({ where: { id: { in: ids } }, data: { categoryId: rule.categoryId } })).count
+      if (ids.length) {
+        applied = (await prisma.transaction.updateMany({ where: { id: { in: ids } }, data: { categoryId: rule.categoryId } })).count
+        await settleSuggestions(ids)
+      }
     }
     return NextResponse.json({ rule, applied })
   } catch (error) {
