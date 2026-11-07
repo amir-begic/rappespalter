@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { BUDGETABLE_TYPES as BUDGETABLE } from "@/lib/categories"
+import { AddCategory } from "./add-category"
 import { BudgetDrift } from "./drift"
 import { PageLoading } from "@/components/page-loading"
 import { useT } from "@/lib/i18n/provider"
@@ -16,6 +17,8 @@ interface Category {
   type:   string
   budget: { monthlyLimit: number } | null
 }
+
+const byTypeAndName = (a: Category, b: Category) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name)
 
 export default function BudgetsPage() {
   const { t, f } = useT()
@@ -33,7 +36,7 @@ export default function BudgetsPage() {
       .then(r => r.json())
       .then(d => {
         const list: Category[] = (d.categories ?? []).filter((c: Category) => BUDGETABLE.has(c.type))
-        list.sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name))
+        list.sort(byTypeAndName)
         setCats(list)
         setLimits(Object.fromEntries(list.map(c => [c.id, c.budget ? String(c.budget.monthlyLimit) : ""])))
       })
@@ -48,6 +51,15 @@ export default function BudgetsPage() {
   function setLimit(id: number, value: string) {
     setSaved(false)
     setLimits(prev => ({ ...prev, [id]: value }))
+  }
+
+  // Added in place, not reloaded: that would lose limits typed but not saved yet.
+  function added(category: Category, limit: string, budgetSaved: boolean) {
+    setCats(prev => [...(prev ?? []), category].sort(byTypeAndName))
+    setLimits(prev => ({ ...prev, [category.id]: limit }))
+    setSaved(false)
+    if (budgetSaved) setVersion(v => v + 1)
+    else if (limit) setError(t("common.saveFailed"))
   }
 
   async function save() {
@@ -147,6 +159,7 @@ export default function BudgetsPage() {
                 </div>
               ))}
             </div>
+            <AddCategory onAdded={added} />
           </CardContent>
         </Card>
       )}

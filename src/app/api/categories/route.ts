@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getT } from "@/lib/i18n/store"
 import { BUDGETABLE_TYPES, CATEGORY_PALETTE, isCategoryType, isHexColor } from "@/lib/categories"
 
 const include = {
@@ -36,7 +37,8 @@ async function validate(
     if (!name || name.length > 40) return "Name must be 1–40 characters"
     const all = await prisma.category.findMany({ select: { id: true, name: true } })
     if (all.some(c => c.id !== excludeId && c.name.toLowerCase() === name.toLowerCase())) {
-      return `A category named "${name}" already exists`
+      const { t } = await getT()
+      return t("err.categoryExists", { name })
     }
   }
   if (fields.type !== undefined && !isCategoryType(fields.type)) {
