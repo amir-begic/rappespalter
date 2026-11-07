@@ -78,7 +78,9 @@ SVG, run `node scripts/make-icons.mjs` to regenerate them.
   them itself) and to copy the clean `resources/template.db` to `build/resources/template.db`.
 - **electron-builder** (`build` block in [package.json](../package.json)) ships
   `electron/` in the app bundle and the standalone server + template DB as
-  `extraResources`.
+  `extraResources`. `.next/standalone/node_modules` needs its own entry there:
+  since electron-builder 26 a `node_modules` directly under an entry's `from` is
+  always left out, whatever the `filter` says.
 
 ### Database location
 
@@ -224,6 +226,9 @@ builds on its own runner because the libsql binary is native:
 There is no Intel Mac build. The AppImage needs `chmod +x` before it runs. It also
 needs `libfuse2`, which Ubuntu 22.04+ and other recent distributions don't install
 by default; the README's "Installing" section has the command per distribution.
+Where the system blocks Chromium's sandbox (Ubuntu 24.04's AppArmor restriction on
+user namespaces), electron-builder's AppImage launcher adds `--no-sandbox` by itself,
+so the app starts there without Chromium's sandbox.
 
 ### Mac signing and notarization
 
