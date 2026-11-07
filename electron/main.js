@@ -62,7 +62,7 @@ const CUSTOM_TITLE_BAR = process.platform !== "linux"
 const TITLE_BAR_HEIGHT = 64 // the header's top row (h-16 in app-nav.tsx)
 // The window buttons' colours per theme, Windows only (macOS draws its own).
 const TITLE_BAR_COLORS = {
-  light: { color: "#f4f1ea", symbolColor: "#17171f" },
+  light: { color: "#f5f2eb", symbolColor: "#17171f" },
   dark: { color: "#10131d", symbolColor: "#f4f1ea" },
 }
 

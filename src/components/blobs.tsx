@@ -7,6 +7,8 @@ import { blob } from "@/lib/blob"
 // Flat ink-blot shapes peeking in from the page edges. Each one slowly changes shape
 // (SVG <animate> between variants of the same outline) while drifting and turning
 // (globals.css .blob). Purely decorative: fixed behind everything, never takes clicks.
+// With the desktop title bar they're clipped below it, so the header matches the flat
+// colour behind the window buttons.
 
 const PLACEMENT = [
   { seed: 11, color: "var(--pop-yellow)", morph: "19s", className: "-top-40 -right-32 size-[30rem]" },
@@ -44,7 +46,7 @@ export function Blobs() {
   }, [])
 
   return (
-    <div ref={root} aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div ref={root} aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden [clip-path:inset(env(titlebar-area-height,0px)_0_0_0)]">
       {PLACEMENT.map(({ seed, color, morph, className }) => {
         const shapes = Array.from({ length: VARIANTS }, (_, v) => blob(seed * 100 + v))
         return (
