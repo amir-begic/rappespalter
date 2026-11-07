@@ -42,7 +42,9 @@ console.log("Used clean seed template (resources/template.db)")
 // Prune unused heavyweight modules the tracer pulled in regardless. sharp /
 // @img (native image-optimization libs, ~17 MB) are never loaded at runtime
 // because next.config sets images.unoptimized — drop them from the bundle.
-const prune = ["node_modules/@img", "node_modules/sharp", "node_modules/next/dist/docs"]
+// dist: the tracer follows the migrations lookup into an earlier build's output. On a
+// Mac, that copy's Rappespalter.app folder then fails code signing.
+const prune = ["node_modules/@img", "node_modules/sharp", "node_modules/next/dist/docs", "dist"]
 for (const rel of prune) {
   const target = join(standalone, rel)
   if (existsSync(target)) {
