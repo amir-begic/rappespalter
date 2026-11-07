@@ -235,21 +235,25 @@ export function TopNav() {
   if (usePathname() === "/welcome") {
     return (
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">
-          <Brand />
-          <div className="ml-auto"><ThemeToggle /></div>
+        <div className="window-bar">
+          <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">
+            <Brand />
+            <div className="ml-auto"><ThemeToggle /></div>
+          </div>
         </div>
       </header>
     )
   }
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">
-        <Brand />
-        <SectionTabs current={current} className="hidden md:flex items-center gap-1" />
-        <div className="ml-auto flex items-center gap-1">
-          <ThemeToggle />
-          <SettingsLink />
+      <div className="window-bar">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-6">
+          <Brand />
+          <SectionTabs current={current} className="hidden md:flex items-center gap-1" />
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
+            <SettingsLink />
+          </div>
         </div>
       </div>
       <SectionTabs current={current} className="md:hidden flex items-center gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]" />

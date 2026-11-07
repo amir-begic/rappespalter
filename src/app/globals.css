@@ -190,6 +190,18 @@
   }
 }
 
+/* Desktop title bar (Windows, macOS): the header's top row drags the window, and the
+   titlebar-area variables keep it clear of the native window buttons. Elsewhere they
+   are unset and this does nothing. */
+.window-bar {
+  -webkit-app-region: drag;
+  padding-left: env(titlebar-area-x, 0px);
+  padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%));
+}
+.window-bar :is(a, button) {
+  -webkit-app-region: no-drag;
+}
+
 /* Tiles: a card whose content leads with a key figure (.font-display) becomes a solid
    block in that figure's colour; uncoloured figures get yellow. Inside, the colour
    tokens are redefined, so the figure and its notes read on the block. */

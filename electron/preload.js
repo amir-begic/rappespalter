@@ -5,6 +5,17 @@
 
 const { contextBridge, ipcRenderer } = require("electron")
 
+// The main process colours the window buttons to match the theme. Nothing is exposed
+// to the page for this: the preload shares its DOM and watches <html data-theme>.
+window.addEventListener("DOMContentLoaded", () => {
+  const root = document.documentElement
+  const report = () => {
+    if (root.dataset.theme) ipcRenderer.send("window:theme", root.dataset.theme)
+  }
+  new MutationObserver(report).observe(root, { attributes: true, attributeFilter: ["data-theme"] })
+  report()
+})
+
 contextBridge.exposeInMainWorld("rappespalter", {
   updates: {
     state: () => ipcRenderer.invoke("updates:state"),

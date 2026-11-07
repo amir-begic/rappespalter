@@ -52,6 +52,28 @@ let serverOutput = "" // captured child stdout/stderr, surfaced if startup fails
 let isRestarting = false // suppresses the exit→quit handler during a deliberate restart
 let updater = null
 
+// --- title bar -----------------------------------------------------------
+
+// Windows and macOS: the app's header is the title bar and the window buttons stay
+// native, placed over it (globals.css, .window-bar, keeps the header clear of them).
+// There the File / Edit menu row is gone, its shortcuts still work. Linux keeps the
+// desktop's own frame.
+const CUSTOM_TITLE_BAR = process.platform !== "linux"
+const TITLE_BAR_HEIGHT = 64 // the header's top row (h-16 in app-nav.tsx)
+// The window buttons' colours per theme, Windows only (macOS draws its own).
+const TITLE_BAR_COLORS = {
+  light: { color: "#f4f1ea", symbolColor: "#17171f" },
+  dark: { color: "#10131d", symbolColor: "#f4f1ea" },
+}
+
+function titleBarOptions() {
+  if (!CUSTOM_TITLE_BAR) return {}
+  if (process.platform === "darwin") {
+    return { titleBarStyle: "hidden", titleBarOverlay: true, trafficLightPosition: { x: 20, y: 24 } }
+  }
+  return { titleBarStyle: "hidden", titleBarOverlay: { ...TITLE_BAR_COLORS.light, height: TITLE_BAR_HEIGHT } }
+}
+
 // --- logging -------------------------------------------------------------
 
 // A packaged GUI app has no console, so write diagnostics to a file in userData
@@ -267,6 +289,7 @@ function createWindow(url) {
     icon: ICON,
     // The app's default (light) background and the loading page's, so there is no flash.
     backgroundColor: "#f4f1ea",
+    ...titleBarOptions(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -620,6 +643,11 @@ function fromMainWindow(event) {
 }
 
 function registerUpdateIpc() {
+  // preload.js reports the page's theme, so the window buttons can match it.
+  ipcMain.on("window:theme", (event, theme) => {
+    if (!CUSTOM_TITLE_BAR || process.platform === "darwin" || !fromMainWindow(event)) return
+    if (Object.hasOwn(TITLE_BAR_COLORS, theme)) mainWindow.setTitleBarOverlay(TITLE_BAR_COLORS[theme])
+  })
   ipcMain.handle("updates:state", (event) => (fromMainWindow(event) ? updater.state() : null))
   ipcMain.handle("updates:check", (event) => (fromMainWindow(event) ? updater.check() : null))
   ipcMain.handle("updates:install", async (event) => {
