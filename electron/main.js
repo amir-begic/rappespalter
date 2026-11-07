@@ -20,6 +20,7 @@ const fs = require("node:fs")
 const net = require("node:net")
 const { spawn, execFile } = require("node:child_process")
 const { createUpdater } = require("./updater")
+const { pruneBeforeUpdateCopies } = require("./before-update")
 
 // Pin the app name so the userData directory is deterministic
 // (%APPDATA%\Rappespalter on Windows) regardless of how Electron resolves the
@@ -449,8 +450,6 @@ async function promptImportDatabase() {
 
 // --- updates -------------------------------------------------------------
 
-const BEFORE_UPDATE_KEEP = 5
-
 // Copy the database (and its WAL, if any) to backups/before-update, keeping the
 // newest few. The server must be stopped so the copy is consistent.
 function backupDatabase(fromVersion) {
@@ -465,14 +464,7 @@ function backupDatabase(fromVersion) {
     if (fs.existsSync(dbPath + ext)) fs.copyFileSync(dbPath + ext, target + ext)
   }
 
-  const copies = fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".db"))
-    .sort()
-    .reverse()
-  for (const old of copies.slice(BEFORE_UPDATE_KEEP)) {
-    for (const ext of ["", "-wal", "-shm"]) fs.rmSync(path.join(dir, old + ext), { force: true })
-  }
+  pruneBeforeUpdateCopies(dir)
   log(`Database copied to ${target}`)
   return target
 }
