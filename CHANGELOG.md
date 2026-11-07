@@ -6,6 +6,14 @@ short and in plain words. Headings are `## <version> — <date>`; the release
 workflow finds a version's notes by that heading. Earlier versions are described in
 the [GitHub releases](https://github.com/amir-begic/rappespalter/releases).
 
+## 1.10.0 — 2026-11-07
+
+- **Categories suggested for camt imports.** Statements from any bank now arrive with suggested categories: what you chose for the same payee before, else known shops, insurers, charities and other common names in German, French, Italian and English, else a monthly salary or rent. Everything stays on your computer.
+- **Suggestions wait for you in Review.** They count in your totals right away. In Data → Review the suggested category is already picked, so one click on "Looks right" confirms a payee with all its payments. Single payments wait under "Everything else".
+- **Sort your top payees during setup.** After the first bank import, the setup lists the payees that make up most of your payments, so one pass sorts most of them.
+- **Cleaner payee names.** Card and TWINT payments show the shop's name instead of the bank's booking text.
+- **New categories for new installs:** Travel, Insurance and Donations. Existing data keeps its categories; add them on Data → Categories if you want them.
+
 ## 1.9.0 — 2026-11-07
 
 - **Look inside a category.** Click a category in the money flow or in By category on the dashboard, and it splits into who you paid.
