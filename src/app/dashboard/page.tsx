@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -13,7 +13,10 @@ import { Input } from "@/components/ui/input"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { localDay, toCsv } from "@/lib/csv"
+import { groupByPayee } from "@/lib/flow"
 import { SpendingPace } from "./pace"
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -89,6 +92,7 @@ interface Txn {
   date:         string
   counterparty: string
   amount:       number
+  currency:     string
   account:      string
   bookingText:  string | null
   category:     { name: string; color: string; type: string } | null
@@ -201,49 +205,23 @@ function StatCard({ onClick, children }: { onClick: () => void; children: ReactN
 // diagram grows with the number of nodes, so nothing is clipped or overlaps.
 const SANKEY_MAX_EXPENSE_NODES = 12 // beyond this the smallest merge into "Other"
 
-function BudgetSankey({
-  income,
-  expenses: expenseTotal,
-  byCategory,
-  bySavings,
-}: {
-  income:     number
-  expenses:   number // the summary's total, which includes uncategorized spending
-  byCategory: Summary["byCategory"]
-  bySavings:  Summary["bySavings"]
+type FlowNode = {
+  name:     string
+  value:    number
+  color:    string
+  onClick?: () => void
+  action?:  string // says what a click does
+}
+
+// The left column flows into the right one; both add up to the same total.
+function FlowDiagram({ left: leftNodes, right: rightNodes, label }: {
+  left:  FlowNode[]
+  right: FlowNode[]
+  label: string
 }) {
-  const { t, f } = useT()
+  const { f } = useT()
   const fmtR = f.int
-  type Node = { name: string; value: number; color: string }
-  const toNode = (c: { categoryName: string; actual: number; color: string }): Node =>
-    ({ name: c.categoryName, value: c.actual, color: c.color })
-
-  const fixed    = byCategory.filter(c => c.type === "fixed").map(toNode).sort((a, b) => b.value - a.value)
-  // Everything else the summary counts as spending (variable, and other
-  // non-savings types such as refunds booked negative in an income category).
-  const variable = byCategory.filter(c => c.type !== "fixed").map(toNode).sort((a, b) => b.value - a.value)
-  // byCategory leaves out uncategorized payments; the summary's total doesn't.
-  const uncategorized = expenseTotal - byCategory.reduce((s, c) => s + c.actual, 0)
-  let expenses = [...fixed, ...variable, ...(uncategorized > 0.5 ? [{ name: t("dashboard.uncategorized"), value: uncategorized, color: "#888888" }] : [])]
-  if (expenses.length > SANKEY_MAX_EXPENSE_NODES) {
-    const keep = new Set([...expenses].sort((a, b) => b.value - a.value).slice(0, SANKEY_MAX_EXPENSE_NODES - 1))
-    const rest = expenses.filter(n => !keep.has(n))
-    expenses = [
-      ...expenses.filter(n => keep.has(n)),
-      { name: t("dashboard.flow.rest", { count: rest.length }), value: rest.reduce((s, n) => s + n.value, 0), color: "#b0b0b8" },
-    ]
-  }
-  const savings  = [...bySavings].map(toNode).sort((a, b) => b.value - a.value)
-  const outflows = [...expenses, ...savings].filter(n => n.value > 0)
-  const totalOut = outflows.reduce((s, n) => s + n.value, 0)
-  const balance  = income - totalOut
-
-  const rightNodes: Node[] = [...outflows, ...(balance > 0.5 ? [{ name: t("dashboard.flow.remaining"), value: balance, color: "#9999aa" }] : [])]
-  const leftNodes:  Node[] = [
-    ...(income > 0 ? [{ name: t("dashboard.income"), value: income, color: "#6aaa7a" }] : []),
-    ...(balance < -0.5 ? [{ name: t("dashboard.flow.beyondIncome"), value: -balance, color: "#d4857a" }] : []),
-  ]
-  if (rightNodes.length === 0 || leftNodes.length === 0) return null
+  const total = (nodes: FlowNode[]) => nodes.reduce((s, n) => s + n.value, 0)
 
   const VW = 660
   const leftLabelW = 132, nodeW = 14, rightLabelW = 158
@@ -253,7 +231,7 @@ function BudgetSankey({
 
   const leftNodeX  = leftLabelW
   const rightNodeX = VW - rightLabelW - nodeW
-  const scale = srcH / Math.max(income, totalOut)
+  const scale = srcH / Math.max(total(leftNodes), total(rightNodes))
 
   // Right column: each node centred in a slot of at least SLOT.
   const heights = rightNodes.map(n => n.value * scale)
@@ -263,19 +241,28 @@ function BudgetSankey({
   const contentH = Math.max(rightH, leftH)
   const VH = pTop + contentH + pBottom
 
+  const dest: { y: number; h: number }[] = []
   let cursor = pTop
-  const dest = heights.map((h, i) => {
-    const pos = { y: cursor + (slots[i] - h) / 2, h }
+  for (const [i, h] of heights.entries()) {
+    dest.push({ y: cursor + (slots[i] - h) / 2, h })
     cursor += slots[i] + gap
-    return pos
-  })
+  }
 
   // Left column: centred against the right; links leave it stacked top to bottom.
   const leftTop = pTop + (contentH - leftH) / 2
+  const src: { y1: number; y2: number }[] = []
   let sy = leftTop
-  const src = heights.map(h => { const pos = { y1: sy, y2: sy + h }; sy += h; return pos })
+  for (const h of heights) {
+    src.push({ y1: sy, y2: sy + h })
+    sy += h
+  }
+  const leftPos: { y: number; h: number }[] = []
   let ly = leftTop
-  const leftPos = leftNodes.map(n => { const h = n.value * scale; const pos = { y: ly, h }; ly += h; return pos })
+  for (const n of leftNodes) {
+    const h = n.value * scale
+    leftPos.push({ y: ly, h })
+    ly += h
+  }
 
   const midX     = (leftNodeX + nodeW + rightNodeX) / 2
   const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n - 1) + "…" : s
@@ -288,16 +275,31 @@ function BudgetSankey({
   const shape  = { transition: `y ${EASE}, height ${EASE}, d ${EASE}` }
   const at     = (x: number, y: number) => ({ transform: `translate(${x}px, ${y}px)`, transition: `transform ${EASE}` })
 
+  // A node with a click is a button, for the keyboard too.
+  const pressable = ({ onClick, action }: FlowNode) => onClick ? {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": action,
+    className: "group cursor-pointer outline-none",
+    onClick,
+    onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") return
+      e.preventDefault()
+      onClick()
+    },
+  } : {}
+
   return (
-    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }} role="img"
-      aria-label={t("dashboard.flow.aria", { income: fmtR(income), parts: rightNodes.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ") })}>
+    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ display: "block" }} role="group" aria-label={label}>
       {leftNodes.map((n, i) => {
         const { y, h } = leftPos[i]
         // Labels sit beside the node's middle; a short shortfall block gets them below the income label.
         const labelY = Math.max(y + h / 2, i > 0 ? leftPos[i - 1].y + leftPos[i - 1].h / 2 + 28 : 0)
         return (
-          <g key={n.name}>
-            <rect x={leftNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={n.color} rx={2} style={shape} />
+          <g key={n.name} {...pressable(n)}>
+            {n.action && <title>{n.action}</title>}
+            <rect x={leftNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={n.color} rx={2} style={shape}
+              className="group-hover:opacity-70 group-focus-visible:opacity-70" />
             <text style={at(leftNodeX - 7, labelY - 7)} textAnchor="end" dominantBaseline="middle" fontSize={11} fill="currentColor" opacity={0.8}>
               {truncate(n.name, 20)}
             </text>
@@ -322,8 +324,9 @@ function BudgetSankey({
         const labelX = rightNodeX + nodeW + 6
 
         return (
-          <g key={node.name}>
-            <path d={path} fill={node.color} opacity={0.2} style={shape} />
+          <g key={node.name} {...pressable(node)}>
+            {node.action && <title>{node.action}</title>}
+            <path d={path} fill={node.color} style={shape} className="opacity-20 group-hover:opacity-40 group-focus-visible:opacity-40" />
             <rect x={rightNodeX} y={y} width={nodeW} height={Math.max(h, 1)} fill={node.color} rx={2} style={shape} />
             <text style={at(labelX, midY - 6)} dominantBaseline="middle" fontSize={10} fill="currentColor" opacity={0.75}>
               {truncate(node.name, 22)}
@@ -335,6 +338,251 @@ function BudgetSankey({
         )
       })}
     </svg>
+  )
+}
+
+// The category opened in the money flow. category null = uncategorized; rows null
+// = still loading. Tied to its month, so choosing another month closes it.
+type FlowSelection = {
+  month:    string
+  category: string | null
+  name:     string
+  color:    string
+  rows:     Txn[] | null
+}
+
+function BudgetSankey({
+  month,
+  income,
+  expenses: expenseTotal,
+  byCategory,
+  bySavings,
+}: {
+  month:      string
+  income:     number
+  expenses:   number // the summary's total, which includes uncategorized spending
+  byCategory: Summary["byCategory"]
+  bySavings:  Summary["bySavings"]
+}) {
+  const { t, f } = useT()
+  const fmtR = f.int
+  const [selection, setSelection] = useState<FlowSelection | null>(null)
+
+  const back = () => setSelection(null)
+
+  // The whole month's payments once, then this category's; a failed load goes back.
+  function open(category: string | null, name: string, color: string) {
+    const isCurrent = (s: FlowSelection | null) => s?.month === month && s.category === category
+    setSelection({ month, category, name, color, rows: null })
+    fetch(`/api/transactions?${new URLSearchParams({ month, type: "expense", limit: "1000" })}`)
+      .then(r => r.json())
+      .then(d => {
+        const rows = ((d.transactions ?? []) as Txn[]).filter(x => (x.category?.name ?? null) === category)
+        setSelection(s => isCurrent(s) ? { ...s!, rows } : s)
+      })
+      .catch(() => setSelection(s => isCurrent(s) ? null : s))
+  }
+
+  const opener = (category: string | null, name: string, color: string) => ({
+    onClick: () => open(category, name, color),
+    action:  t("dashboard.flow.open", { name }),
+  })
+
+  const toNode = (c: { categoryName: string; actual: number; color: string }): FlowNode =>
+    ({ name: c.categoryName, value: c.actual, color: c.color, ...opener(c.categoryName, c.categoryName, c.color) })
+
+  const fixed    = byCategory.filter(c => c.type === "fixed").map(toNode).sort((a, b) => b.value - a.value)
+  // Everything else the summary counts as spending (variable, and other
+  // non-savings types such as refunds booked negative in an income category).
+  const variable = byCategory.filter(c => c.type !== "fixed").map(toNode).sort((a, b) => b.value - a.value)
+  // byCategory leaves out uncategorized payments; the summary's total doesn't.
+  const uncategorized = expenseTotal - byCategory.reduce((s, c) => s + c.actual, 0)
+  const uncategorizedName = t("dashboard.uncategorized")
+  let expenses: FlowNode[] = [...fixed, ...variable, ...(uncategorized > 0.5 ? [{ name: uncategorizedName, value: uncategorized, color: "#888888", ...opener(null, uncategorizedName, "#888888") }] : [])]
+  if (expenses.length > SANKEY_MAX_EXPENSE_NODES) {
+    const keep = new Set([...expenses].sort((a, b) => b.value - a.value).slice(0, SANKEY_MAX_EXPENSE_NODES - 1))
+    const rest = expenses.filter(n => !keep.has(n))
+    expenses = [
+      ...expenses.filter(n => keep.has(n)),
+      { name: t("dashboard.flow.rest", { count: rest.length }), value: rest.reduce((s, n) => s + n.value, 0), color: "#b0b0b8" },
+    ]
+  }
+  const savings  = [...bySavings].map(toNode).sort((a, b) => b.value - a.value)
+  const outflows = [...expenses, ...savings].filter(n => n.value > 0)
+  const totalOut = outflows.reduce((s, n) => s + n.value, 0)
+  const balance  = income - totalOut
+
+  const rightNodes: FlowNode[] = [...outflows, ...(balance > 0.5 ? [{ name: t("dashboard.flow.remaining"), value: balance, color: "#9999aa" }] : [])]
+  const leftNodes:  FlowNode[] = [
+    ...(income > 0 ? [{ name: t("dashboard.income"), value: income, color: "#6aaa7a" }] : []),
+    ...(balance < -0.5 ? [{ name: t("dashboard.flow.beyondIncome"), value: -balance, color: "#d4857a" }] : []),
+  ]
+  if (rightNodes.length === 0 || leftNodes.length === 0) return null
+
+  const active  = selection?.month === month ? selection : null
+  const loading = active !== null && active.rows === null
+
+  if (active?.rows && active.rows.length > 0) {
+    const { groups, rest } = groupByPayee(active.rows, SANKEY_MAX_EXPENSE_NODES)
+    const payees: FlowNode[] = [
+      ...groups.map(g => ({ ...g, color: active.color })),
+      ...(rest ? [{ name: t("dashboard.flow.rest", { count: rest.count }), value: rest.value, color: "#b0b0b8" }] : []),
+    ]
+    const total = payees.reduce((s, n) => s + n.value, 0)
+    return (
+      <div>
+        <Button variant="ghost" size="sm" onClick={back} className="mb-2">
+          <ArrowLeft />
+          {t("dashboard.flow.back")}
+        </Button>
+        <div className="animate-in fade-in duration-300">
+          <FlowDiagram
+            left={[{ name: active.name, value: total, color: active.color, onClick: back, action: t("dashboard.flow.back") }]}
+            right={payees}
+            label={t("dashboard.flow.ariaCategory", { category: active.name, total: fmtR(total), parts: payees.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ") })}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div aria-busy={loading} className={`transition-opacity ${loading ? "opacity-60 delay-300" : ""}`}>
+      <FlowDiagram
+        left={leftNodes}
+        right={rightNodes}
+        label={t("dashboard.flow.aria", { income: fmtR(income), parts: rightNodes.map(n => `${n.name} Fr. ${fmtR(n.value)}`).join(", ") })}
+      />
+    </div>
+  )
+}
+
+const CATEGORY_PAYEES = 7 // slices in a category's donut, "Other" included
+
+// The month's spending by category. With a category chosen and its payments loaded
+// (rows), the donut and list show that category's payees instead, in shades of its colour.
+function CategoryBreakdown({ byCategory, selected, rows, onSelect, onClear }: {
+  byCategory: Summary["byCategory"]
+  selected:   string | null
+  rows:       Txn[] | null
+  onSelect:   (name: string) => void
+  onClear:    () => void
+}) {
+  const { t, f } = useT()
+  const fmtR = f.int
+  const categories = byCategory.filter(c => c.type !== "savings")
+
+  const color = categories.find(c => c.categoryName === selected)?.color ?? "#888888"
+  const flow = selected && rows && rows.length > 0 ? groupByPayee(rows, CATEGORY_PAYEES) : null
+  const payees = flow && [
+    ...flow.groups.map((g, i) => ({ ...g, color, opacity: 1 - i * 0.12, outlined: false })),
+    ...(flow.rest
+      ? [{ name: t("dashboard.flow.rest", { count: flow.rest.count }), value: flow.rest.value, color: "#b0b0b8", opacity: 1, outlined: false }]
+      : []),
+  ]
+  const slices = payees ?? categories.map(c => ({
+    name:     c.categoryName,
+    value:    c.actual,
+    color:    c.color,
+    opacity:  selected && selected !== c.categoryName ? 0.3 : 1,
+    outlined: selected === c.categoryName,
+  }))
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm text-muted-foreground">
+            {t("dashboard.byCategory")}{selected ? <span className="text-foreground"> · {selected}</span> : null}
+          </CardTitle>
+          {selected && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              {t("dashboard.showAll")}
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={200}>
+          <PieChart>
+            <Pie
+              key={payees ? selected : "categories"}
+              data={slices}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={80}
+              paddingAngle={2}
+              onClick={payees ? undefined : (d: { name?: string; payload?: { name?: string } }) => {
+                const name = d?.name ?? d?.payload?.name
+                if (name) onSelect(name)
+              }}
+              className={payees ? "focus:outline-none" : "cursor-pointer focus:outline-none"}
+            >
+              {slices.map((s, i) => (
+                <Cell
+                  key={i}
+                  fill={s.color}
+                  stroke={s.outlined ? "var(--foreground)" : undefined}
+                  strokeWidth={s.outlined ? 2 : 0}
+                  fillOpacity={s.opacity}
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value, name) => [`Fr. ${f.decimal(Number(value))}`, name]}
+              contentStyle={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                fontSize: "12px",
+                color: "var(--card-foreground)",
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="space-y-0.5 mt-2">
+          {payees
+            ? payees.map(p => (
+                <div key={p.name} className="w-full flex items-center justify-between text-xs px-1.5 py-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: p.color, opacity: p.opacity }} />
+                    <span className="text-muted-foreground truncate">{p.name}</span>
+                  </div>
+                  <span className="font-mono">Fr. {fmtR(p.value)}</span>
+                </div>
+              ))
+            : categories.slice(0, 6).map(c => {
+                const active = selected === c.categoryName
+                return (
+                  <button
+                    key={c.categoryName}
+                    type="button"
+                    onClick={() => onSelect(c.categoryName)}
+                    className={`w-full flex items-center justify-between text-xs rounded px-1.5 py-1 transition-colors hover:bg-accent ${
+                      active ? "bg-accent" : ""
+                    } ${selected && !active ? "opacity-50" : ""}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c.color }} />
+                      <span className={active ? "text-foreground" : "text-muted-foreground"}>
+                        {c.categoryName}
+                      </span>
+                    </div>
+                    <span className="font-mono">Fr. {fmtR(c.actual)}</span>
+                  </button>
+                )
+              })
+          }
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -417,13 +665,16 @@ export default function DashboardPage() {
   }
 
   // Fetch the whole month once, then filter to the clicked card's predicate.
-  function openDrill(kind: DrillKind) {
+  function openDrill(
+    kind: DrillKind,
+    { sort = { key: "date", dir: "desc" }, category = "all" }: { sort?: { key: SortKey; dir: SortDir }; category?: string } = {},
+  ) {
     setOpenKind(kind)
     setTxns(null)
     setTxnsLoading(true)
     setDrillSearch("")
-    setDrillCategory("all")
-    setDrillSort({ key: "date", dir: "desc" })
+    setDrillCategory(category)
+    setDrillSort(sort)
 
     fetch(`/api/transactions?month=${month}&limit=1000`)
       .then(r => r.json())
@@ -479,6 +730,25 @@ useEffect(() => {
   const visibleTotal = visibleTxns.reduce(
     (sum, x) => sum + (openKind === "net" ? x.amount : Math.abs(x.amount)), 0,
   )
+
+  // Saves the rows as they're shown: filtered and sorted. The desktop app asks where.
+  function exportCsv() {
+    const csv = toCsv([
+      [
+        t("dashboard.drill.date"), t("dashboard.drill.counterparty"), t("dashboard.drill.category"),
+        t("dashboard.drill.amount"), t("dashboard.drill.currency"), t("dashboard.drill.account"),
+        t("dashboard.drill.bookingText"),
+      ],
+      ...visibleTxns.map(x => [
+        localDay(x.date), x.counterparty, catLabel(x.category?.name ?? UNCATEGORIZED),
+        x.amount, x.currency, x.account, x.bookingText,
+      ]),
+    ])
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
+    const a = Object.assign(document.createElement("a"), { href: url, download: `rappespalter-${openKind}-${month}.csv` })
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
@@ -574,6 +844,7 @@ useEffect(() => {
   </CardHeader>
   <CardContent className="pt-0 pb-3">
     <BudgetSankey
+      month={month}
       income={data.summary.income}
       expenses={data.summary.expenses}
       byCategory={data.byCategory}
@@ -665,85 +936,13 @@ useEffect(() => {
           {/* ── Pie + budget bars */}
           <div className="grid grid-cols-2 gap-4">
 
-            {/* Pie chart */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">
-                  {t("dashboard.byCategory")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={data.byCategory.filter(c => c.type !== "savings")}
-                      dataKey="actual"
-                      nameKey="categoryName"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      onClick={(d: { categoryName?: string; payload?: { categoryName?: string } }) => {
-                        const name = d?.categoryName ?? d?.payload?.categoryName
-                        if (name) selectCategory(name)
-                      }}
-                      className="cursor-pointer focus:outline-none"
-                    >
-                      {data.byCategory
-                        .filter(c => c.type !== "savings")
-                        .map((c, i) => (
-                          <Cell
-                            key={i}
-                            fill={c.color}
-                            stroke={selectedCat === c.categoryName ? "var(--foreground)" : undefined}
-                            strokeWidth={selectedCat === c.categoryName ? 2 : 0}
-                            fillOpacity={selectedCat && selectedCat !== c.categoryName ? 0.3 : 1}
-                          />
-                        ))
-                      }
-                    </Pie>
-                    <Tooltip
-                      formatter={(Value) => [`Fr. ${fmt(Number(Value))}`, ""]}
-                      contentStyle={{
-                        background: "var(--card)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                        color: "var(--card-foreground)",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-0.5 mt-2">
-                  {data.byCategory
-                    .filter(c => c.type !== "savings")
-                    .slice(0, 6)
-                    .map(c => {
-                      const active = selectedCat === c.categoryName
-                      return (
-                        <button
-                          key={c.categoryName}
-                          type="button"
-                          onClick={() => selectCategory(c.categoryName)}
-                          className={`w-full flex items-center justify-between text-xs rounded px-1.5 py-1 transition-colors hover:bg-accent ${
-                            active ? "bg-accent" : ""
-                          } ${selectedCat && !active ? "opacity-50" : ""}`}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c.color }} />
-                            <span className={active ? "text-foreground" : "text-muted-foreground"}>
-                              {c.categoryName}
-                            </span>
-                          </div>
-                          <span className="font-mono">Fr. {fmtR(c.actual)}</span>
-                        </button>
-                      )
-                    })
-                  }
-                </div>
-              </CardContent>
-            </Card>
+            <CategoryBreakdown
+              byCategory={data.byCategory}
+              selected={selectedCat}
+              rows={catExpenses}
+              onSelect={selectCategory}
+              onClear={() => { setSelectedCat(null); setCatExpenses(null) }}
+            />
 
             {/* Budget vs actual */}
             <Card>
@@ -840,15 +1039,24 @@ useEffect(() => {
                 <CardTitle className="text-sm text-muted-foreground">
                   {t("dashboard.largestOutflows")}{selectedCat ? <span className="text-foreground"> · {selectedCat}</span> : null}
                 </CardTitle>
-                {selectedCat && (
+                <div className="flex items-center gap-3">
+                  {selectedCat && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedCat(null); setCatExpenses(null) }}
+                      className="text-xs text-muted-foreground underline hover:text-foreground"
+                    >
+                      {t("dashboard.showAll")}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => { setSelectedCat(null); setCatExpenses(null) }}
+                    onClick={() => openDrill("expenses", { sort: { key: "amount", dir: "desc" }, category: selectedCat ?? "all" })}
                     className="text-xs text-muted-foreground underline hover:text-foreground"
                   >
-                    {t("dashboard.showAll")}
+                    {t("dashboard.outflows.open")}
                   </button>
-                )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -954,16 +1162,49 @@ useEffect(() => {
       {/* Drill-down: the month's transactions behind the clicked stat card */}
       <Dialog open={openKind !== null} onOpenChange={o => { if (!o) setOpenKind(null) }}>
         <DialogContent className="max-w-4xl w-[95vw]">
-          <DialogHeader>
-            <DialogTitle>
-              {openKind ? t(DRILL[openKind].title) : ""} · {month}
-            </DialogTitle>
-            <DialogDescription>
-              {txns
-                ? t("dashboard.drill.count", { shown: visibleTxns.length, count: txns.length, amount: fmt(visibleTotal) })
-                : t("dashboard.drill.loading")}
-            </DialogDescription>
-          </DialogHeader>
+          <div className="flex items-start justify-between gap-4 pr-8">
+            <DialogHeader>
+              <DialogTitle>
+                {openKind ? t(DRILL[openKind].title) : ""} · {month}
+              </DialogTitle>
+              <DialogDescription>
+                {txns
+                  ? t("dashboard.drill.count", { shown: visibleTxns.length, count: txns.length, amount: fmt(visibleTotal) })
+                  : t("dashboard.drill.loading")}
+              </DialogDescription>
+            </DialogHeader>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={visibleTxns.length === 0}>
+              <Download />
+              {t("dashboard.drill.exportCsv")}
+            </Button>
+          </div>
+
+          {/* Net: how the figure comes together */}
+          {openKind === "net" && data && (
+            <div className="text-sm">
+              <dl className="space-y-1">
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">{t("dashboard.income")}</dt>
+                  <dd className="font-mono text-positive">Fr. {fmt(data.summary.income)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">− {t("dashboard.expenses")}</dt>
+                  <dd className="font-mono text-negative">Fr. {fmt(data.summary.expenses)}</dd>
+                </div>
+                <div className="flex justify-between pt-1 border-t border-border">
+                  <dt>= {t("dashboard.net")}</dt>
+                  <dd className={`font-mono ${data.summary.net >= 0 ? "text-positive" : "text-negative"}`}>
+                    Fr. {fmt(data.summary.net)}
+                  </dd>
+                </div>
+              </dl>
+              {data.summary.saved > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t("dashboard.net.savingsNote", { amount: fmt(data.summary.saved) })}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Filters */}
           {!txnsLoading && txns && txns.length > 0 && (
