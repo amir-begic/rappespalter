@@ -22,6 +22,9 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "pnpm": {
+    "overrides": {
+      "@electron/notarize": "3.1.2"
+    },
     "onlyBuiltDependencies": [
       "electron",
       "esbuild",
