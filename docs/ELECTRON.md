@@ -264,6 +264,11 @@ With "maximum", electron-builder zips with 15 Deflate passes (`-mpass=15`), and 
 ~250 MB `.app` took about 20 minutes on the runner. With "normal" the zip gets a single
 pass and the dmg uses zlib instead of bzip2, which costs a few MB.
 
+`@electron/notarize` is pinned to 3.1.2 (`pnpm.overrides` in package.json): electron-builder
+26 asks for 2.5.0, which never retries stapling, and Apple's CloudKit does drop that
+connection now and then (`Error 68`, `-1005`). Remove the pin once electron-builder
+depends on 3.1.2 or later.
+
 ## Updates
 
 The installed app updates itself on Windows, macOS (Apple silicon) and Linux
