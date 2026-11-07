@@ -6,6 +6,11 @@ short and in plain words. Headings are `## <version> — <date>`; the release
 workflow finds a version's notes by that heading. Earlier versions are described in
 the [GitHub releases](https://github.com/amir-begic/rappespalter/releases).
 
+## 1.8.0 — 2026-11-07
+
+- **The app's own title bar on Windows and Mac.** The top of the window now matches the app, in light and dark, and you can drag the window by the header. On Windows this replaces the File, Edit, View and Window menus; to restore data, use Settings → Backup & restore.
+- **Runs on Ubuntu 24.04.** The Linux version used to crash at startup there. Where the system blocks Chromium's sandbox, the app now starts without it. It also runs in firejail with `firejail --appimage`.
+
 ## 1.7.1 — 2026-11-06
 
 - **Password-protected backups.** A backup can now have a password, so it's safe to keep on a cloud drive or a USB stick. Restoring asks for it.
